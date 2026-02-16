@@ -1,21 +1,18 @@
 {% extends "base.html" %}
-{% load static %}
-
-{% block body_class %}template-homepage{% endblock %}
-
-{% block extra_css %}
-
-{% comment %}
-Delete the line below if you're just getting started and want to remove the welcome screen!
-{% endcomment %}
-<link rel="stylesheet" href="{% static 'css/welcome_page.css' %}">
-{% endblock extra_css %}
 
 {% block content %}
-
-{% comment %}
-Delete the line below if you're just getting started and want to remove the welcome screen!
-{% endcomment %}
-{% include 'home/welcome_page.html' %}
-
-{% endblock content %}
+<section class="bg-gradient-to-br from-brand-50 to-white py-20">
+    <div class="max-w-4xl mx-auto text-center px-4" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Welcome to Thermography
+        </h1>
+        <p class="text-xl text-gray-600 mb-8">
+            Professional thermographic imaging — safe, non-invasive health screening.
+        </p>
+        <a href="/booking/"
+           class="inline-block bg-brand-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-brand-700 transition">
+            Book an Appointment
+        </a>
+    </div>
+</section>
+{% endblock %}

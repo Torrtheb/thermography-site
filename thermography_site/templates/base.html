@@ -2,45 +2,93 @@
 
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <title>
-            {% block title %}
-            {% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}
-            {% endblock %}
-            {% block title_suffix %}
-            {% wagtail_site as current_site %}
-            {% if current_site and current_site.site_name %}- {{ current_site.site_name }}{% endif %}
-            {% endblock %}
-        </title>
-        {% if page.search_description %}
-        <meta name="description" content="{{ page.search_description }}" />
-        {% endif %}
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-        {# Force all links in the live preview panel to be opened in a new tab #}
-        {% if request.in_preview_panel %}
-        <base target="_blank">
-        {% endif %}
-
-        {# Global stylesheets #}
-        <link rel="stylesheet" type="text/css" href="{% static 'css/thermography_site.css' %}">
-
-        {% block extra_css %}
-        {# Override this in templates to add extra stylesheets #}
+<head>
+    <meta charset="utf-8" />
+    <title>
+        {% block title %}
+        {% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}
         {% endblock %}
-    </head>
+        {% block title_suffix %}
+        {% wagtail_site as current_site %}
+        {% if current_site and current_site.site_name %} | {{ current_site.site_name }}{% endif %}
+        {% endblock %}
+    </title>
+    {% if page.search_description %}
+    <meta name="description" content="{{ page.search_description }}" />
+    {% endif %}
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <body class="{% block body_class %}{% endblock %}">
-        {% wagtailuserbar %}
+    {% if request.in_preview_panel %}
+    <base target="_blank">
+    {% endif %}
 
+    {# --- Tailwind CSS (CDN) --- #}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50:  '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+
+    {# --- AOS (Animate On Scroll) --- #}
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+
+    {# --- Custom styles --- #}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/thermography_site.css' %}" />
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="flex flex-col min-h-screen bg-white text-gray-800 {% block body_class %}{% endblock %}">
+    {% wagtailuserbar %}
+
+    {# --- NAVBAR --- #}
+    {% include "includes/navbar.html" %}
+
+    {# --- MAIN CONTENT --- #}
+    <main class="flex-grow">
         {% block content %}{% endblock %}
+    </main>
 
-        {# Global javascript #}
-        <script type="text/javascript" src="{% static 'js/thermography_site.js' %}"></script>
+    {# --- FOOTER --- #}
+    {% include "includes/footer.html" %}
 
-        {% block extra_js %}
-        {# Override this in templates to add extra javascript #}
-        {% endblock %}
-    </body>
+    {# --- Scripts --- #}
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        AOS.init({
+            duration: 800,
+            once: true,
+            offset: 100,
+        });
+    </script>
+
+    <script>
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+    </script>
+
+    <script type="text/javascript" src="{% static 'js/thermography_site.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
 </html>
