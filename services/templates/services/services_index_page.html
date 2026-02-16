@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+{# --- Page Header --- #}
+<section class="bg-brand-50 py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+        {% if page.intro %}
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            {{ page.intro }}
+        </p>
+        {% endif %}
+    </div>
+</section>
+
+{# --- Services Grid --- #}
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if services %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {% for service in services %}
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
+             data-aos="fade-up"
+             data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
+
+            {# --- Service Image --- #}
+            {% if service.service_image %}
+            <div class="h-48 overflow-hidden">
+                {% image service.service_image fill-400x200 class="w-full h-full object-cover" %}
+            </div>
+            {% else %}
+            <div class="h-48 bg-brand-100 flex items-center justify-center">
+                <svg class="w-16 h-16 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" />
+                </svg>
+            </div>
+            {% endif %}
+
+            {# --- Card Body --- #}
+            <div class="p-6 flex flex-col flex-grow">
+                <h2 class="text-xl font-bold text-gray-900 mb-2">
+                    {{ service.title }}
+                </h2>
+                <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
+                    {{ service.short_summary }}
+                </p>
+
+                {# --- Price & Duration --- #}
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-2xl font-bold text-brand-700">
+                        {{ service.price_label }}
+                    </span>
+                    {% if service.duration_label %}
+                    <span class="text-sm text-gray-500">
+                        {{ service.duration_label }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# --- Link to detail page --- #}
+                <a href="{% pageurl service %}"
+                   class="block text-center bg-brand-600 text-white py-3 rounded-lg hover:bg-brand-700 transition font-medium">
+                    Learn More
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center text-gray-500 text-lg">
+        Services coming soon — check back shortly!
+    </p>
+    {% endif %}
+</section>
+{% endblock %}

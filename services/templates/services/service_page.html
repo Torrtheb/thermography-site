@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+{# --- Service Detail Page --- #}
+<article class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+    {# --- Back link --- #}
+    <div class="mb-8" data-aos="fade-up">
+        <a href="{% pageurl page.get_parent %}"
+           class="text-brand-600 hover:text-brand-700 font-medium transition">
+            ← Back to Services
+        </a>
+    </div>
+
+    {# --- Title & Meta --- #}
+    <header class="mb-8" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+
+        <div class="flex flex-wrap items-center gap-4">
+            <span class="text-3xl font-bold text-brand-700">
+                {{ page.price_label }}
+            </span>
+            {% if page.duration_label %}
+            <span class="text-gray-500 text-lg">
+                · {{ page.duration_label }}
+            </span>
+            {% endif %}
+        </div>
+    </header>
+
+    {# --- Service Image --- #}
+    {% if page.service_image %}
+    <div class="mb-8 rounded-xl overflow-hidden shadow-lg" data-aos="fade-up">
+        {% image page.service_image width-800 class="w-full h-auto" %}
+    </div>
+    {% endif %}
+
+    {# --- Summary --- #}
+    <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl mb-8" data-aos="fade-up">
+        <p class="text-gray-700 text-lg">
+            {{ page.short_summary }}
+        </p>
+    </div>
+
+    {# --- Full Description --- #}
+    <div class="prose prose-lg prose-blue max-w-none mb-12" data-aos="fade-up">
+        {{ page.description|richtext }}
+    </div>
+
+    {# --- CTA --- #}
+    <div class="text-center py-8" data-aos="fade-up">
+        <a href="/booking/"
+           class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
+            Book This Service
+        </a>
+    </div>
+
+</article>
+{% endblock %}
