@@ -1,0 +1,40 @@
+{% load wagtailimages_tags %}
+
+{# --- Hero Section: full-width banner with heading, subtext, and CTA button --- #}
+
+{% if value.background_image %}
+    {% image value.background_image fill-1920x800 as bg_img %}
+{% endif %}
+
+<section class="relative bg-brand-900 text-white overflow-hidden"
+         {% if value.background_image %}
+         style="background-image: url('{{ bg_img.url }}'); background-size: cover; background-position: center;"
+         {% endif %}
+>
+    {# Dark overlay so text stays readable over the image #}
+    {% if value.background_image %}
+    <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+    {% endif %}
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 text-center"
+         data-aos="fade-up">
+
+        <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+            {{ value.heading }}
+        </h1>
+
+        {% if value.subheading %}
+        <p class="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-8">
+            {{ value.subheading }}
+        </p>
+        {% endif %}
+
+        {% if value.button_text %}
+        <a href="{{ value.button_link }}"
+           class="inline-block bg-brand-500 hover:bg-brand-400 text-white font-semibold px-8 py-4 rounded-lg text-lg transition shadow-lg hover:shadow-xl">
+            {{ value.button_text }}
+        </a>
+        {% endif %}
+
+    </div>
+</section>

@@ -23,8 +23,7 @@
     {% endif %}
 
     {# --- Tailwind CSS (CDN) --- #}
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>    <script>
         tailwind.config = {
             theme: {
                 extend: {
@@ -81,10 +80,23 @@
     </script>
 
     <script>
-        document.getElementById('mobile-menu-button').addEventListener('click', function() {
-            const menu = document.getElementById('mobile-menu');
-            menu.classList.toggle('hidden');
-        });
+        const menuButton = document.getElementById('mobile-menu-button');
+        const menuClose = document.getElementById('mobile-menu-close');
+        const menu = document.getElementById('mobile-menu');
+        const backdrop = document.getElementById('mobile-backdrop');
+
+        function openMenu() {
+            backdrop.classList.remove('hidden');
+            menu.classList.remove('translate-x-full');
+        }
+        function closeMenu() {
+            menu.classList.add('translate-x-full');
+            backdrop.classList.add('hidden');
+        }
+
+        menuButton.addEventListener('click', openMenu);
+        menuClose.addEventListener('click', closeMenu);
+        backdrop.addEventListener('click', closeMenu);
     </script>
 
     <script type="text/javascript" src="{% static 'js/thermography_site.js' %}"></script>

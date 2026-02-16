@@ -39,7 +39,7 @@
 
             {# --- Mobile Hamburger Button --- #}
             <div class="lg:hidden">
-                <button id="mobile-menu-button" class="text-gray-600 hover:text-brand-600 focus:outline-none">
+                <button id="mobile-menu-button" aria-label="Open menu" class="text-gray-600 hover:text-brand-600 focus:outline-none">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M4 6h16M4 12h16M4 18h16" />
@@ -49,15 +49,29 @@
         </div>
     </div>
 
-    {# --- Mobile Menu (hidden by default) --- #}
-    <div id="mobile-menu" class="hidden lg:hidden bg-white border-t">
-        <div class="px-4 py-3 space-y-2">
-            <a href="/services/" class="block text-gray-600 hover:text-brand-600 font-medium py-2">Services</a>
-            <a href="/about/" class="block text-gray-600 hover:text-brand-600 font-medium py-2">Who We Are</a>
-            <a href="/resources/" class="block text-gray-600 hover:text-brand-600 font-medium py-2">Resources</a>
-            <a href="/faq/" class="block text-gray-600 hover:text-brand-600 font-medium py-2">FAQ</a>
-            <a href="/contact/" class="block text-gray-600 hover:text-brand-600 font-medium py-2">Contact</a>
-            <a href="/booking/" class="block bg-brand-600 text-white text-center px-5 py-2 rounded-lg hover:bg-brand-700 font-medium">Book Now</a>
+    {# --- Mobile Sidebar Overlay (hidden by default) --- #}
+    {# Dark backdrop — covers the page behind the sidebar #}
+    <div id="mobile-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" aria-hidden="true"></div>
+
+    {# Sidebar panel — slides in from the right #}
+    <div id="mobile-menu" class="fixed top-0 right-0 h-full w-72 bg-white shadow-xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out">
+        {# Close button #}
+        <div class="flex justify-end p-4">
+            <button id="mobile-menu-close" aria-label="Close menu" class="text-gray-600 hover:text-brand-600 focus:outline-none">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        {# Sidebar links #}
+        <div class="px-6 py-4 space-y-4">
+            <a href="/services/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Services</a>
+            <a href="/about/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Who We Are</a>
+            <a href="/resources/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Resources</a>
+            <a href="/faq/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">FAQ</a>
+            <a href="/contact/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Contact</a>
+            <a href="/booking/" class="block bg-brand-600 text-white text-center px-5 py-3 rounded-lg hover:bg-brand-700 font-medium text-lg mt-4">Book Now</a>
         </div>
     </div>
 </nav>
