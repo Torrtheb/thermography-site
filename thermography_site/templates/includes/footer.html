@@ -1,3 +1,6 @@
+{% load contact_tags %}
+{% get_contact_info as contact %}
+
 <footer class="bg-gray-900 text-gray-300">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -16,20 +19,25 @@
                 <h2 class="text-white text-lg font-bold mb-4">Quick Links</h2>
                 <ul class="space-y-2 text-sm">
                     <li><a href="/services/" class="hover:text-white transition">Services</a></li>
-                    <li><a href="/about/" class="hover:text-white transition">Who We Are</a></li>
+                    <li><a href="/about/" class="hover:text-white transition">About</a></li>
                     <li><a href="/resources/" class="hover:text-white transition">Resources</a></li>
                     <li><a href="/faq/" class="hover:text-white transition">FAQ</a></li>
                     <li><a href="/booking/" class="hover:text-white transition">Book an Appointment</a></li>
                 </ul>
             </div>
 
-            {# --- Column 3: Contact Info --- #}
+            {# --- Column 3: Contact Info (pulled from ContactPage in admin) --- #}
             <div>
                 <h2 class="text-white text-lg font-bold mb-4">Contact</h2>
                 <ul class="space-y-2 text-sm">
+                    {% if contact %}
+                    <li>📧 <a href="mailto:{{ contact.contact_email }}" class="hover:text-white transition">{{ contact.contact_email }}</a></li>
+                    <li>📞 <a href="tel:{{ contact.contact_phone }}" class="hover:text-white transition">{{ contact.contact_phone }}</a></li>
+                    {% if contact.address %}<li>📍 {{ contact.address|truncatewords:10 }}</li>{% endif %}
+                    {% else %}
                     <li>📧 info@example.com</li>
                     <li>📞 (555) 123-4567</li>
-                    <li>📍 City, State</li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

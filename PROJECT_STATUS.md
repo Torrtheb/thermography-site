@@ -127,27 +127,55 @@ thermography/
 ### Phase 3: Base Template & Styling ✅ COMPLETE
 - base.html: Tailwind CDN, AOS animations, template blocks
 - navbar.html: sticky nav, desktop links, slide-in mobile sidebar with backdrop
-- footer.html: 3-column dark footer with contact placeholder
-- Brand colors: blue palette (was orange, changed to healthcare-appropriate blue)
+- footer.html: 3-column dark footer with dynamic contact info from ContactPage
+- Brand colors: blue palette — calm, healthcare-appropriate
 - Home link removed from nav (logo goes to home)
 - Breakpoint changed to lg for hamburger menu
+- Accessibility: aria-labels on mobile buttons, correct heading hierarchy
 
-### Phase 4: Homepage (StreamField) 🔧 IN PROGRESS
-- ✅ Step 4.1: home/blocks.py created (5 block types)
-- ✅ Step 4.2: home/models.py updated (StreamField body)
-- 🔧 Step 4.3: Block templates — folder created, files NOT YET CREATED
-- ⬜ Step 4.4: Add Tailwind Typography plugin to base.html
-- ⬜ Step 4.5: Update home_page.html to render StreamField
-- ⬜ Step 4.6: Run makemigrations + migrate
-- ⬜ Step 4.7: Test in admin
-- ⬜ Step 4.8: Commit and push
+### Phase 4: Homepage (StreamField) ✅ COMPLETE
+- home/blocks.py: 5 block types (Hero, TextWithImage, Testimonial, NewsItem, CTA)
+- home/models.py: StreamField body
+- 6 block templates: hero, richtext, text_with_image, testimonial, news_item, cta
+- Tailwind Typography plugin loaded via CDN
+- home_page.html renders StreamField blocks
 
-### Phase 5: Services Page ⬜ NOT STARTED
-### Phase 6: Blog / Resources ⬜ NOT STARTED
-### Phase 7: News & Events ⬜ NOT STARTED
-### Phase 8: FAQs & Contact ⬜ NOT STARTED
-### Phase 9: Booking System ⬜ NOT STARTED
-### Phase 10: Security Hardening ⬜ NOT STARTED
+### Phase 5: Services Page ✅ COMPLETE
+- ServicesIndexPage + ServicePage models
+- Service cards grid with image, price, duration, "Learn More" link
+- Detail page with rich description, summary box, "Book This Service" CTA
+
+### Phase 6: Blog / Resources ✅ COMPLETE
+- BlogIndexPage + BlogPage models
+- Article cards grid with cover image, date, author, excerpt
+- External article support (external_url field, "External ↗" badge, opens in new tab)
+- Detail page with cover image, summary, rich text body
+
+### Phase 7: About Page ✅ COMPLETE
+- TechnicianPage model (full_name, headshot, bio, credentials, years_experience)
+- Profile layout: photo + bio side by side, credentials section, booking CTA
+- Renamed "Who We Are" → "About" in nav and footer
+
+### Phase 8: FAQs & Contact ✅ COMPLETE
+- FAQPage model with StreamField of FAQItemBlocks
+- Collapsible accordion with JavaScript toggle
+- ContactPage model (email, phone, address, map embed, form toggle)
+- Two-column layout: contact info + form
+- Footer contact info dynamically pulled from ContactPage via template tag
+
+### Phase 9: Booking Page ✅ COMPLETE
+- BookingPage model (headline, instructions, embed URL, direct link, button text)
+- Three display modes: iframe embed / direct link button / "Coming Soon" fallback
+- Designed for Cal.com integration (free external booking service)
+
+### Phase 10: Polish & Cleanup 🔧 IN PROGRESS
+- ✅ Deleted old welcome_page.html and stray .DS_Store
+- ✅ Fixed WAGTAIL_SITE_NAME and WAGTAILADMIN_BASE_URL
+- ✅ Updated .env.example with all needed variables
+- ✅ Updated pyproject.toml description
+- ⬜ Wire up contact form to send email
+- ⬜ Security hardening (production settings)
+
 ### Phase 11: Deployment (Cloud Run) ⬜ NOT STARTED
 ### Phase 12: AI Agent (Future) ⬜ NOT STARTED
 

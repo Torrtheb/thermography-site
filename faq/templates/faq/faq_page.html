@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+{# --- Page Header --- #}
+<section class="bg-brand-50 py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+        {% if page.intro %}
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            {{ page.intro }}
+        </p>
+        {% endif %}
+    </div>
+</section>
+
+{# --- FAQ Accordion --- #}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if page.faq_items %}
+    <div class="space-y-4">
+        {% for block in page.faq_items %}
+        <div class="border border-gray-200 rounded-xl overflow-hidden" data-aos="fade-up">
+            <button type="button"
+                    class="faq-toggle w-full flex items-center justify-between p-6 text-left bg-white hover:bg-gray-50 transition"
+                    aria-expanded="false">
+                <span class="text-lg font-semibold text-gray-900 pr-4">
+                    {{ block.value.question }}
+                </span>
+                <svg class="faq-chevron w-5 h-5 text-brand-600 flex-shrink-0 transform transition-transform duration-200"
+                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div class="faq-answer hidden px-6 pb-6">
+                <div class="prose prose-blue max-w-none">
+                    {{ block.value.answer|richtext }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center text-gray-500 text-lg">
+        FAQ items coming soon — check back shortly!
+    </p>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.faq-toggle').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const answer = this.nextElementSibling;
+            const chevron = this.querySelector('.faq-chevron');
+            const isOpen = !answer.classList.contains('hidden');
+
+            // Close all other items
+            document.querySelectorAll('.faq-answer').forEach(function(el) {
+                el.classList.add('hidden');
+            });
+            document.querySelectorAll('.faq-chevron').forEach(function(el) {
+                el.classList.remove('rotate-180');
+            });
+            document.querySelectorAll('.faq-toggle').forEach(function(el) {
+                el.setAttribute('aria-expanded', 'false');
+            });
+
+            // Toggle this item
+            if (!isOpen) {
+                answer.classList.remove('hidden');
+                chevron.classList.add('rotate-180');
+                this.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+</script>
+{% endblock %}
