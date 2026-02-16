@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+<article class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+    {# --- Back link --- #}
+    <div class="mb-8" data-aos="fade-up">
+        <a href="{% pageurl page.get_parent %}"
+           class="text-brand-600 hover:text-brand-700 font-medium transition">
+            ← Back to Resources
+        </a>
+    </div>
+
+    {# --- Article Header --- #}
+    <header class="mb-8" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+
+        <div class="flex items-center gap-3 text-gray-500">
+            <time datetime="{{ page.publish_date|date:'Y-m-d' }}" class="text-sm">
+                {{ page.publish_date|date:"F d, Y" }}
+            </time>
+            <span>·</span>
+            <span class="text-sm">{{ page.author_name }}</span>
+        </div>
+    </header>
+
+    {# --- Cover Image --- #}
+    {% if page.cover_image %}
+    <div class="mb-8 rounded-xl overflow-hidden shadow-lg" data-aos="fade-up">
+        {% image page.cover_image width-800 class="w-full h-auto" %}
+    </div>
+    {% endif %}
+
+    {# --- Excerpt / Summary --- #}
+    <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl mb-8" data-aos="fade-up">
+        <p class="text-gray-700 text-lg italic">
+            {{ page.excerpt }}
+        </p>
+    </div>
+
+    {# --- Article Body --- #}
+    <div class="prose prose-lg prose-blue max-w-none mb-12" data-aos="fade-up">
+        {{ page.body|richtext }}
+    </div>
+
+    {# --- CTA --- #}
+    <div class="border-t border-gray-200 pt-8 text-center" data-aos="fade-up">
+        <p class="text-gray-600 mb-4">Interested in learning more?</p>
+        <a href="/booking/"
+           class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
+            Book an Appointment
+        </a>
+    </div>
+
+</article>
+{% endblock %}

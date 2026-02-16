@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+{# --- Page Header --- #}
+<section class="bg-brand-50 py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+        {% if page.intro %}
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            {{ page.intro }}
+        </p>
+        {% endif %}
+    </div>
+</section>
+
+{# --- Articles Grid --- #}
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if posts %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {% for post in posts %}
+        {% pageurl post as detail_url %}
+        <article class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
+                 data-aos="fade-up">
+
+            {# --- Cover Image --- #}
+            {% if post.cover_image %}
+            <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+               {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+               class="block h-48 overflow-hidden relative">
+                {% image post.cover_image fill-400x200 class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" %}
+                {% if post.is_external %}
+                <span class="absolute top-3 right-3 bg-gray-900 bg-opacity-75 text-white text-xs font-medium px-2 py-1 rounded">External ↗</span>
+                {% endif %}
+            </a>
+            {% else %}
+            <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+               {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+               class="block h-48 bg-brand-100 flex items-center justify-center relative">
+                <svg class="w-16 h-16 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                </svg>
+                {% if post.is_external %}
+                <span class="absolute top-3 right-3 bg-gray-900 bg-opacity-75 text-white text-xs font-medium px-2 py-1 rounded">External ↗</span>
+                {% endif %}
+            </a>
+            {% endif %}
+
+            {# --- Card Body --- #}
+            <div class="p-6 flex flex-col flex-grow">
+                {# Date & Author #}
+                <div class="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                    <time datetime="{{ post.publish_date|date:'Y-m-d' }}">
+                        {{ post.publish_date|date:"M d, Y" }}
+                    </time>
+                    <span>·</span>
+                    <span>{{ post.author_name }}</span>
+                </div>
+
+                <h2 class="text-xl font-bold text-gray-900 mb-2">
+                    <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+                       {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+                       class="hover:text-brand-600 transition">
+                        {{ post.title }}
+                    </a>
+                </h2>
+
+                <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
+                    {{ post.excerpt }}
+                </p>
+
+                <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+                   {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+                   class="text-brand-600 hover:text-brand-700 font-medium text-sm transition">
+                    {% if post.is_external %}Visit article ↗{% else %}Read article →{% endif %}
+                </a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center text-gray-500 text-lg">
+        Articles coming soon — check back shortly!
+    </p>
+    {% endif %}
+</section>
+{% endblock %}
