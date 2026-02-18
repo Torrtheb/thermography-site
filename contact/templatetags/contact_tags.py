@@ -19,6 +19,6 @@ register = template.Library()
 def get_contact_info():
     """Return the live ContactPage, or None if it doesn't exist yet."""
     try:
-        return ContactPage.objects.live().first()
+        return ContactPage.objects.live().public().first()
     except Exception:
         return None

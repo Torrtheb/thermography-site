@@ -1,10 +1,12 @@
 """
 Booking app — a single page where clients can book an appointment.
 
-For v1 (MVP), this embeds an external booking service (e.g., Calendly,
-Acuity, Square Appointments). The owner pastes the embed URL in admin.
+Displays a service selector with Cal.com booking links per service.
+Each service links to its own Cal.com event type, which handles
+availability, slot conflicts, and prevents double-booking automatically.
 
-For v2, this will be replaced with a custom booking backend.
+The owner also has the option to embed a general Cal.com widget or
+provide a direct booking link as a fallback.
 
 Page hierarchy:
   Root Page
@@ -15,6 +17,7 @@ from django.db import models
 
 from wagtail.models import Page
 from wagtail.fields import RichTextField
+from wagtail.search import index
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 
 
@@ -22,9 +25,8 @@ class BookingPage(Page):
     """
     The booking page at /booking/.
 
-    The owner sets a headline, optional instructions, and either:
-      - an embed URL (for iframe-based booking widgets like Calendly), or
-      - a direct booking link (button that opens the external booking site)
+    Shows a service selector with per-service Cal.com booking links.
+    Also supports a general embed URL or direct link as fallback.
 
     max_count = 1: only one booking page.
     """
@@ -37,17 +39,17 @@ class BookingPage(Page):
 
     instructions = RichTextField(
         blank=True,
-        help_text="Optional instructions shown above the booking widget (e.g., 'Select a service and pick a time').",
+        help_text="Optional instructions shown above the service selector (e.g., 'Select a service and pick a time').",
     )
 
     booking_embed_url = models.URLField(
         blank=True,
-        help_text="Embed URL for an iframe booking widget (e.g., Calendly embed link). Leave blank if using a direct link instead.",
+        help_text="Optional: Embed URL for a general Cal.com booking widget. Shown below the service selector.",
     )
 
     booking_link_url = models.URLField(
         blank=True,
-        help_text="Direct link to the external booking site. Used if no embed URL is provided.",
+        help_text="Optional: Direct link to the external booking site. Used if no embed URL is provided.",
     )
 
     booking_link_text = models.CharField(
@@ -65,12 +67,32 @@ class BookingPage(Page):
                 FieldPanel("booking_link_url"),
                 FieldPanel("booking_link_text"),
             ],
-            heading="Booking Widget",
-            help_text="Use either an embed URL (iframe) or a direct link (button). If both are set, the embed takes priority.",
+            heading="General Booking Widget (optional fallback)",
+            help_text="Services with Cal.com URLs set will show their own booking buttons above. "
+                      "Use this section for a general booking widget or fallback link.",
         ),
     ]
 
+    search_fields = Page.search_fields + [
+        index.SearchField("headline"),
+        index.SearchField("instructions"),
+    ]
+
     max_count = 1
+
+    def get_context(self, request, *args, **kwargs):
+        """Add all live services to the template context for the service selector."""
+        from services.models import ServicePage
+
+        context = super().get_context(request, *args, **kwargs)
+        services = ServicePage.objects.live().public().order_by("title")
+        context["services"] = services
+
+        # Support deep-linking: /booking/?service=<slug>
+        preselected_slug = request.GET.get("service", "")
+        context["preselected_slug"] = preselected_slug
+
+        return context
 
     class Meta:
         verbose_name = "Booking Page"

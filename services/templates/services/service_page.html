@@ -46,13 +46,13 @@
     </div>
 
     {# --- Full Description --- #}
-    <div class="prose prose-lg prose-blue max-w-none mb-12" data-aos="fade-up">
+    <div class="prose prose-lg prose-teal max-w-none mb-12" data-aos="fade-up">
         {{ page.description|richtext }}
     </div>
 
     {# --- CTA --- #}
     <div class="text-center py-8" data-aos="fade-up">
-        <a href="/booking/"
+        <a href="/booking/?service={{ page.slug }}"
            class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
             Book This Service
         </a>

@@ -11,7 +11,37 @@
     </div>
 </section>
 
-{# --- Technician Profile --- #}
+{# ========== ABOUT THE CLINIC ========== #}
+{% if page.clinic_description %}
+<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
+
+        {# --- Clinic Image --- #}
+        {% if page.clinic_image %}
+        <div class="w-full md:w-2/5 flex-shrink-0" data-aos="fade-up">
+            {% image page.clinic_image fill-500x400 class="rounded-xl shadow-lg w-full h-auto" %}
+        </div>
+        {% endif %}
+
+        {# --- Clinic Info --- #}
+        <div class="w-full {% if page.clinic_image %}md:w-3/5{% endif %}" data-aos="fade-up" data-aos-delay="100">
+            <h2 class="text-3xl font-bold text-gray-900 mb-6">
+                {{ page.clinic_heading }}
+            </h2>
+            <div class="prose prose-lg prose-teal max-w-none">
+                {{ page.clinic_description|richtext }}
+            </div>
+        </div>
+    </div>
+</section>
+
+{# --- Divider --- #}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <hr class="border-gray-200">
+</div>
+{% endif %}
+
+{# ========== ABOUT THE TECHNICIAN ========== #}
 <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
     <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
 
@@ -24,6 +54,7 @@
 
         {# --- Bio Side --- #}
         <div class="w-full {% if page.headshot %}md:w-3/5{% endif %}" data-aos="fade-up" data-aos-delay="100">
+            <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet Your Technician</p>
             <h2 class="text-3xl font-bold text-gray-900 mb-2">
                 {{ page.full_name }}
             </h2>
@@ -34,14 +65,14 @@
             </p>
             {% endif %}
 
-            <div class="prose prose-lg prose-blue max-w-none mb-8">
+            <div class="prose prose-lg prose-teal max-w-none mb-8">
                 {{ page.bio|richtext }}
             </div>
 
             {% if page.credentials %}
             <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl">
                 <h3 class="text-lg font-bold text-gray-900 mb-3">Credentials & Certifications</h3>
-                <div class="prose prose-blue max-w-none">
+                <div class="prose prose-teal max-w-none">
                     {{ page.credentials|richtext }}
                 </div>
             </div>

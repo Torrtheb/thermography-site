@@ -25,6 +25,7 @@ from wagtail.models import Page
 from wagtail.fields import RichTextField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.images import get_image_model_string
+from wagtail.search import index
 
 
 class ServicesIndexPage(Page):
@@ -56,7 +57,7 @@ class ServicesIndexPage(Page):
         """
         context = super().get_context(request, *args, **kwargs)
         context["services"] = (
-            ServicePage.objects.child_of(self).live().order_by("title")
+            ServicePage.objects.child_of(self).live().public().order_by("title")
         )
         return context
 
@@ -105,6 +106,12 @@ class ServicePage(Page):
         help_text="Featured services may be highlighted on the homepage.",
     )
 
+    cal_booking_url = models.URLField(
+        blank=True,
+        help_text="Cal.com event type URL for this service (e.g., https://cal.com/yourname/breast-scan). "
+                  "Create a matching Event Type in Cal.com with the correct duration.",
+    )
+
     # --- Admin panel layout ---
     content_panels = Page.content_panels + [
         FieldPanel("short_summary"),
@@ -118,10 +125,22 @@ class ServicePage(Page):
         ),
         FieldPanel("service_image"),
         FieldPanel("is_featured"),
+        MultiFieldPanel(
+            [
+                FieldPanel("cal_booking_url"),
+            ],
+            heading="Online Booking",
+            help_text="Paste the Cal.com event type URL so clients can book this specific service.",
+        ),
     ]
 
     # --- Page hierarchy rules ---
     parent_page_types = ["services.ServicesIndexPage"]  # must live under index
+
+    search_fields = Page.search_fields + [
+        index.SearchField("short_summary"),
+        index.SearchField("description"),
+    ]
 
     class Meta:
         verbose_name = "Service Page"

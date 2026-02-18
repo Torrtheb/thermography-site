@@ -3,12 +3,18 @@
 /static/
 *.sqlite3
 
+# Secrets — NEVER bake into the image
+.env
+.env.*
+!.env.example
+
 # Python and others
 __pycache__
 *.pyc
 .DS_Store
 *.swp
 /venv/
+.venv/
 /tmp/
 /.vagrant/
 /Vagrantfile.local

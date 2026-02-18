@@ -29,7 +29,7 @@
         </p>
         {% endif %}
 
-        {% if value.button_text %}
+        {% if value.button_text and value.button_link %}
         <a href="{{ value.button_link }}"
            class="inline-block bg-brand-500 hover:bg-brand-400 text-white font-semibold px-8 py-4 rounded-lg text-lg transition shadow-lg hover:shadow-xl">
             {{ value.button_text }}

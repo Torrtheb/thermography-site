@@ -1,0 +1,45 @@
+{% load wagtailcore_tags %}
+
+{# --- FAQ Preview: auto-pulls FAQ items with expandable answers --- #}
+
+<section class="bg-gray-50 py-16">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8" data-aos="fade-up">
+
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-10">
+            {{ value.heading }}
+        </h2>
+
+        {% load faq_tags %}
+        {% get_faq_items max_items=value.max_items as faq_items %}
+
+        {% if faq_items %}
+        <div class="space-y-3">
+            {% for item in faq_items %}
+            <details class="group bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-gray-900 font-medium hover:bg-brand-50 transition">
+                    <span>{{ item.value.question }}</span>
+                    <svg class="w-5 h-5 text-brand-500 flex-shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                </summary>
+                <div class="px-6 pb-4 prose prose-teal max-w-none text-gray-600">
+                    {{ item.value.answer|richtext }}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+
+        <div class="text-center mt-8">
+            <a href="/faq/" class="inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 font-medium transition">
+                View all FAQs
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+            </a>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center">No FAQs available yet.</p>
+        {% endif %}
+
+    </div>
+</section>

@@ -9,5 +9,11 @@ db.sqlite3-journal
 .vscode/
 .idea/
 .DS_Store
+node_modules/
 media/
+static/
+!thermography_site/static/
+!thermography_site/static/css/
+!thermography_site/static/css/tailwind.css
+!thermography_site/static/css/tailwind.src.css
 .python-version

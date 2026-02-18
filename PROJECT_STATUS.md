@@ -128,7 +128,7 @@ thermography/
 - base.html: Tailwind CDN, AOS animations, template blocks
 - navbar.html: sticky nav, desktop links, slide-in mobile sidebar with backdrop
 - footer.html: 3-column dark footer with dynamic contact info from ContactPage
-- Brand colors: blue palette — calm, healthcare-appropriate
+- **Brand colors**: teal palette — calm, healthcare-appropriate, matches business logo
 - Home link removed from nav (logo goes to home)
 - Breakpoint changed to lg for hamburger menu
 - Accessibility: aria-labels on mobile buttons, correct heading hierarchy
@@ -173,6 +173,11 @@ thermography/
 - ✅ Fixed WAGTAIL_SITE_NAME and WAGTAILADMIN_BASE_URL
 - ✅ Updated .env.example with all needed variables
 - ✅ Updated pyproject.toml description
+- ✅ Updated color scheme from blue to teal (matches business logo)
+- ✅ Added business logo to navbar and footer (static/images/logo.png)
+- ✅ Enhanced scroll fade-in animations (AOS + custom CSS)
+- ✅ Added navbar scroll shadow effect
+- ✅ Updated all prose typography classes to prose-teal
 - ⬜ Wire up contact form to send email
 - ⬜ Security hardening (production settings)
 
@@ -184,7 +189,8 @@ thermography/
 - **SQLite for dev** — switch to Postgres for production (one settings change)
 - **StreamField for homepage** — owner can add/remove/reorder sections freely
 - **Slide-in sidebar** on mobile (not dropdown) — main content stays visible
-- **Blue brand palette** — calm, healthcare-appropriate
+- **Blue brand palette** → **Teal brand palette** — matches business logo, calm healthcare feel
+- **Logo in header & footer** — static file at `static/images/logo.png`
 - **No client login** — booking is name/email/phone only
 - **lg breakpoint** for mobile nav — prevents link text wrapping
 

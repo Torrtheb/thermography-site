@@ -22,29 +22,8 @@
     <base target="_blank">
     {% endif %}
 
-    {# --- Tailwind CSS (CDN) --- #}
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            50:  '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                        },
-                    },
-                },
-            },
-        }
-    </script>
+    {# --- Tailwind CSS (compiled, static) --- #}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/tailwind.css' %}" />
 
     {# --- AOS (Animate On Scroll) --- #}
     <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
@@ -73,9 +52,20 @@
     <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
     <script>
         AOS.init({
-            duration: 800,
+            duration: 700,
             once: true,
-            offset: 100,
+            offset: 80,
+            easing: 'ease-out-cubic',
+        });
+
+        // Add subtle shadow to navbar on scroll
+        const nav = document.querySelector('nav');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 10) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
         });
     </script>
 
@@ -102,5 +92,11 @@
     <script type="text/javascript" src="{% static 'js/thermography_site.js' %}"></script>
 
     {% block extra_js %}{% endblock %}
+
+    {# GoatCounter analytics — only loads when GOATCOUNTER_SITE_CODE is set #}
+    {% if goatcounter_site_code %}
+    <script data-goatcounter="https://{{ goatcounter_site_code }}.goatcounter.com/count"
+            async src="//gc.zgo.at/count.js"></script>
+    {% endif %}
 </body>
 </html>

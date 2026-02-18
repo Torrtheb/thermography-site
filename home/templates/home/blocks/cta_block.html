@@ -13,10 +13,12 @@
         </p>
         {% endif %}
 
+        {% if value.button_text and value.button_link %}
         <a href="{{ value.button_link }}"
            class="inline-block bg-white text-brand-700 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-50 transition shadow-lg hover:shadow-xl">
             {{ value.button_text }}
         </a>
+        {% endif %}
 
     </div>
 </section>

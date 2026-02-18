@@ -1,0 +1,32 @@
+{# --- Process Steps: numbered horizontal "How It Works" section --- #}
+
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-aos="fade-up">
+
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-14">
+            {{ value.heading }}
+        </h2>
+
+        <div class="grid grid-cols-1 {% if value.steps|length == 3 %}md:grid-cols-3{% elif value.steps|length >= 4 %}md:grid-cols-4{% else %}md:grid-cols-2{% endif %} gap-8 relative">
+
+            {% for step in value.steps %}
+            <div class="relative text-center" data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}00">
+
+                {# Numbered circle #}
+                <div class="w-14 h-14 bg-brand-600 text-white rounded-full flex items-center justify-center mx-auto mb-5 text-xl font-bold shadow-md">
+                    {{ forloop.counter }}
+                </div>
+
+                {# Connector line (hidden on last item and on mobile) #}
+                {% if not forloop.last %}
+                <div class="hidden md:block absolute top-7 left-[calc(50%+2rem)] right-[-2rem] h-0.5 bg-brand-200"></div>
+                {% endif %}
+
+                <h3 class="text-lg font-bold text-gray-900 mb-2">{{ step.heading }}</h3>
+                <p class="text-gray-600 leading-relaxed text-sm max-w-xs mx-auto">{{ step.text }}</p>
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+</section>

@@ -1,20 +1,25 @@
 """
 Blog / Resources app models.
 
-Two page types:
+Three page types concern here:
   1. BlogIndexPage — the listing page at /resources/
-     Shows all BlogPages as a grid of article cards.
+     Shows all BlogPages grouped by category with section navigation.
 
   2. BlogPage — an individual blog post / article
-     Each one has a title, author, date, cover image, excerpt, and body.
+     Each one has a title, author, date, cover image, excerpt, body,
+     and a category for grouping into subsections.
+
+Categories (subsections):
+  - "what-is-thermography" → What is Thermography?
+  - "articles" → Articles
 
 Page hierarchy:
   Root Page
     └── Home Page
     └── Blog Index Page              ← BlogIndexPage (one of these)
-          ├── What Is Thermography?  ← BlogPage
-          ├── 5 Benefits of ...      ← BlogPage
-          └── Preparing for Your ... ← BlogPage
+          ├── What Is Thermography?  ← BlogPage (category: what-is-thermography)
+          ├── 5 Benefits of ...      ← BlogPage (category: articles)
+          └── Preparing for Your ... ← BlogPage (category: articles)
 """
 
 from django.db import models
@@ -23,6 +28,13 @@ from wagtail.models import Page
 from wagtail.fields import RichTextField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.images import get_image_model_string
+from wagtail.search import index
+
+
+CATEGORY_CHOICES = [
+    ("what-is-thermography", "What is Thermography?"),
+    ("articles", "Articles"),
+]
 
 
 class BlogIndexPage(Page):
@@ -47,11 +59,35 @@ class BlogIndexPage(Page):
     subpage_types = ["blog.BlogPage"]
 
     def get_context(self, request, *args, **kwargs):
-        """Add published blog posts to the template, newest first."""
+        """Add published blog posts to the template, grouped by category."""
         context = super().get_context(request, *args, **kwargs)
-        context["posts"] = (
-            BlogPage.objects.child_of(self).live().order_by("-publish_date")
+
+        # Evaluate once to avoid repeated DB queries per category
+        all_posts = list(
+            BlogPage.objects.child_of(self).live().public().order_by("-publish_date")
         )
+
+        # Category filter from URL: /resources/?category=articles
+        active_category = request.GET.get("category", "")
+        context["active_category"] = active_category
+        context["categories"] = CATEGORY_CHOICES
+
+        if active_category:
+            context["posts"] = [p for p in all_posts if p.category == active_category]
+        else:
+            context["posts"] = all_posts
+
+        # Group posts by category for the "all" view (in-memory, no extra queries)
+        context["sections"] = []
+        for slug, label in CATEGORY_CHOICES:
+            section_posts = [p for p in all_posts if p.category == slug]
+            if section_posts:
+                context["sections"].append({
+                    "slug": slug,
+                    "label": label,
+                    "posts": section_posts,
+                })
+
         return context
 
     class Meta:
@@ -67,6 +103,13 @@ class BlogPage(Page):
 
     publish_date = models.DateField(
         help_text="The date shown on the article (used for ordering).",
+    )
+
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        default="articles",
+        help_text="Which section this post belongs to on the Resources page.",
     )
 
     author_name = models.CharField(
@@ -98,9 +141,28 @@ class BlogPage(Page):
         help_text="The full article content. Leave empty for external links.",
     )
 
+    related_service = models.ForeignKey(
+        "services.ServicePage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="blog_posts",
+        help_text="Optional: link this article to a specific service. A booking button will appear at the bottom.",
+    )
+
     is_featured = models.BooleanField(
         default=False,
         help_text="Featured posts may be highlighted on the homepage.",
+    )
+
+    citation = models.TextField(
+        blank=True,
+        help_text="Citation or credit for the article source/author (e.g., 'Smith, J. (2025). Thermography Today, 12(3), 45-52.').",
+    )
+
+    source_url = models.URLField(
+        blank=True,
+        help_text="Optional link to the original source article.",
     )
 
     @property
@@ -112,6 +174,7 @@ class BlogPage(Page):
         MultiFieldPanel(
             [
                 FieldPanel("publish_date"),
+                FieldPanel("category"),
                 FieldPanel("author_name"),
             ],
             heading="Article Info",
@@ -120,11 +183,25 @@ class BlogPage(Page):
         FieldPanel("excerpt"),
         FieldPanel("external_url"),
         FieldPanel("body"),
+        MultiFieldPanel(
+            [
+                FieldPanel("citation"),
+                FieldPanel("source_url"),
+            ],
+            heading="Citation / Source Credit",
+        ),
+        FieldPanel("related_service"),
         FieldPanel("is_featured"),
     ]
 
     parent_page_types = ["blog.BlogIndexPage"]
 
+    search_fields = Page.search_fields + [
+        index.SearchField("body"),
+        index.SearchField("excerpt"),
+        index.SearchField("author_name"),
+        index.SearchField("citation"),
+    ]
+
     class Meta:
         verbose_name = "Blog Post"
-        ordering = ["-publish_date"]

@@ -3,36 +3,87 @@
 
 {% block body_class %}template-searchresults{% endblock %}
 
-{% block title %}Search{% endblock %}
+{% block title %}
+{% if search_query %}Search results for "{{ search_query }}"{% else %}Search{% endif %}
+{% endblock %}
 
 {% block content %}
-<h1>Search</h1>
+{# --- Page Header --- #}
+<section class="bg-brand-50 py-16">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Search</h1>
 
-<form action="{% url 'search' %}" method="get">
-    <input type="text" name="query"{% if search_query %} value="{{ search_query }}"{% endif %}>
-    <input type="submit" value="Search" class="button">
-</form>
+        {# --- Search Form --- #}
+        <form action="{% url 'search' %}" method="get" class="max-w-2xl mx-auto relative">
+            <input type="text" name="query"
+                   {% if search_query %}value="{{ search_query }}"{% endif %}
+                   placeholder="Search services, FAQs, articles…"
+                   autocomplete="off"
+                   class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-3 text-gray-700 text-lg
+                          focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm">
+            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+        </form>
+    </div>
+</section>
 
-{% if search_results %}
-<ul>
-    {% for result in search_results %}
-    <li>
-        <h4><a href="{% pageurl result %}">{{ result }}</a></h4>
-        {% if result.search_description %}
-        {{ result.search_description }}
+{# --- Search Results --- #}
+<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if search_results %}
+    <p class="text-gray-500 mb-8 text-sm">
+        {{ search_results.paginator.count }} result{{ search_results.paginator.count|pluralize }} for
+        <strong class="text-gray-700">"{{ search_query }}"</strong>
+    </p>
+
+    <div class="space-y-6">
+        {% for result in search_results %}
+        <a href="{% pageurl result %}"
+           class="block bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md hover:border-brand-300 transition-all duration-200"
+           data-aos="fade-up">
+            <h2 class="text-xl font-bold text-gray-900 mb-1">{{ result.title }}</h2>
+            {% if result.search_description %}
+            <p class="text-gray-600 text-sm leading-relaxed">{{ result.search_description }}</p>
+            {% endif %}
+            <span class="inline-block text-brand-600 text-sm font-medium mt-2">View →</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    {# --- Pagination --- #}
+    {% if search_results.has_previous or search_results.has_next %}
+    <div class="flex justify-center items-center gap-4 mt-12">
+        {% if search_results.has_previous %}
+        <a href="{% url 'search' %}?query={{ search_query|urlencode }}&amp;page={{ search_results.previous_page_number }}"
+           class="text-brand-600 hover:text-brand-700 font-medium transition">
+            ← Previous
+        </a>
         {% endif %}
-    </li>
-    {% endfor %}
-</ul>
+        <span class="text-gray-500 text-sm">
+            Page {{ search_results.number }} of {{ search_results.paginator.num_pages }}
+        </span>
+        {% if search_results.has_next %}
+        <a href="{% url 'search' %}?query={{ search_query|urlencode }}&amp;page={{ search_results.next_page_number }}"
+           class="text-brand-600 hover:text-brand-700 font-medium transition">
+            Next →
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
 
-{% if search_results.has_previous %}
-<a href="{% url 'search' %}?query={{ search_query|urlencode }}&amp;page={{ search_results.previous_page_number }}">Previous</a>
-{% endif %}
-
-{% if search_results.has_next %}
-<a href="{% url 'search' %}?query={{ search_query|urlencode }}&amp;page={{ search_results.next_page_number }}">Next</a>
-{% endif %}
-{% elif search_query %}
-No results found
-{% endif %}
+    {% elif search_query %}
+    <div class="text-center py-12" data-aos="fade-up">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">No results found</h2>
+        <p class="text-gray-500">
+            No pages matched "<strong>{{ search_query }}</strong>". Try different keywords or check out our
+            <a href="/faq/" class="text-brand-600 hover:text-brand-700 underline">FAQ</a>.
+        </p>
+    </div>
+    {% endif %}
+</section>
 {% endblock %}

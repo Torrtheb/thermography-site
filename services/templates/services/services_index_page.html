@@ -23,7 +23,7 @@
         {% for service in services %}
         <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
              data-aos="fade-up"
-             data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
+             data-aos-delay="{% cycle '0' '100' '200' %}">
 
             {# --- Service Image --- #}
             {% if service.service_image %}
@@ -65,6 +65,14 @@
                    class="block text-center bg-brand-600 text-white py-3 rounded-lg hover:bg-brand-700 transition font-medium">
                     Learn More
                 </a>
+
+                {# --- Book This Service --- #}
+                {% if service.cal_booking_url %}
+                <a href="/booking/?service={{ service.slug }}"
+                   class="block text-center border-2 border-brand-600 text-brand-600 py-3 rounded-lg hover:bg-brand-50 transition font-medium mt-2">
+                    Book Now
+                </a>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -75,4 +83,22 @@
     </p>
     {% endif %}
 </section>
+
+{# --- Cancellation Policy --- #}
+{% if settings.home.SiteSettings.cancellation_policy %}
+<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-8" data-aos="fade-up">
+        <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+            </svg>
+            Cancellation Policy
+        </h3>
+        <div class="prose prose-sm prose-teal max-w-none text-gray-600">
+            {{ settings.home.SiteSettings.cancellation_policy|richtext }}
+        </div>
+    </div>
+</section>
+{% endif %}
 {% endblock %}

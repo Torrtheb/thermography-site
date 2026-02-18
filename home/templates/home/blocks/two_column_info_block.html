@@ -1,0 +1,42 @@
+{% load wagtailcore_tags %}
+
+{# --- Two-Column Info: heading + two rich-text columns side by side --- #}
+
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+    {% if value.heading %}
+    <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-12" data-aos="fade-up">
+        {{ value.heading }}
+    </h2>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+
+        {# Left column #}
+        <div data-aos="fade-up">
+            {% if value.left_heading %}
+            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-1.5 h-6 bg-brand-500 rounded-full"></span>
+                {{ value.left_heading }}
+            </h3>
+            {% endif %}
+            <div class="prose prose-lg prose-teal max-w-none">
+                {{ value.left_content|richtext }}
+            </div>
+        </div>
+
+        {# Right column #}
+        <div data-aos="fade-up" data-aos-delay="100">
+            {% if value.right_heading %}
+            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-1.5 h-6 bg-brand-500 rounded-full"></span>
+                {{ value.right_heading }}
+            </h3>
+            {% endif %}
+            <div class="prose prose-lg prose-teal max-w-none">
+                {{ value.right_content|richtext }}
+            </div>
+        </div>
+
+    </div>
+</section>
