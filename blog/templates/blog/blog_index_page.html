@@ -115,7 +115,9 @@
                 {# Photo + Specialty badge #}
                 <div class="relative">
                     {% if expert.photo %}
-                    {% image expert.photo fill-400x400 class="w-full h-64 object-cover" %}
+                    <div class="w-full h-64 bg-gray-100 flex items-center justify-center">
+                        {% image expert.photo max-400x400 class="max-w-full max-h-full object-contain" %}
+                    </div>
                     {% else %}
                     <div class="w-full h-64 bg-brand-100 flex items-center justify-center">
                         <span class="text-brand-600 text-6xl font-bold">{{ expert.name.0 }}</span>
@@ -136,7 +138,14 @@
                     {% if expert.title_role %}
                     <p class="text-brand-600 text-sm font-medium mb-3">{{ expert.title_role }}</p>
                     {% endif %}
-                    <p class="text-gray-600 text-sm leading-relaxed mb-4">{{ expert.bio }}</p>
+                    <div class="relative">
+                        <p id="bio-text-{{ forloop.counter }}" class="text-gray-600 text-sm leading-relaxed mb-1 line-clamp-2">{{ expert.bio }}</p>
+                        <button
+                            type="button"
+                            onclick="var p=document.getElementById('bio-text-{{ forloop.counter }}'); var isExpanded=p.classList.toggle('line-clamp-2'); this.textContent=isExpanded?'Read more':'Show less';"
+                            class="text-brand-600 hover:text-brand-700 text-xs font-medium transition cursor-pointer mb-3"
+                        >Read more</button>
+                    </div>
                     {% if expert.website %}
                     <a href="{{ expert.website }}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 text-sm font-medium transition">
