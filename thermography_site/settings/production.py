@@ -44,8 +44,8 @@ if _railway_domain:
 # ──────────────────────────────────────────────────────────
 # Database — Neon PostgreSQL (or any DATABASE_URL provider)
 # Neon requires SSL; dj-database-url handles the full URL.
-# The pooler (PgBouncer, transaction mode) doesn't preserve search_path,
-# so we set it explicitly via connection options.
+# search_path is set at the role level (ALTER ROLE neondb_owner SET search_path TO public)
+# because the Neon pooler doesn't support startup parameters.
 # ──────────────────────────────────────────────────────────
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
@@ -55,8 +55,6 @@ if os.environ.get("DATABASE_URL"):
             ssl_require=True,  # Neon requires SSL connections
         )
     }
-    DATABASES["default"].setdefault("OPTIONS", {})
-    DATABASES["default"]["OPTIONS"]["options"] = "-c search_path=public"
 
 # ──────────────────────────────────────────────────────────
 # Caching — in-process memory cache for rendered pages
