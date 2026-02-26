@@ -136,12 +136,11 @@ if os.environ.get("GS_BUCKET_NAME"):
     GS_BUCKET_NAME = os.environ["GS_BUCKET_NAME"]
     # Keep object ACLs disabled so this works with Uniform bucket-level access.
     GS_DEFAULT_ACL = None
-    # Signed URLs — the bucket is private; each URL is valid for 1 hour.
-    # This prevents accidental public exposure of any uploaded file.
-    GS_QUERYSTRING_AUTH = True
-    GS_EXPIRATION = 3600  # signed URL lifetime in seconds (1 hour)
+    # Public bucket — no signed URLs needed; images are served directly.
+    # The bucket has allUsers:objectViewer for fast, cacheable image delivery.
+    GS_QUERYSTRING_AUTH = False
     GS_FILE_OVERWRITE = False  # prevent accidental overwrites
-    GS_OBJECT_PARAMETERS = {"cache_control": "private, max-age=86400"}
+    GS_OBJECT_PARAMETERS = {"cache_control": "public, max-age=86400"}
     MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
 
     # Credentials: On Cloud Run, authentication is automatic via the
