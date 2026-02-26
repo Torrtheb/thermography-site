@@ -44,6 +44,8 @@ if _railway_domain:
 # ──────────────────────────────────────────────────────────
 # Database — Neon PostgreSQL (or any DATABASE_URL provider)
 # Neon requires SSL; dj-database-url handles the full URL.
+# The pooler (PgBouncer, transaction mode) doesn't preserve search_path,
+# so we set it explicitly via connection options.
 # ──────────────────────────────────────────────────────────
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
@@ -53,6 +55,8 @@ if os.environ.get("DATABASE_URL"):
             ssl_require=True,  # Neon requires SSL connections
         )
     }
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["options"] = "-c search_path=public"
 
 # ──────────────────────────────────────────────────────────
 # Caching — in-process memory cache for rendered pages
@@ -73,8 +77,8 @@ MIDDLEWARE.append("django.middleware.cache.FetchFromCacheMiddleware")
 CACHE_MIDDLEWARE_SECONDS = 600  # 10 min
 CACHE_MIDDLEWARE_KEY_PREFIX = "thermo"
 
-# Persistent DB connections — avoids reconnecting on every request across
-# the atlantic (Railway europe-west4 → Neon us-east-2).
+# Persistent DB connections — avoids reconnecting on every request
+# (Railway europe-west4 → Neon eu-central-1, ~5-10ms).
 if DATABASES.get("default"):
     DATABASES["default"]["CONN_MAX_AGE"] = 600
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
