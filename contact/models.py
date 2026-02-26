@@ -23,6 +23,10 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from modelcluster.fields import ParentalKey
 from wagtail.models import Page, Orderable
 from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
@@ -409,7 +413,10 @@ class ContactPage(Page):
                     submission.email_sent = True
                     submission.save(update_fields=["email_sent"])
                 except Exception:
-                    pass  # Email failed, but submission is saved in DB.
+                    logger.exception(
+                        "Failed to send contact form email for submission #%s",
+                        submission.pk,
+                    )
 
                 form_submitted = True
             elif not email_valid:

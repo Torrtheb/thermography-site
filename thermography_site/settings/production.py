@@ -213,6 +213,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")          # Your Brevo login email
 EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_KEY", "")       # Brevo SMTP key (not API key)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@yourdomain.com")
+EMAIL_TIMEOUT = 30  # seconds — prevent indefinite hangs on SMTP connection
 
 # ──────────────────────────────────────────────────────────
 # Brevo (Sendinblue) Contacts API — for newsletter list sync
