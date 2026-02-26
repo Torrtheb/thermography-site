@@ -203,17 +203,12 @@ elif os.environ.get("AWS_STORAGE_BUCKET_NAME"):
     )
 
 # ──────────────────────────────────────────────────────────
-# Email — Brevo (Sendinblue) SMTP relay for transactional email
-# Sign up at https://app.brevo.com → Settings → SMTP & API
+# Email — Brevo transactional HTTP API (bypasses SMTP port blocking on Railway)
+# Uses the custom backend in thermography_site/backends/brevo_email.py
+# which sends via Brevo's REST API over HTTPS (port 443).
 # ──────────────────────────────────────────────────────────
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp-relay.brevo.com"
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True                                              # Port 465 uses implicit SSL (Railway blocks 587/STARTTLS)
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")          # Your Brevo login email
-EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_KEY", "")       # Brevo SMTP key (not API key)
+EMAIL_BACKEND = "thermography_site.backends.brevo_email.BrevoAPIBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@yourdomain.com")
-EMAIL_TIMEOUT = 30  # seconds — prevent indefinite hangs on SMTP connection
 
 # ──────────────────────────────────────────────────────────
 # Brevo (Sendinblue) Contacts API — for newsletter list sync
