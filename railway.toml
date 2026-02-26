@@ -3,9 +3,9 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 300
+# Temporarily disabled healthcheck to debug startup
+# healthcheckPath = "/"
+# healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-# Override the Dockerfile CMD — Railway injects PORT automatically
-startCommand = "python manage.py migrate --noinput && echo '=== Starting gunicorn on port $PORT ===' && gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --preload --log-level debug"
+startCommand = "bash start.sh"
