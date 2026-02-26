@@ -55,6 +55,31 @@ if os.environ.get("DATABASE_URL"):
     }
 
 # ──────────────────────────────────────────────────────────
+# Caching — in-process memory cache for rendered pages
+# Eliminates repeated DB queries for anonymous visitors.
+# Cache is per-worker and resets on each deploy.
+# ──────────────────────────────────────────────────────────
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "thermography-prod",
+        "TIMEOUT": 600,  # 10 minutes
+    }
+}
+
+# Cache anonymous page views (bypass cache for logged-in users / admin)
+MIDDLEWARE.insert(0, "django.middleware.cache.UpdateCacheMiddleware")
+MIDDLEWARE.append("django.middleware.cache.FetchFromCacheMiddleware")
+CACHE_MIDDLEWARE_SECONDS = 600  # 10 min
+CACHE_MIDDLEWARE_KEY_PREFIX = "thermo"
+
+# Persistent DB connections — avoids reconnecting on every request across
+# the atlantic (Railway europe-west4 → Neon us-east-2).
+if DATABASES.get("default"):
+    DATABASES["default"]["CONN_MAX_AGE"] = 600
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+# ──────────────────────────────────────────────────────────
 # HTTPS / security headers
 # Railway (and most PaaS) terminates TLS at the edge proxy and forwards
 # plain HTTP internally. The proxy sets X-Forwarded-Proto so Django
