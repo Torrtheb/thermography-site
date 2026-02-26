@@ -53,9 +53,15 @@ if os.environ.get("DATABASE_URL"):
 
 # ──────────────────────────────────────────────────────────
 # HTTPS / security headers
+# Railway (and most PaaS) terminates TLS at the edge proxy and forwards
+# plain HTTP internally. The proxy sets X-Forwarded-Proto so Django
+# knows the original request was HTTPS.  We do NOT set
+# SECURE_SSL_REDIRECT because Railway's edge already redirects
+# HTTP → HTTPS for external traffic, and internal healthchecks arrive
+# over plain HTTP without X-Forwarded-Proto.
 # ──────────────────────────────────────────────────────────
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False  # Railway edge handles HTTPS redirect
 SECURE_HSTS_SECONDS = 31_536_000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
