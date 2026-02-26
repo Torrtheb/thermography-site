@@ -3,9 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Temporarily disabled healthcheck to debug startup
-# healthcheckPath = "/"
-# healthcheckTimeout = 300
+healthcheckPath = "/"
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 startCommand = "bash start.sh"
