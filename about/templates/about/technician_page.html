@@ -140,7 +140,17 @@
                 {% endif %}
                 {% if person.bio %}
                 <div class="prose prose-sm prose-teal max-w-none">
-                    {{ person.bio|richtext }}
+                    <div id="bio-short-{{ forloop.counter }}">
+                        {{ person.bio|richtext|truncatewords_html:40 }}
+                    </div>
+                    <div id="bio-full-{{ forloop.counter }}" class="hidden">
+                        {{ person.bio|richtext }}
+                    </div>
+                    <button
+                        type="button"
+                        onclick="document.getElementById('bio-short-{{ forloop.counter }}').classList.toggle('hidden'); document.getElementById('bio-full-{{ forloop.counter }}').classList.toggle('hidden'); this.textContent = this.textContent === 'Read more' ? 'Read less' : 'Read more';"
+                        class="text-brand-600 hover:text-brand-700 font-medium text-sm mt-2 transition"
+                    >Read more</button>
                 </div>
                 {% endif %}
             </div>

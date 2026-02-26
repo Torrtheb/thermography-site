@@ -85,13 +85,11 @@ def add_welcome_panel(request, panels):
 
 class AnalyticsPanel:
     """
-    Embeds GoatCounter's public dashboard in the Wagtail admin homepage.
+    Clean link-based analytics panel on the Wagtail admin dashboard.
 
-    GoatCounter allows embedding via its public URL. The panel shows a
-    direct link to the full dashboard plus a summary of what it tracks.
-
-    For the iframe to work, the GoatCounter site must have "Allow embedding"
-    enabled at Settings → Site Settings → Allow embedding from other sites.
+    Shows a summary of what GoatCounter tracks and a prominent button
+    to open the full dashboard in a new tab.  No iframe — avoids
+    authentication and CSP issues.
     """
 
     order = 20  # after the welcome panel
@@ -108,23 +106,50 @@ class AnalyticsPanel:
         return mark_safe(
             f'<section class="panel summary nice-padding">'
             f'<h2 style="margin-top:0;">\U0001f4ca Site Analytics</h2>'
-            f'<p style="color:#555;">'
-            f'Your website analytics are tracked by '
-            f'<a href="{dashboard_url}" target="_blank" '
-            f'style="color:#2d6a4f; font-weight:600;">GoatCounter</a> '
+            f'<p style="color:#555; margin-bottom:1em;">'
+            f'Your website visitors are tracked by '
+            f'<strong style="color:#2d6a4f;">GoatCounter</strong> '
             f'— privacy-friendly, no cookies, GDPR-compliant.'
             f'</p>'
-            f'<div style="margin: 1em 0;">'
-            f'<iframe src="{dashboard_url}" '
-            f'style="width:100%; height:500px; border:1px solid #ddd; border-radius:8px;" '
-            f'loading="lazy" title="GoatCounter Analytics"></iframe>'
+
+            f'<div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:1.5em; margin-bottom:1.2em;">'
+            f'<table style="width:100%; border-collapse:collapse;">'
+
+            f'<tr style="border-bottom:1px solid #d1fae5;">'
+            f'<td style="padding:8px 0; color:#555;">\U0001f4c8 Page views</td>'
+            f'<td style="padding:8px 0; color:#555; text-align:right;">Which pages visitors view and how often</td>'
+            f'</tr>'
+
+            f'<tr style="border-bottom:1px solid #d1fae5;">'
+            f'<td style="padding:8px 0; color:#555;">\U0001f310 Referrers</td>'
+            f'<td style="padding:8px 0; color:#555; text-align:right;">Where your visitors come from (Google, social media, etc.)</td>'
+            f'</tr>'
+
+            f'<tr style="border-bottom:1px solid #d1fae5;">'
+            f'<td style="padding:8px 0; color:#555;">\U0001f4f1 Devices</td>'
+            f'<td style="padding:8px 0; color:#555; text-align:right;">Desktop vs. mobile, browsers, screen sizes</td>'
+            f'</tr>'
+
+            f'<tr>'
+            f'<td style="padding:8px 0; color:#555;">\U0001f4cd Locations</td>'
+            f'<td style="padding:8px 0; color:#555; text-align:right;">Countries and languages of your visitors</td>'
+            f'</tr>'
+
+            f'</table>'
             f'</div>'
-            f'<p style="color:#888; font-size:0.9em;">'
-            f'\U0001f4a1 <em>If the panel above is blank, '
-            f'<a href="{dashboard_url}/settings/main" target="_blank" '
-            f'style="color:#2d6a4f;">enable embedding</a> in your GoatCounter settings, '
-            f'or <a href="{dashboard_url}" target="_blank" style="color:#2d6a4f;">'
-            f'open the full dashboard</a> in a new tab.</em>'
+
+            f'<div style="text-align:center;">'
+            f'<a href="{dashboard_url}" target="_blank" '
+            f'style="display:inline-block; background:#2d6a4f; color:#fff; '
+            f'font-weight:600; font-size:1.05em; padding:12px 32px; '
+            f'border-radius:8px; text-decoration:none; '
+            f'box-shadow:0 2px 6px rgba(0,0,0,0.15);">'
+            f'\U0001f4ca&ensp;View Analytics Dashboard'
+            f'</a>'
+            f'</div>'
+
+            f'<p style="color:#999; font-size:0.85em; margin-top:1em; text-align:center;">'
+            f'Opens in a new tab at <em>{dashboard_url}</em>'
             f'</p>'
             f'</section>'
         )
@@ -161,5 +186,6 @@ def admin_css():
         '.c-sf-block-type-description { color: #666 !important; font-size: 0.85em; }'
         '.help { font-size: 0.9em !important; }'
         '.content-wrapper h1 { font-size: 1.5em; }'
+        '.content-wrapper { padding-bottom: 100px !important; }'  # stop save bar overlapping content
         '</style>'
     )

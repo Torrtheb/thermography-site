@@ -14,7 +14,7 @@ from wagtail.admin.menu import MenuItem
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
-from .models import NewsletterCampaign, NewsletterSubscriber
+from .models import NewsletterSubscriber
 from .views import compose_newsletter_view
 
 
@@ -36,27 +36,6 @@ class NewsletterSubscriberViewSet(SnippetViewSet):
 
 
 register_snippet(NewsletterSubscriber, viewset=NewsletterSubscriberViewSet)
-
-
-# ──────────────────────────────────────────────────────────
-# Snippet viewset — Campaign history (accessible but not in sidebar)
-# ──────────────────────────────────────────────────────────
-
-class NewsletterCampaignViewSet(SnippetViewSet):
-    model = NewsletterCampaign
-    icon = "doc-full-inverse"
-    menu_label = "Campaigns"
-    menu_name = "newsletter_campaigns"
-    menu_order = 252
-    add_to_admin_menu = False  # accessed via Send Newsletter page instead
-    list_display = ["subject", "status_badge", "sent_count", "recipients_count", "sent_at"]
-    list_filter = ["status"]
-    ordering = ["-created_at"]
-    add_to_settings_menu = False
-    inspect_view_enabled = True
-
-
-register_snippet(NewsletterCampaign, viewset=NewsletterCampaignViewSet)
 
 
 # ──────────────────────────────────────────────────────────

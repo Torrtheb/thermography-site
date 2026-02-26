@@ -123,14 +123,11 @@
                     {% endif %}
 
                     {# Specialty badge #}
-                    <span class="absolute top-4 right-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
-                        {% if expert.specialty == 'thermographer' %}bg-brand-100 text-brand-800
-                        {% elif expert.specialty == 'hormone-practitioner' %}bg-purple-100 text-purple-800
-                        {% elif expert.specialty == 'naturopath' %}bg-green-100 text-green-800
-                        {% elif expert.specialty == 'health-coach' %}bg-amber-100 text-amber-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {{ expert.get_specialty_display }}
+                    {% if expert.specialty %}
+                    <span class="absolute top-4 right-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-800">
+                        {{ expert.specialty }}
                     </span>
+                    {% endif %}
                 </div>
 
                 {# Info #}

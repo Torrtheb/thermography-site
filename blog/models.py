@@ -217,15 +217,6 @@ class BlogPage(Page):
 # Expert (Wagtail Snippet — "Meet the Experts" on Resources page)
 # ──────────────────────────────────────────────────────────
 
-SPECIALTY_CHOICES = [
-    ("thermographer", "Thermographer"),
-    ("hormone-practitioner", "Hormone Practitioner"),
-    ("naturopath", "Naturopath"),
-    ("health-coach", "Health Coach"),
-    ("other", "Other"),
-]
-
-
 @register_snippet
 class Expert(index.Indexed, models.Model):
     """
@@ -240,10 +231,9 @@ class Expert(index.Indexed, models.Model):
     )
 
     specialty = models.CharField(
-        max_length=50,
-        choices=SPECIALTY_CHOICES,
-        default="thermographer",
-        help_text="Primary specialty — used for the badge label.",
+        max_length=100,
+        blank=True,
+        help_text="Primary specialty — e.g. 'Thermographer', 'Naturopath', 'Hormone Health Specialist'.",
     )
 
     title_role = models.CharField(
@@ -307,4 +297,4 @@ class Expert(index.Indexed, models.Model):
         verbose_name_plural = "Experts"
 
     def __str__(self):
-        return f"{self.name} ({self.get_specialty_display()})"
+        return f"{self.name} ({self.specialty})" if self.specialty else self.name
