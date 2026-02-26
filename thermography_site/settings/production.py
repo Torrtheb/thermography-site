@@ -208,8 +208,8 @@ elif os.environ.get("AWS_STORAGE_BUCKET_NAME"):
 # ──────────────────────────────────────────────────────────
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp-relay.brevo.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True                                              # Port 465 uses implicit SSL (Railway blocks 587/STARTTLS)
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")          # Your Brevo login email
 EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_KEY", "")       # Brevo SMTP key (not API key)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@yourdomain.com")
