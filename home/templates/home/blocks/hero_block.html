@@ -29,11 +29,27 @@
         </p>
         {% endif %}
 
-        {% if value.button_text and value.button_link %}
-        <a href="{{ value.button_link }}"
-           class="inline-block bg-brand-500 hover:bg-brand-400 text-white font-semibold px-8 py-4 rounded-lg text-lg transition shadow-lg hover:shadow-xl">
-            {{ value.button_text }}
-        </a>
+        {% if value.supporting_line %}
+        <p class="text-sm md:text-base text-gray-300 max-w-xl mx-auto mb-8 tracking-wide">
+            {{ value.supporting_line }}
+        </p>
+        {% endif %}
+
+        {% if value.button_text and value.button_link or value.secondary_button_text and value.secondary_button_link %}
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {% if value.button_text and value.button_link %}
+            <a href="{{ value.button_link }}"
+               class="inline-block bg-brand-500 hover:bg-brand-400 text-white font-semibold px-8 py-4 rounded-lg text-lg transition shadow-lg hover:shadow-xl">
+                {{ value.button_text }}
+            </a>
+            {% endif %}
+            {% if value.secondary_button_text and value.secondary_button_link %}
+            <a href="{{ value.secondary_button_link }}"
+               class="inline-block border-2 border-white text-white hover:bg-white hover:text-brand-900 font-semibold px-8 py-4 rounded-lg text-lg transition">
+                {{ value.secondary_button_text }}
+            </a>
+            {% endif %}
+        </div>
         {% endif %}
 
     </div>

@@ -16,6 +16,7 @@ from wagtail.fields import StreamField
 from wagtail.admin.panels import FieldPanel
 from wagtail.blocks import CharBlock, RichTextBlock, StructBlock
 from wagtail.search import index
+from wagtail.images import get_image_model_string
 
 
 class FAQItemBlock(StructBlock):
@@ -46,6 +47,15 @@ class FAQPage(Page):
         help_text="Optional intro text shown above the FAQ items.",
     )
 
+    intro_image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Optional image shown beside the intro text.",
+    )
+
     faq_items = StreamField(
         [
             ("faq_item", FAQItemBlock()),
@@ -56,6 +66,7 @@ class FAQPage(Page):
 
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
+        FieldPanel("intro_image"),
         FieldPanel("faq_items"),
     ]
 

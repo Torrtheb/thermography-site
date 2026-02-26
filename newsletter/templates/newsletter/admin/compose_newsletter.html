@@ -1,0 +1,145 @@
+{% extends "wagtailadmin/generic/base.html" %}
+{% load wagtailadmin_tags i18n %}
+
+{% block titletag %}{{ page_title }}{% endblock %}
+
+{% block header %}
+    {% include "wagtailadmin/shared/header.html" with title=page_title icon="mail" %}
+{% endblock %}
+
+{% block main_content %}
+
+{# ── Subscriber count info bar ── #}
+<div style="background: #f0f7f8; border: 1px solid #d6eaed; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+    <svg style="width:20px; height:20px; color:#458a95; flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    <span style="font-size: 0.95rem;">
+        <strong>{{ active_subscriber_count }}</strong> active subscriber{{ active_subscriber_count|pluralize }}
+        will receive this newsletter.
+    </span>
+</div>
+
+{% if active_subscriber_count == 0 %}
+<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+    <strong>No active subscribers yet.</strong> You can still compose a draft, but it won't be sent until people subscribe.
+</div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    {# ── Subject ── #}
+    <div style="margin-bottom: 1rem;">
+        <label for="id_subject" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Subject</label>
+        {% if form.subject.errors %}<div class="help-critical">{{ form.subject.errors }}</div>{% endif %}
+        <input type="text" name="subject" id="id_subject" maxlength="200"
+               value="{{ form.subject.value|default_if_none:'' }}"
+               placeholder="Newsletter subject line…"
+               style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+    </div>
+
+    {# ── Body ── #}
+    <div style="margin-bottom: 1.5rem;">
+        <label for="id_body" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Body</label>
+        {% if form.body.errors %}<div class="help-critical">{{ form.body.errors }}</div>{% endif %}
+        <p class="help" style="margin-bottom: 0.5rem;">
+            This will be sent as plain text to all active newsletter subscribers.
+        </p>
+        <textarea name="body" id="id_body" rows="12"
+                  placeholder="Write your newsletter content here…"
+                  style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; font-family: inherit;">{{ form.body.value|default_if_none:'' }}</textarea>
+    </div>
+
+    {# ── Sign-off ── #}
+    <div style="margin-bottom: 1.5rem;">
+        <label for="id_sign_off" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Sign-Off</label>
+        {% if form.sign_off.errors %}<div class="help-critical">{{ form.sign_off.errors }}</div>{% endif %}
+        <p class="help" style="margin-bottom: 0.5rem;">Appended at the end of every email.</p>
+        <textarea name="sign_off" id="id_sign_off" rows="3"
+                  style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; font-family: inherit;">{{ form.sign_off.value|default_if_none:'' }}</textarea>
+    </div>
+
+    {# ── Preview accordion ── #}
+    <details style="margin-bottom: 1.5rem; border: 1px solid #e0e0e0; border-radius: 6px;">
+        <summary style="padding: 0.75rem 1rem; cursor: pointer; font-weight: 600; background: #f9fafb; border-radius: 6px; user-select: none;">
+            Preview email
+        </summary>
+        <div id="email-preview" style="padding: 1rem; white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; background: #fff; max-height: 350px; overflow-y: auto; color: #333;">
+            <em style="color: #999;">Start typing to see a live preview…</em>
+        </div>
+    </details>
+
+    {# ── Action buttons ── #}
+    <footer style="display: flex; gap: 1rem; align-items: center; padding: 1rem 0;">
+        <button type="submit" class="button action-save button--icon"
+                {% if active_subscriber_count == 0 %}disabled title="No active subscribers"{% endif %}>
+            {% icon name="mail" %}
+            Send Newsletter ({{ active_subscriber_count }} subscriber{{ active_subscriber_count|pluralize }})
+        </button>
+    </footer>
+</form>
+
+{# ── Recent campaigns ── #}
+{% if recent_campaigns %}
+<hr style="margin: 2rem 0 1.5rem;">
+<h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem;">Recent Campaigns</h2>
+<div style="max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px;">
+    <table class="listing" style="margin: 0;">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Failed</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for campaign in recent_campaigns %}
+            <tr>
+                <td>{{ campaign.subject }}</td>
+                <td>{{ campaign.status_badge }}</td>
+                <td>{{ campaign.sent_count }} / {{ campaign.recipients_count }}</td>
+                <td>{{ campaign.failed_count }}</td>
+                <td>{{ campaign.sent_at|date:"M j, Y g:i A"|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ── Live preview script ── #}
+<script>
+(function() {
+    var subjectEl = document.getElementById('id_subject');
+    var bodyEl = document.getElementById('id_body');
+    var signOffEl = document.getElementById('id_sign_off');
+    var previewEl = document.getElementById('email-preview');
+
+    function updatePreview() {
+        var subject = subjectEl.value.trim();
+        var body = bodyEl.value.trim();
+        var signOff = signOffEl.value.trim();
+
+        if (!subject && !body) {
+            previewEl.innerHTML = '<em style="color: #999;">Start typing to see a live preview…</em>';
+            return;
+        }
+
+        var preview = '';
+        if (subject) preview += 'Subject: ' + subject + '\n' + '─'.repeat(40) + '\n\n';
+        if (body) preview += body;
+        if (signOff) preview += '\n\n' + signOff;
+
+        previewEl.textContent = preview;
+    }
+
+    subjectEl.addEventListener('input', updatePreview);
+    bodyEl.addEventListener('input', updatePreview);
+    signOffEl.addEventListener('input', updatePreview);
+    updatePreview();
+})();
+</script>
+{% endblock %}

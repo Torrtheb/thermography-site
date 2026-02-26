@@ -17,3 +17,4 @@ static/
 !thermography_site/static/css/tailwind.css
 !thermography_site/static/css/tailwind.src.css
 .python-version
+gcs-key*.json

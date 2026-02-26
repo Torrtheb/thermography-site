@@ -1,0 +1,130 @@
+{% extends "wagtailadmin/generic/base.html" %}
+{% load wagtailadmin_tags i18n %}
+
+{% block titletag %}{{ page_title }}{% endblock %}
+
+{% block header %}
+    {% include "wagtailadmin/shared/header.html" with title=page_title icon="mail" %}
+{% endblock %}
+
+{% block main_content %}
+
+<form method="post">
+    {% csrf_token %}
+
+    {# ── Sort + Filter controls ── #}
+    <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <label for="sort-select" style="font-weight: 600; white-space: nowrap;">Sort by:</label>
+        <select id="sort-select" onchange="applySort(this.value)" style="padding: 0.35rem 2rem 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; -webkit-appearance: menulist; appearance: menulist;">
+            <option value="-last_appointment_date" {% if current_sort == '-last_appointment_date' %}selected{% endif %}>Last Appointment (newest)</option>
+            <option value="last_appointment_date"  {% if current_sort == 'last_appointment_date' %}selected{% endif %}>Last Appointment (oldest)</option>
+            <option value="name"                   {% if current_sort == 'name' %}selected{% endif %}>Name (A → Z)</option>
+            <option value="-name"                  {% if current_sort == '-name' %}selected{% endif %}>Name (Z → A)</option>
+            <option value="clinic_location"        {% if current_sort == 'clinic_location' %}selected{% endif %}>Location (A → Z)</option>
+            <option value="-clinic_location"       {% if current_sort == '-clinic_location' %}selected{% endif %}>Location (Z → A)</option>
+            <option value="previous_visit_reason"  {% if current_sort == 'previous_visit_reason' %}selected{% endif %}>Visit Reason (A → Z)</option>
+            <option value="-previous_visit_reason" {% if current_sort == '-previous_visit_reason' %}selected{% endif %}>Visit Reason (Z → A)</option>
+        </select>
+    </div>
+
+    {# ── Recipients table ── #}
+    <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">Recipients</h2>
+    {% if form.recipients.errors %}
+        <div class="help-critical" style="margin-bottom: 0.5rem;">{{ form.recipients.errors }}</div>
+    {% endif %}
+    <p class="help" style="margin-bottom: 0.5rem;">Select the client(s) to email. Only clients with an email on file can receive emails.</p>
+
+    <div style="max-height: 350px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.5rem;">
+        <table class="listing" style="margin: 0;">
+            <thead>
+                <tr>
+                    <th style="width: 2.5rem; text-align: center;">
+                        <input type="checkbox" id="select-all-cb" title="Select / deselect all" onclick="toggleAll(this.checked)">
+                    </th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Location</th>
+                    <th>Visit Reason</th>
+                    <th>Last Appointment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" name="recipients" value="{{ client.pk }}" id="id_r_{{ client.pk }}"
+                            {% if client.pk in selected_ids %}checked{% endif %}>
+                    </td>
+                    <td>
+                        <label for="id_r_{{ client.pk }}" style="cursor:pointer; font-weight:normal;">
+                            {{ client.name }}
+                        </label>
+                    </td>
+                    <td style="color: #555;">{{ client.email|default:"—" }}</td>
+                    <td style="color: #555;">{{ client.clinic_location|default:"—" }}</td>
+                    <td style="color: #555;">{{ client.get_previous_visit_reason_display|default:"—" }}</td>
+                    <td style="color: #555;">{{ client.last_appointment_date|date:"M j, Y"|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 1.5rem; text-align: center; color: #999;">
+                        No clients yet. Add a client first from the Clients page.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Message fields ── #}
+    <h2 style="font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem;">Message</h2>
+
+    <div style="margin-bottom: 1rem;">
+        <label for="id_subject" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Subject</label>
+        {% if form.subject.errors %}<div class="help-critical">{{ form.subject.errors }}</div>{% endif %}
+        <input type="text" name="subject" id="id_subject" maxlength="200"
+               value="{{ form.subject.value|default_if_none:'' }}"
+               placeholder="Email subject line…"
+               style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+        <label for="id_body" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Body</label>
+        {% if form.body.errors %}<div class="help-critical">{{ form.body.errors }}</div>{% endif %}
+        <p class="help" style="margin-bottom: 0.5rem;">
+            A personalised greeting ("Hi [First Name]") is added automatically before the body.
+        </p>
+        <textarea name="body" id="id_body" rows="10"
+                  placeholder="Write your message here…"
+                  style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; font-family: inherit;">{{ form.body.value|default_if_none:'' }}</textarea>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+        <label for="id_sign_off" style="display: block; font-weight: 600; margin-bottom: 0.25rem;">Sign-Off</label>
+        {% if form.sign_off.errors %}<div class="help-critical">{{ form.sign_off.errors }}</div>{% endif %}
+        <p class="help" style="margin-bottom: 0.5rem;">Appended at the end of every email.</p>
+        <textarea name="sign_off" id="id_sign_off" rows="3"
+                  style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; font-family: inherit;">{{ form.sign_off.value|default_if_none:'' }}</textarea>
+    </div>
+
+    {# ── Action buttons ── #}
+    <footer style="display: flex; gap: 1rem; align-items: center; padding: 1rem 0;">
+        <button type="submit" class="button action-save button--icon">
+            {% icon name="mail" %}
+            Send Email
+        </button>
+        <a href="{% url 'wagtailsnippets_clients_client:list' %}" class="button button-secondary">Cancel</a>
+    </footer>
+</form>
+
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('input[name="recipients"]').forEach(function(cb) { cb.checked = checked; });
+}
+function applySort(val) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('sort', val);
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

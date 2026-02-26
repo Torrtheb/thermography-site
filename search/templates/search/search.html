@@ -38,13 +38,18 @@
     </p>
 
     <div class="space-y-6">
-        {% for result in search_results %}
-        <a href="{% pageurl result %}"
+        {% for item in annotated_results %}
+        <a href="{% pageurl item.page %}"
            class="block bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md hover:border-brand-300 transition-all duration-200"
            data-aos="fade-up">
-            <h2 class="text-xl font-bold text-gray-900 mb-1">{{ result.title }}</h2>
-            {% if result.search_description %}
-            <p class="text-gray-600 text-sm leading-relaxed">{{ result.search_description }}</p>
+            <div class="flex items-center gap-2 mb-2">
+                <span class="inline-block bg-brand-100 text-brand-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ item.type_label }}
+                </span>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 mb-1">{{ item.page.title }}</h2>
+            {% if item.excerpt %}
+            <p class="text-gray-600 text-sm leading-relaxed">{{ item.excerpt }}</p>
             {% endif %}
             <span class="inline-block text-brand-600 text-sm font-medium mt-2">View →</span>
         </a>

@@ -26,6 +26,7 @@ Block types:
 
 from wagtail.blocks import (
     CharBlock,          # single line of text
+    IntegerBlock,       # integer input
     TextBlock,          # multi-line plain text
     RichTextBlock,      # formatted text (bold, links, lists, etc.)
     URLBlock,           # a URL field
@@ -81,7 +82,7 @@ class AnnouncementBlock(StructBlock):
 class HeroBlock(StructBlock):
     """
     The big banner at the top of the page.
-    Owner fills in: heading, subheading, button text, button link, background image.
+    Owner fills in: heading, subheading, supporting line, button text, button link, background image.
     """
     heading = CharBlock(
         max_length=200,
@@ -90,6 +91,11 @@ class HeroBlock(StructBlock):
     subheading = TextBlock(
         required=False,
         help_text="Text below the heading"
+    )
+    supporting_line = CharBlock(
+        max_length=300,
+        required=False,
+        help_text="Optional small line below the subheading (e.g., 'Serving Vancouver Island since 2018')",
     )
     button_text = CharBlock(
         max_length=50,
@@ -101,6 +107,17 @@ class HeroBlock(StructBlock):
         required=False,
         default="/booking/",
         help_text="Where the button links to (e.g. /booking/ or https://example.com)"
+    )
+    secondary_button_text = CharBlock(
+        max_length=50,
+        required=False,
+        help_text="Text for a second button (e.g., 'Learn About Thermography')",
+    )
+    secondary_button_link = CharBlock(
+        max_length=200,
+        required=False,
+        default="/resources/",
+        help_text="Where the second button links to (e.g. /resources/)",
     )
     background_image = ImageChooserBlock(
         required=False,
@@ -162,7 +179,10 @@ class TextWithImageBlock(StructBlock):
     text = RichTextBlock(
         help_text="Formatted text — supports bold, links, lists, etc."
     )
-    image = ImageChooserBlock()
+    image = ImageChooserBlock(
+        required=False,
+        help_text="Photo for this section (optional). Without an image, text spans full width.",
+    )
     image_position = ChoiceBlock(
         choices=[("left", "Left"), ("right", "Right")],
         default="right",
@@ -243,6 +263,20 @@ class ChecklistBlock(StructBlock):
     heading = CharBlock(max_length=200, default="What to Expect")
     intro = TextBlock(required=False, help_text="Optional intro text above the list.")
     items = ListBlock(ChecklistItemBlock())
+    button_text = CharBlock(
+        max_length=50,
+        required=False,
+        help_text="Optional button text (e.g. 'Learn More About Your First Visit').",
+    )
+    button_link = CharBlock(
+        max_length=200,
+        required=False,
+        help_text="Where the button links to (e.g. /your-first-visit/).",
+    )
+    image = ImageChooserBlock(
+        required=False,
+        help_text="Optional image beside the checklist (e.g. calm clinic room).",
+    )
 
     class Meta:
         template = "home/blocks/checklist_block.html"
@@ -310,11 +344,11 @@ class WhyChooseUsBlock(StructBlock):
 
 
 # ---------------------------------------------------------------------------
-# TestimonialBlock (existing)
+# TestimonialBlock (legacy inline — kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
 class TestimonialBlock(StructBlock):
-    """A client testimonial/quote."""
+    """A client testimonial/quote (inline — typed per block)."""
     quote = TextBlock(help_text="The testimonial text")
     author = CharBlock(max_length=100, help_text="Client name")
     role = CharBlock(
@@ -326,8 +360,46 @@ class TestimonialBlock(StructBlock):
     class Meta:
         template = "home/blocks/testimonial_block.html"
         icon = "openquote"
-        label = "Testimonial"
-        description = "A client quote/review — adds social proof and builds trust."
+        label = "Testimonial (inline)"
+        description = "A single inline quote — prefer 'Testimonials' which auto-pulls from Snippets."
+
+
+# ---------------------------------------------------------------------------
+# TestimonialsCarouselBlock — auto-pulls from Testimonial snippets
+# ---------------------------------------------------------------------------
+
+class TestimonialsCarouselBlock(StructBlock):
+    """
+    Displays featured testimonials from the Testimonial snippet.
+    No manual entry needed — the owner manages testimonials once
+    in Snippets → Testimonials and they appear here automatically.
+    """
+    heading = CharBlock(
+        max_length=200,
+        default="What Our Clients Say",
+        help_text="Section heading.",
+    )
+    show_count = IntegerBlock(
+        default=3,
+        min_value=1,
+        max_value=6,
+        help_text="How many testimonials to display (1–6).",
+    )
+
+    def get_context(self, value, parent_context=None):
+        context = super().get_context(value, parent_context=parent_context)
+        from home.models import Testimonial
+        context["testimonials"] = list(
+            Testimonial.objects.filter(is_featured=True)
+        )
+        context["per_page"] = value["show_count"]
+        return context
+
+    class Meta:
+        template = "home/blocks/testimonials_carousel_block.html"
+        icon = "openquote"
+        label = "Testimonials"
+        description = "Auto-pulls featured client testimonials from the Snippets list — no manual typing needed."
 
 
 # ---------------------------------------------------------------------------
@@ -383,8 +455,16 @@ class CallToActionBlock(StructBlock):
     """A highlighted banner with a heading and button."""
     heading = CharBlock(max_length=200)
     text = TextBlock(required=False)
-    button_text = CharBlock(max_length=50, default="Book Now")
-    button_link = CharBlock(max_length=200, default="/booking/", help_text="e.g. /booking/ or https://example.com")
+    button_text = CharBlock(max_length=50, required=False, help_text="Button label (leave blank for no button).")
+    button_link = CharBlock(max_length=200, required=False, help_text="Where the button links to (e.g. /booking/).")
+    style = ChoiceBlock(
+        choices=[
+            ("bold", "Bold — coloured background"),
+            ("subtle", "Subtle — light background with border"),
+        ],
+        default="bold",
+        help_text="Visual weight of this section.",
+    )
 
     class Meta:
         template = "home/blocks/cta_block.html"
@@ -446,3 +526,30 @@ class ProcessStepsBlock(StructBlock):
         icon = "order"
         label = "Process Steps"
         description = "A numbered 'How It Works' section — shows visitors the booking process step by step."
+
+
+# ---------------------------------------------------------------------------
+# UpcomingClinicsBlock — auto-pulls featured pop-up locations
+# ---------------------------------------------------------------------------
+
+class UpcomingClinicsBlock(StructBlock):
+    """
+    Displays all clinic locations on the homepage:
+    - Permanent home clinic(s) shown prominently with map embed
+    - Upcoming pop-up / travelling clinics shown in a card grid
+
+    No manual content entry needed — the owner manages locations
+    in Snippets → Locations and they appear here automatically.
+    Past pop-up events are hidden automatically.
+    """
+    heading = CharBlock(max_length=200, default="Our Locations")
+    subheading = TextBlock(
+        required=False,
+        help_text="Optional text below the heading.",
+    )
+
+    class Meta:
+        template = "home/blocks/upcoming_clinics_block.html"
+        icon = "site"
+        label = "Clinic Locations"
+        description = "Shows your permanent home clinic and upcoming pop-up clinics. Managed from Snippets → Locations."

@@ -7,3 +7,5 @@ healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+# Override the Dockerfile CMD — Railway injects PORT automatically
+startCommand = "python manage.py migrate --noinput && gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"

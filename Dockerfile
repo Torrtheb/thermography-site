@@ -40,7 +40,6 @@ USER wagtail
 # Collect static files (needs a dummy secret key for the build step).
 RUN DJANGO_SECRET_KEY=build-placeholder python manage.py collectstatic --noinput --clear
 
-# Runtime command: start gunicorn only.
-# Migrations are run by deploy-gcloud.sh as a one-off Cloud Run Job before deploy.
-# Cloud Run sets PORT=8000; gunicorn must bind to 0.0.0.0 (not 127.0.0.1).
-CMD set -xe; gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+# Runtime command: run migrations then start gunicorn.
+# Railway sets PORT automatically; gunicorn must bind to 0.0.0.0.
+CMD set -xe; python manage.py migrate --noinput; gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120

@@ -1,4 +1,4 @@
-{% load static contact_tags %}
+{% load static contact_tags wagtailimages_tags %}
 {% get_contact_info as contact %}
 
 <footer class="bg-gray-900 text-gray-300">
@@ -8,9 +8,13 @@
             {# --- Column 1: About --- #}
             <div>
                 <div class="flex items-center gap-3 mb-4">
+                    {% if settings.home.SiteSettings.logo %}
+                    {% image settings.home.SiteSettings.logo max-200x200 alt=settings.home.SiteSettings.business_name class="h-8 w-auto" %}
+                    {% else %}
                     <img src="{% static 'images/logo.png' %}"
-                         alt="{{ settings.home.SiteSettings.business_name }} logo"
+                         alt="{{ settings.home.SiteSettings.business_name }}"
                          class="h-8 w-auto">
+                    {% endif %}
                     <h2 class="text-white text-lg font-bold">{{ settings.home.SiteSettings.business_name }}</h2>
                 </div>
                 <p class="text-gray-400 text-sm leading-relaxed">
@@ -26,6 +30,7 @@
                     <li><a href="/about/" class="hover:text-white transition">About Us</a></li>
                     <li><a href="/resources/" class="hover:text-white transition">Resources</a></li>
                     <li><a href="/faq/" class="hover:text-white transition">FAQ</a></li>
+                    <li><a href="/your-first-visit/" class="hover:text-white transition">Your First Visit</a></li>
                     <li><a href="/booking/" class="hover:text-white transition">Book an Appointment</a></li>
                 </ul>
             </div>

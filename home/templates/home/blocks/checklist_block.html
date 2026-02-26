@@ -1,32 +1,53 @@
-{# --- Checklist: heading + items with checkmarks --- #}
+{# --- Checklist: heading + items with checkmarks + optional image + button --- #}
+{% load wagtailimages_tags %}
 
-<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div data-aos="fade-up">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
-        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
-            {{ value.heading }}
-        </h2>
+    <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4" data-aos="fade-up">
+        {{ value.heading }}
+    </h2>
 
-        {% if value.intro %}
-        <p class="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-10">
-            {{ value.intro }}
-        </p>
-        {% endif %}
+    {% if value.intro %}
+    <p class="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-10" data-aos="fade-up">
+        {{ value.intro }}
+    </p>
+    {% endif %}
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-            <ul class="space-y-4">
-                {% for item in value.items %}
-                <li class="flex items-start gap-3" data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}0">
-                    <div class="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mt-0.5">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                    </div>
-                    <span class="text-gray-700 text-lg">{{ item.text }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+    <div class="flex flex-col md:flex-row items-start gap-8 md:gap-12 max-w-5xl mx-auto">
+
+        {# --- Checklist Side --- #}
+        <div class="w-full {% if value.image %}md:w-1/2{% else %}max-w-2xl mx-auto{% endif %}" data-aos="fade-up">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+                <ul class="space-y-4">
+                    {% for item in value.items %}
+                    <li class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mt-0.5">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 text-lg">{{ item.text }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {% if value.button_text and value.button_link %}
+            <div class="mt-8 text-center md:text-left">
+                <a href="{{ value.button_link }}"
+                   class="inline-block bg-brand-600 hover:bg-brand-700 text-white font-semibold px-8 py-3 rounded-lg transition shadow-sm hover:shadow-md">
+                    {{ value.button_text }}
+                </a>
+            </div>
+            {% endif %}
         </div>
+
+        {# --- Image Side (only if image chosen) --- #}
+        {% if value.image %}
+        <div class="w-full md:w-1/2" data-aos="fade-up" data-aos-delay="100">
+            {% image value.image fill-600x500 class="rounded-xl shadow-lg w-full h-auto" %}
+        </div>
+        {% endif %}
 
     </div>
 </section>

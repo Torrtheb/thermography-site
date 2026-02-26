@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+{# --- Page Header --- #}
+<section class="bg-brand-50 py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {{ page.title }}
+        </h1>
+        {% if page.intro %}
+        <div class="prose prose-lg prose-teal max-w-2xl mx-auto">
+            {{ page.intro|richtext }}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{# ========== STEP-BY-STEP TIMELINE ========== #}
+<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+
+    {# --- Step 1 --- #}
+    {% if page.step1_body %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            1
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">📅</span>
+                {{ page.step1_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step1_body|richtext }}
+            </div>
+            {% if page.step1_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step1_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Step 2 --- #}
+    {% if page.step2_body %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            2
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">📋</span>
+                {{ page.step2_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step2_body|richtext }}
+            </div>
+            {% if page.step2_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step2_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Step 3 --- #}
+    {% if page.step3_body %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            3
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">🩺</span>
+                {{ page.step3_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step3_body|richtext }}
+            </div>
+            {% if page.step3_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step3_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Step 4 --- #}
+    {% if page.step4_body %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            4
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">⏳</span>
+                {{ page.step4_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step4_body|richtext }}
+            </div>
+            {% if page.step4_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step4_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Step 5 --- #}
+    {% if page.step5_body %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            5
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">📊</span>
+                {{ page.step5_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step5_body|richtext }}
+            </div>
+            {% if page.step5_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step5_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Step 6 --- #}
+    {% if page.step6_body %}
+    <div class="relative pl-12 pb-16 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 text-white font-bold text-lg shadow-md">
+            6
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span class="text-brand-600">🔄</span>
+                {{ page.step6_heading }}
+            </h2>
+            <div class="prose prose-teal max-w-none text-gray-600">
+                {{ page.step6_body|richtext }}
+            </div>
+            {% if page.step6_image %}
+            <div class="mt-4 rounded-lg overflow-hidden">
+                {% image page.step6_image width-700 class="w-full h-auto" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</section>
+
+{# --- Testimonials --- #}
+{% load testimonial_tags %}
+{% testimonials_section %}
+
+{# --- Policies (Deposit + Cancellation) --- #}
+{% include "includes/policies.html" %}
+
+{# --- Bottom CTA --- #}
+{% if page.cta_text %}
+<section class="bg-brand-50 py-16" data-aos="fade-up">
+    <div class="max-w-2xl mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold text-gray-900 mb-6">
+            {{ page.cta_text }}
+        </h2>
+        <a href="{{ page.cta_button_url }}"
+           class="inline-block bg-brand-600 text-white font-semibold px-10 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
+            {{ page.cta_button_text }}
+        </a>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -5,10 +5,10 @@
 
 <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
     <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12
-                {% if value.image_position == 'left' %}md:flex-row-reverse{% endif %}">
+                {% if value.image and value.image_position == 'left' %}md:flex-row-reverse{% endif %}">
 
         {# --- Text Side --- #}
-        <div class="w-full md:w-1/2" data-aos="fade-up">
+        <div class="w-full {% if value.image %}md:w-1/2{% else %}max-w-3xl mx-auto{% endif %}" data-aos="fade-up">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">
                 {{ value.heading }}
             </h2>
@@ -17,10 +17,12 @@
             </div>
         </div>
 
-        {# --- Image Side --- #}
+        {# --- Image Side (only if an image was chosen) --- #}
+        {% if value.image %}
         <div class="w-full md:w-1/2" data-aos="fade-up" data-aos-delay="100">
-            {% image value.image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% image value.image fill-800x600 class="rounded-xl shadow-lg w-full h-auto" %}
         </div>
+        {% endif %}
 
     </div>
 </section>

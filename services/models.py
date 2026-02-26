@@ -42,8 +42,47 @@ class ServicesIndexPage(Page):
         help_text="Optional intro text shown above the services grid.",
     )
 
+    intro_image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Optional image displayed in the intro section.",
+    )
+
+    includes_heading = models.CharField(
+        max_length=100,
+        default="Every service includes",
+        blank=True,
+        help_text="Heading for the 'what's included' card below the intro.",
+    )
+
+    includes_items = RichTextField(
+        blank=True,
+        features=["ul", "ol", "bold"],
+        help_text="Bullet list of what every service includes (use a bulleted list).",
+    )
+
+    includes_note = models.CharField(
+        max_length=200,
+        blank=True,
+        default="Reports are typically available within 3\u20134 weeks.",
+        help_text="Small note shown below the included items (e.g., turnaround time).",
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
+        FieldPanel("intro_image"),
+        MultiFieldPanel(
+            [
+                FieldPanel("includes_heading"),
+                FieldPanel("includes_items"),
+                FieldPanel("includes_note"),
+            ],
+            heading="What's Included Card",
+            help_text="The card shown below the intro, listing what every service includes.",
+        ),
     ]
 
     # --- Page hierarchy rules ---
@@ -101,15 +140,15 @@ class ServicePage(Page):
         help_text="Optional image for this service.",
     )
 
+    image_caption = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="Optional caption displayed below the service image.",
+    )
+
     is_featured = models.BooleanField(
         default=False,
         help_text="Featured services may be highlighted on the homepage.",
-    )
-
-    cal_booking_url = models.URLField(
-        blank=True,
-        help_text="Cal.com event type URL for this service (e.g., https://cal.com/yourname/breast-scan). "
-                  "Create a matching Event Type in Cal.com with the correct duration.",
     )
 
     # --- Admin panel layout ---
@@ -123,15 +162,14 @@ class ServicePage(Page):
             ],
             heading="Pricing & Duration",
         ),
-        FieldPanel("service_image"),
-        FieldPanel("is_featured"),
         MultiFieldPanel(
             [
-                FieldPanel("cal_booking_url"),
+                FieldPanel("service_image"),
+                FieldPanel("image_caption"),
             ],
-            heading="Online Booking",
-            help_text="Paste the Cal.com event type URL so clients can book this specific service.",
+            heading="Service Image",
         ),
+        FieldPanel("is_featured"),
     ]
 
     # --- Page hierarchy rules ---

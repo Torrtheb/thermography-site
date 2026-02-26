@@ -2,10 +2,12 @@
 Wagtail admin customizations for a non-technical site owner.
 
 - Custom welcome panel with simple instructions on the admin dashboard
+- GoatCounter analytics panel embedded in the dashboard
 - Simplified sidebar (hides confusing menu items)
 - Friendly admin title
 """
 
+from django.conf import settings
 from django.utils.safestring import mark_safe
 
 from django.forms import Media
@@ -67,9 +69,65 @@ class WelcomePanel:
 
 @hooks.register("construct_homepage_panels")
 def add_welcome_panel(request, panels):
-    """Replace the default dashboard panels with a friendly welcome guide."""
+    """Replace the default dashboard panels with a friendly welcome guide + analytics."""
     panels.clear()
     panels.append(WelcomePanel())
+
+    # Add analytics panel if GoatCounter is configured
+    site_code = getattr(settings, "GOATCOUNTER_SITE_CODE", "")
+    if site_code:
+        panels.append(AnalyticsPanel(site_code))
+
+
+# ---------------------------------------------------------------------------
+# GoatCounter analytics panel — shows site stats right on the dashboard
+# ---------------------------------------------------------------------------
+
+class AnalyticsPanel:
+    """
+    Embeds GoatCounter's public dashboard in the Wagtail admin homepage.
+
+    GoatCounter allows embedding via its public URL. The panel shows a
+    direct link to the full dashboard plus a summary of what it tracks.
+
+    For the iframe to work, the GoatCounter site must have "Allow embedding"
+    enabled at Settings → Site Settings → Allow embedding from other sites.
+    """
+
+    order = 20  # after the welcome panel
+
+    def __init__(self, site_code):
+        self.site_code = site_code
+
+    @property
+    def media(self):
+        return Media()
+
+    def render(self):
+        dashboard_url = f"https://{self.site_code}.goatcounter.com"
+        return mark_safe(
+            f'<section class="panel summary nice-padding">'
+            f'<h2 style="margin-top:0;">\U0001f4ca Site Analytics</h2>'
+            f'<p style="color:#555;">'
+            f'Your website analytics are tracked by '
+            f'<a href="{dashboard_url}" target="_blank" '
+            f'style="color:#2d6a4f; font-weight:600;">GoatCounter</a> '
+            f'— privacy-friendly, no cookies, GDPR-compliant.'
+            f'</p>'
+            f'<div style="margin: 1em 0;">'
+            f'<iframe src="{dashboard_url}" '
+            f'style="width:100%; height:500px; border:1px solid #ddd; border-radius:8px;" '
+            f'loading="lazy" title="GoatCounter Analytics"></iframe>'
+            f'</div>'
+            f'<p style="color:#888; font-size:0.9em;">'
+            f'\U0001f4a1 <em>If the panel above is blank, '
+            f'<a href="{dashboard_url}/settings/main" target="_blank" '
+            f'style="color:#2d6a4f;">enable embedding</a> in your GoatCounter settings, '
+            f'or <a href="{dashboard_url}" target="_blank" style="color:#2d6a4f;">'
+            f'open the full dashboard</a> in a new tab.</em>'
+            f'</p>'
+            f'</section>'
+        )
 
 
 # ---------------------------------------------------------------------------

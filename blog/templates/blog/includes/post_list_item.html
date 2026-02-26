@@ -1,0 +1,47 @@
+{% load wagtailcore_tags wagtailimages_tags %}
+{% pageurl post as detail_url %}
+<article class="flex items-start gap-5 py-5 border-b border-gray-100 last:border-b-0 group"
+         data-aos="fade-up">
+
+    {# --- Thumbnail (only shown when image exists) --- #}
+    {% if post.cover_image %}
+    <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+       {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+       aria-label="{{ post.title }}"
+       class="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-brand-50 flex items-center justify-center">
+        {% image post.cover_image fill-96x96 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" %}
+    </a>
+    {% endif %}
+
+    {# --- Content --- #}
+    <div class="flex-grow min-w-0">
+        {# Title #}
+        <h3 class="text-lg font-semibold text-gray-900 mb-1 leading-snug">
+            <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+               {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+               class="hover:text-brand-600 transition">
+                {{ post.title }}
+                {% if post.is_external %}<span class="text-gray-400 text-sm ml-1">↗</span>{% endif %}
+            </a>
+        </h3>
+
+        {# Excerpt #}
+        <p class="text-gray-600 text-sm leading-relaxed mb-2 line-clamp-2">
+            {{ post.excerpt }}
+        </p>
+
+        {# Meta row #}
+        <div class="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+            <time datetime="{{ post.publish_date|date:'Y-m-d' }}">
+                {{ post.publish_date|date:"M d, Y" }}
+            </time>
+            <span class="hidden sm:inline">·</span>
+            <span class="hidden sm:inline">{{ post.author_name }}</span>
+            <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
+               {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
+               class="text-brand-600 hover:text-brand-700 font-medium transition ml-auto">
+                {% if post.is_external %}Visit ↗{% else %}Read →{% endif %}
+            </a>
+        </div>
+    </div>
+</article>

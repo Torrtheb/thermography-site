@@ -29,6 +29,7 @@ from wagtail.fields import RichTextField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.images import get_image_model_string
 from wagtail.search import index
+from wagtail.snippets.models import register_snippet
 
 
 CATEGORY_CHOICES = [
@@ -72,8 +73,10 @@ class BlogIndexPage(Page):
         context["active_category"] = active_category
         context["categories"] = CATEGORY_CHOICES
 
-        if active_category:
+        if active_category and active_category != "experts":
             context["posts"] = [p for p in all_posts if p.category == active_category]
+        elif active_category == "experts":
+            context["posts"] = []  # no blog posts when viewing experts
         else:
             context["posts"] = all_posts
 
@@ -87,6 +90,9 @@ class BlogIndexPage(Page):
                     "label": label,
                     "posts": section_posts,
                 })
+
+        # Meet the Experts — auto-pull active Expert snippets
+        context["experts"] = Expert.objects.filter(is_active=True)
 
         return context
 
@@ -205,3 +211,100 @@ class BlogPage(Page):
 
     class Meta:
         verbose_name = "Blog Post"
+
+
+# ──────────────────────────────────────────────────────────
+# Expert (Wagtail Snippet — "Meet the Experts" on Resources page)
+# ──────────────────────────────────────────────────────────
+
+SPECIALTY_CHOICES = [
+    ("thermographer", "Thermographer"),
+    ("hormone-practitioner", "Hormone Practitioner"),
+    ("naturopath", "Naturopath"),
+    ("health-coach", "Health Coach"),
+    ("other", "Other"),
+]
+
+
+@register_snippet
+class Expert(index.Indexed, models.Model):
+    """
+    A practitioner or key partner highlighted on the Resources page.
+
+    The owner manages these from Wagtail admin → Snippets → Experts.
+    """
+
+    name = models.CharField(
+        max_length=150,
+        help_text="Full name (e.g., 'Dr. Jane Smith').",
+    )
+
+    specialty = models.CharField(
+        max_length=50,
+        choices=SPECIALTY_CHOICES,
+        default="thermographer",
+        help_text="Primary specialty — used for the badge label.",
+    )
+
+    title_role = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Professional title, e.g. 'Certified Clinical Thermographer' or 'RHN, Hormone Health Specialist'.",
+    )
+
+    photo = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Professional headshot (square crop works best).",
+    )
+
+    bio = models.TextField(
+        help_text="Short bio (2–4 sentences). What they do & why they're great.",
+    )
+
+    website = models.URLField(
+        blank=True,
+        help_text="Link to their website or profile (optional).",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck to hide without deleting.",
+    )
+
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Lower numbers appear first.",
+    )
+
+    panels = [
+        MultiFieldPanel(
+            [
+                FieldPanel("name"),
+                FieldPanel("specialty"),
+                FieldPanel("title_role"),
+            ],
+            heading="Identity",
+        ),
+        FieldPanel("photo"),
+        FieldPanel("bio"),
+        FieldPanel("website"),
+        FieldPanel("is_active"),
+        FieldPanel("sort_order"),
+    ]
+
+    search_fields = [
+        index.SearchField("name"),
+        index.SearchField("bio"),
+    ]
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Expert"
+        verbose_name_plural = "Experts"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_specialty_display()})"

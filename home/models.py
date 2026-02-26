@@ -1,6 +1,7 @@
 """
 HomePage model — defines what fields the owner can edit in the admin.
 SiteSettings — site-wide branding (name, tagline) editable from admin.
+Testimonial snippet — reusable client testimonials managed from Wagtail admin.
 
 Uses StreamField so the owner can add, remove, and reorder sections freely.
 """
@@ -11,6 +12,9 @@ from wagtail.models import Page
 from wagtail.fields import StreamField, RichTextField
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.contrib.settings.models import BaseSiteSetting, register_setting
+from wagtail.images import get_image_model_string
+from wagtail.search import index
+from wagtail.snippets.models import register_snippet
 
 from .blocks import (
     AnnouncementBlock,
@@ -23,11 +27,13 @@ from .blocks import (
     TrustBlock,
     WhyChooseUsBlock,
     TestimonialBlock,
+    TestimonialsCarouselBlock,
     NewsItemBlock,
     FAQPreviewBlock,
     CallToActionBlock,
     BigCTABlock,
     ProcessStepsBlock,
+    UpcomingClinicsBlock,
 )
 
 # We also use Wagtail's built-in RichTextBlock for free-form text sections
@@ -64,11 +70,13 @@ class HomePage(Page):
             ("trust", TrustBlock()),
             ("why_choose_us", WhyChooseUsBlock()),
             ("testimonial", TestimonialBlock()),
+            ("testimonials", TestimonialsCarouselBlock()),
             ("news_item", NewsItemBlock()),
             ("faq_preview", FAQPreviewBlock()),
             ("call_to_action", CallToActionBlock()),
             ("big_cta", BigCTABlock()),
             ("process_steps", ProcessStepsBlock()),
+            ("upcoming_clinics", UpcomingClinicsBlock()),
         ],
         use_json_field=True,  # required by Wagtail for new StreamFields
         blank=True,           # allows the page to be saved with no blocks
@@ -99,8 +107,17 @@ class SiteSettings(BaseSiteSetting):
 
     business_name = models.CharField(
         max_length=100,
-        default="Thermography Vancouver Island",
+        default="Thermography Clinic Vancouver Island",
         help_text="Business name shown in the header and footer.",
+    )
+
+    logo = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Business logo shown in the header. Upload a transparent PNG for best results.",
     )
 
     tagline = models.TextField(
@@ -114,16 +131,129 @@ class SiteSettings(BaseSiteSetting):
         help_text="Cancellation/rescheduling policy shown on the booking and services pages. Leave blank to hide.",
     )
 
+    deposit_policy = RichTextField(
+        blank=True,
+        help_text="Deposit/payment policy shown alongside the cancellation policy. Leave blank to hide.",
+    )
+
+    payment_methods = RichTextField(
+        blank=True,
+        help_text="Accepted payment methods (e.g. e-Transfer, credit card, cash). Shown on the booking page.",
+    )
+
     panels = [
         MultiFieldPanel(
             [
                 FieldPanel("business_name"),
+                FieldPanel("logo"),
                 FieldPanel("tagline"),
             ],
             heading="Branding",
         ),
-        FieldPanel("cancellation_policy"),
+        MultiFieldPanel(
+            [
+                FieldPanel("cancellation_policy"),
+                FieldPanel("deposit_policy"),
+                FieldPanel("payment_methods"),
+            ],
+            heading="Policies",
+        ),
     ]
 
     class Meta:
         verbose_name = "Site Settings"
+
+
+# ──────────────────────────────────────────────────────────
+# Testimonial (Wagtail Snippet — editable from admin sidebar)
+# ──────────────────────────────────────────────────────────
+
+@register_snippet
+class Testimonial(index.Indexed, models.Model):
+    """
+    A client testimonial/review.
+
+    The owner manages these from Wagtail admin → Snippets → Testimonials.
+    Featured testimonials appear automatically on high-traffic pages.
+    """
+
+    quote = models.TextField(
+        help_text="The testimonial text (1–3 sentences works best).",
+    )
+
+    author_name = models.CharField(
+        max_length=120,
+        help_text="Client's name (or initials for privacy, e.g. 'Sarah M.').",
+    )
+
+    role = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Optional context, e.g. 'Client since 2023' or 'Referred by Dr. Smith'.",
+    )
+
+    service = models.ForeignKey(
+        "services.ServicePage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="testimonials",
+        help_text="Link to a specific service (optional). Shows relevant testimonials on service pages.",
+    )
+
+    photo = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Optional client photo (displayed as a small avatar).",
+    )
+
+    star_rating = models.PositiveSmallIntegerField(
+        default=5,
+        choices=[(i, f"{i} star{'s' if i != 1 else ''}") for i in range(1, 6)],
+        help_text="Star rating (1–5).",
+    )
+
+    is_featured = models.BooleanField(
+        default=False,
+        help_text="Featured testimonials appear on high-traffic pages (booking, first visit).",
+    )
+
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Lower numbers appear first.",
+    )
+
+    panels = [
+        FieldPanel("quote"),
+        MultiFieldPanel(
+            [
+                FieldPanel("author_name"),
+                FieldPanel("role"),
+                FieldPanel("photo"),
+            ],
+            heading="Author",
+        ),
+        FieldPanel("service"),
+        FieldPanel("star_rating"),
+        FieldPanel("is_featured"),
+        FieldPanel("sort_order"),
+    ]
+
+    search_fields = [
+        index.SearchField("quote"),
+        index.SearchField("author_name"),
+    ]
+
+    class Meta:
+        ordering = ["sort_order", "-pk"]
+        verbose_name = "Testimonial"
+        verbose_name_plural = "Testimonials"
+
+    def __str__(self):
+        short = self.quote[:50]
+        if len(self.quote) > 50:
+            return f'"{short}…" — {self.author_name}'
+        return f'"{self.quote}" — {self.author_name}'

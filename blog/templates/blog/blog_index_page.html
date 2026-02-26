@@ -33,20 +33,33 @@
                 {{ label }}
             </a>
             {% endfor %}
+            {% if experts %}
+            <a href="{% pageurl page %}?category=experts"
+               class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition
+                      {% if active_category == 'experts' %}border-brand-600 text-brand-700{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Meet the Experts
+            </a>
+            {% endif %}
         </nav>
     </div>
 </section>
 {% endif %}
 
-{# --- Content Area --- #}
+{# --- Content Area (hidden when viewing experts only) --- #}
+{% if active_category != 'experts' %}
 <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
 {% if active_category %}
     {# --- Filtered View: showing one category --- #}
+    {% for slug, label in categories %}
+        {% if slug == active_category %}
+        <h2 class="text-2xl font-bold text-gray-900 mb-8" data-aos="fade-up">{{ label }}</h2>
+        {% endif %}
+    {% endfor %}
     {% if posts %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100 px-5">
         {% for post in posts %}
-        {% include "blog/includes/post_card.html" with post=post %}
+        {% include "blog/includes/post_list_item.html" with post=post %}
         {% endfor %}
     </div>
     {% else %}
@@ -62,9 +75,9 @@
         <h2 class="text-2xl font-bold text-gray-900 mb-8" data-aos="fade-up">
             {{ section.label }}
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100 px-5">
             {% for post in section.posts %}
-            {% include "blog/includes/post_card.html" with post=post %}
+            {% include "blog/includes/post_list_item.html" with post=post %}
             {% endfor %}
         </div>
     </div>
@@ -78,4 +91,71 @@
 {% endif %}
 
 </section>
+{% endif %}
+
+{# --- Meet the Experts (shown on "All" view and "experts" filter) --- #}
+{% if experts and active_category != 'articles' and active_category != 'what-is-thermography' %}
+<section class="bg-gray-50 py-16" id="experts">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="text-center mb-12" data-aos="fade-up">
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                Meet the Experts
+            </h2>
+            <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+                Trusted practitioners and partners in your health journey
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {% for expert in experts %}
+            <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+                 data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}00">
+
+                {# Photo + Specialty badge #}
+                <div class="relative">
+                    {% if expert.photo %}
+                    {% image expert.photo fill-400x400 class="w-full h-64 object-cover" %}
+                    {% else %}
+                    <div class="w-full h-64 bg-brand-100 flex items-center justify-center">
+                        <span class="text-brand-600 text-6xl font-bold">{{ expert.name.0 }}</span>
+                    </div>
+                    {% endif %}
+
+                    {# Specialty badge #}
+                    <span class="absolute top-4 right-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                        {% if expert.specialty == 'thermographer' %}bg-brand-100 text-brand-800
+                        {% elif expert.specialty == 'hormone-practitioner' %}bg-purple-100 text-purple-800
+                        {% elif expert.specialty == 'naturopath' %}bg-green-100 text-green-800
+                        {% elif expert.specialty == 'health-coach' %}bg-amber-100 text-amber-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ expert.get_specialty_display }}
+                    </span>
+                </div>
+
+                {# Info #}
+                <div class="p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-1">{{ expert.name }}</h3>
+                    {% if expert.title_role %}
+                    <p class="text-brand-600 text-sm font-medium mb-3">{{ expert.title_role }}</p>
+                    {% endif %}
+                    <p class="text-gray-600 text-sm leading-relaxed mb-4">{{ expert.bio }}</p>
+                    {% if expert.website %}
+                    <a href="{{ expert.website }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 text-sm font-medium transition">
+                        Visit Website
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </a>
+                    {% endif %}
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</section>
+{% endif %}
 {% endblock %}

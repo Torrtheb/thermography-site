@@ -1,17 +1,70 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags wagtailimages_tags %}
 
+{% block extra_css %}
+<style>
+    .includes-list ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+    @media (min-width: 640px) { .includes-list ul { grid-template-columns: repeat(2, 1fr); column-gap: 1.5rem; } }
+    .includes-list li { position: relative; padding-left: 1.75rem; font-size: 0.875rem; line-height: 1.5; color: #374151; }
+    .includes-list li::before {
+        content: '';
+        position: absolute; left: 0; top: 0.15em;
+        width: 1rem; height: 1rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23458a95'%3E%3Cpath fill-rule='evenodd' d='M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z' clip-rule='evenodd'/%3E%3C/svg%3E");
+        background-size: contain; background-repeat: no-repeat;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 {# --- Page Header --- #}
-<section class="bg-brand-50 py-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+<section class="bg-brand-50 py-16 md:py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h1 class="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
             {{ page.title }}
         </h1>
         {% if page.intro %}
-        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-            {{ page.intro }}
-        </p>
+        <div class="max-w-4xl mx-auto">
+            <p class="text-lg md:text-xl leading-relaxed mb-8 text-gray-700">
+                {{ page.intro }}
+            </p>
+
+            {# --- What's Included (editable from admin) --- #}
+            {% if page.includes_items %}
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 md:p-8 text-left" data-aos="fade-up" data-aos-delay="100">
+                <div class="flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
+                    {# --- Left: checklist content --- #}
+                    <div class="flex-1">
+                        {% if page.includes_heading %}
+                        <h2 class="text-base font-semibold text-brand-700 uppercase tracking-wide mb-4">
+                            {{ page.includes_heading }}
+                        </h2>
+                        {% endif %}
+                        <div class="includes-list">
+                            {{ page.includes_items|richtext }}
+                        </div>
+                        {% if page.includes_note %}
+                        <p class="text-xs text-gray-500 mt-4 flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                            {{ page.includes_note }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    {# --- Right: intro image --- #}
+                    {% if page.intro_image %}
+                    <div class="md:w-2/5 flex-shrink-0">
+                        <div class="rounded-lg overflow-hidden shadow-sm">
+                            {% image page.intro_image fill-400x300 class="w-full h-auto" %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </section>
@@ -21,18 +74,19 @@
     {% if services %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {% for service in services %}
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
-             data-aos="fade-up"
-             data-aos-delay="{% cycle '0' '100' '200' %}">
+        <a href="{% pageurl service %}"
+           class="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg hover:border-brand-300 transition-all duration-300 overflow-hidden flex flex-col"
+           data-aos="fade-up"
+           data-aos-delay="{% cycle '0' '100' '200' %}">
 
             {# --- Service Image --- #}
             {% if service.service_image %}
             <div class="h-48 overflow-hidden">
-                {% image service.service_image fill-400x200 class="w-full h-full object-cover" %}
+                {% image service.service_image fill-400x200 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" %}
             </div>
             {% else %}
-            <div class="h-48 bg-brand-100 flex items-center justify-center">
-                <svg class="w-16 h-16 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="h-48 bg-brand-50 flex items-center justify-center">
+                <svg class="w-16 h-16 text-brand-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                           d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" />
                 </svg>
@@ -41,40 +95,22 @@
 
             {# --- Card Body --- #}
             <div class="p-6 flex flex-col flex-grow">
-                <h2 class="text-xl font-bold text-gray-900 mb-2">
+                <h3 class="text-xl font-bold text-gray-900 mb-2 group-hover:text-brand-700 transition-colors">
                     {{ service.title }}
-                </h2>
-                <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
+                </h3>
+                <p class="text-gray-600 text-sm leading-relaxed mb-6 flex-grow">
                     {{ service.short_summary }}
                 </p>
 
-                {# --- Price & Duration --- #}
-                <div class="flex items-center justify-between mb-4">
-                    <span class="text-2xl font-bold text-brand-700">
-                        {{ service.price_label }}
-                    </span>
-                    {% if service.duration_label %}
-                    <span class="text-sm text-gray-500">
-                        {{ service.duration_label }}
-                    </span>
-                    {% endif %}
-                </div>
-
-                {# --- Link to detail page --- #}
-                <a href="{% pageurl service %}"
-                   class="block text-center bg-brand-600 text-white py-3 rounded-lg hover:bg-brand-700 transition font-medium">
-                    Learn More
-                </a>
-
-                {# --- Book This Service --- #}
-                {% if service.cal_booking_url %}
-                <a href="/booking/?service={{ service.slug }}"
-                   class="block text-center border-2 border-brand-600 text-brand-600 py-3 rounded-lg hover:bg-brand-50 transition font-medium mt-2">
-                    Book Now
-                </a>
-                {% endif %}
+                {# --- Learn More (no price shown) --- #}
+                <span class="inline-flex items-center justify-center gap-2 text-brand-600 font-medium text-sm group-hover:text-brand-700 transition-colors mt-auto">
+                    Learn more
+                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                </span>
             </div>
-        </div>
+        </a>
         {% endfor %}
     </div>
     {% else %}
@@ -84,21 +120,6 @@
     {% endif %}
 </section>
 
-{# --- Cancellation Policy --- #}
-{% if settings.home.SiteSettings.cancellation_policy %}
-<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
-    <div class="bg-gray-50 border border-gray-200 rounded-xl p-8" data-aos="fade-up">
-        <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-            </svg>
-            Cancellation Policy
-        </h3>
-        <div class="prose prose-sm prose-teal max-w-none text-gray-600">
-            {{ settings.home.SiteSettings.cancellation_policy|richtext }}
-        </div>
-    </div>
-</section>
-{% endif %}
+{# --- Policies (Deposit + Cancellation) --- #}
+{% include "includes/policies.html" %}
 {% endblock %}

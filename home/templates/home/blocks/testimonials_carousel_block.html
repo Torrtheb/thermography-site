@@ -1,0 +1,5 @@
+{# --- Testimonials Carousel Block — auto-pulls from Testimonial snippets --- #}
+{# Delegates to the shared carousel partial with a custom heading #}
+{% with heading=self.heading %}
+{% include "includes/testimonials_section.html" %}
+{% endwith %}

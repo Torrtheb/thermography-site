@@ -59,6 +59,21 @@ if ! gcloud run services describe "$SERVICE_NAME" \
         read -r -p "Paste your DATABASE_URL: " DATABASE_URL
     fi
 
+    if [ -z "${FIELD_ENCRYPTION_KEY:-}" ]; then
+        echo ""
+        echo "Client data is encrypted with a Fernet key."
+        echo "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        echo "IMPORTANT: Back this key up securely — if lost, encrypted client data is unrecoverable."
+        read -r -p "Paste your FIELD_ENCRYPTION_KEY: " FIELD_ENCRYPTION_KEY
+    fi
+
+    if [ -z "${SITE_URL:-}" ]; then
+        echo ""
+        echo "SITE_URL is used for absolute links in emails (e.g. newsletter unsubscribe)."
+        echo "This will be auto-set to the Cloud Run URL after first deploy."
+        SITE_URL=""  # Will be set after deploy in step 7
+    fi
+
     echo ""
     echo "✅  Secrets captured. Starting deployment..."
     echo ""
@@ -107,8 +122,9 @@ gcloud artifacts repositories create "$AR_REPO" \
 echo "→ Creating GCS bucket for media uploads..."
 if ! gsutil ls -b "gs://$BUCKET_NAME" 2>/dev/null; then
     gsutil mb -p "$PROJECT_ID" -l "$REGION" -b on "gs://$BUCKET_NAME"
-    # Allow public read access for media files (images shown on website)
-    gsutil iam ch allUsers:objectViewer "gs://$BUCKET_NAME"
+    # Bucket is NOT public — media is served via signed URLs generated
+    # by the Cloud Run service account. This prevents accidental exposure
+    # of any file that ends up in the bucket.
     # Set CORS for the bucket (needed for some Wagtail features)
     cat > /tmp/cors.json << 'CORS'
 [
@@ -162,6 +178,7 @@ else
             --set-env-vars "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" \
             --set-env-vars "DATABASE_URL=$DATABASE_URL" \
             --set-env-vars "GS_BUCKET_NAME=$BUCKET_NAME" \
+            --set-env-vars "FIELD_ENCRYPTION_KEY=$FIELD_ENCRYPTION_KEY" \
             --project="$PROJECT_ID"
     else
         # Existing service but missing job: bootstrap job from service env vars.
@@ -219,6 +236,7 @@ if [ "$FIRST_DEPLOY" = true ]; then
         --set-env-vars "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" \
         --set-env-vars "DATABASE_URL=$DATABASE_URL" \
         --set-env-vars "GS_BUCKET_NAME=$BUCKET_NAME" \
+        --set-env-vars "FIELD_ENCRYPTION_KEY=$FIELD_ENCRYPTION_KEY" \
         --project="$PROJECT_ID"
 else
     # Subsequent deploys: just update the image, keep existing env vars
@@ -238,13 +256,14 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
 SERVICE_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
 
 if [ "$FIRST_DEPLOY" = true ]; then
-    echo "→ Setting ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS..."
+    echo "→ Setting ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, and SITE_URL..."
     gcloud run services update "$SERVICE_NAME" \
         --region "$REGION" \
         --update-env-vars "\
 ALLOWED_HOSTS=$SERVICE_HOST,\
 CSRF_TRUSTED_ORIGINS=$SERVICE_URL,\
-WAGTAILADMIN_BASE_URL=$SERVICE_URL\
+WAGTAILADMIN_BASE_URL=$SERVICE_URL,\
+SITE_URL=$SERVICE_URL\
 " \
         --project="$PROJECT_ID"
 fi

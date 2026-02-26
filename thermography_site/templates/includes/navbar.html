@@ -1,67 +1,77 @@
-{% load static %}
+{% load static wagtailimages_tags %}
 
 <nav class="bg-white shadow-sm sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
+        <div class="flex justify-between items-center py-3">
 
-            {# --- Logo / Business Name --- #}
+            {# --- Logo + Business Name --- #}
             <div class="flex-shrink-0">
-                <a href="/" class="flex items-center gap-3 hover:opacity-90 transition">
+                <a href="/" class="flex items-center gap-2 hover:opacity-90 transition">
+                    {% if settings.home.SiteSettings.logo %}
+                    {% image settings.home.SiteSettings.logo max-400x400 alt=settings.home.SiteSettings.business_name class="h-16 sm:h-18 lg:h-20 w-auto flex-shrink-0" %}
+                    {% else %}
                     <img src="{% static 'images/logo.png' %}"
-                         alt="{{ settings.home.SiteSettings.business_name }} logo"
-                         class="h-10 w-auto">
-                    <span class="text-xl font-bold text-brand-700 hidden sm:inline">
+                         alt="{{ settings.home.SiteSettings.business_name }}"
+                         class="h-16 sm:h-18 lg:h-20 w-auto flex-shrink-0">
+                    {% endif %}
+                    <span class="text-lg sm:text-xl lg:text-2xl font-bold text-brand-700 leading-tight max-w-[180px] sm:max-w-[240px] lg:max-w-xs flex-shrink-0">
                         {{ settings.home.SiteSettings.business_name }}
                     </span>
                 </a>
             </div>
 
             {# --- Desktop Navigation Links --- #}
-            <div class="hidden lg:flex lg:items-center lg:space-x-8">
+            <div class="hidden lg:flex lg:items-center lg:gap-1 xl:gap-4">
                 <a href="/services/"
-                   class="text-gray-600 hover:text-brand-600 transition font-medium">
+                   class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap px-2 py-1">
                     Services
                 </a>
                 <a href="/about/"
-                   class="text-gray-600 hover:text-brand-600 transition font-medium">
+                   class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap px-2 py-1">
                     About Us
                 </a>
 
                 {# --- Resources Dropdown --- #}
                 <div class="relative" id="resources-dropdown">
-                    <button type="button" id="resources-toggle"
-                            class="text-gray-600 hover:text-brand-600 transition font-medium inline-flex items-center gap-1 focus:outline-none">
+                    <a href="/resources/" id="resources-link"
+                       class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap inline-flex items-center gap-0.5 px-2 py-1">
                         Resources
-                        <svg class="w-4 h-4 transition-transform" id="resources-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </button>
+                        <button type="button" id="resources-toggle" aria-label="Toggle resources menu"
+                                class="text-gray-600 hover:text-brand-600 transition focus:outline-none">
+                            <svg class="w-4 h-4 transition-transform" id="resources-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                    </a>
                     <div id="resources-menu"
                          class="hidden absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50">
-                        <a href="/resources/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-600 font-medium transition">
-                            All Resources
-                        </a>
-                        <hr class="my-1 border-gray-100">
                         <a href="/resources/?category=what-is-thermography" class="block px-4 py-2 text-sm text-gray-600 hover:bg-brand-50 hover:text-brand-600 transition">
                             What is Thermography?
                         </a>
                         <a href="/resources/?category=articles" class="block px-4 py-2 text-sm text-gray-600 hover:bg-brand-50 hover:text-brand-600 transition">
                             Articles
                         </a>
+                        <a href="/resources/?category=experts" class="block px-4 py-2 text-sm text-gray-600 hover:bg-brand-50 hover:text-brand-600 transition">
+                            Meet the Experts
+                        </a>
                     </div>
                 </div>
+                <a href="/your-first-visit/"
+                   class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap px-2 py-1">
+                    First Visit
+                </a>
                 <a href="/faq/"
-                   class="text-gray-600 hover:text-brand-600 transition font-medium">
+                   class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap px-2 py-1">
                     FAQ
                 </a>
                 <a href="/contact/"
-                   class="text-gray-600 hover:text-brand-600 transition font-medium">
+                   class="text-gray-600 hover:text-brand-600 transition font-medium text-sm xl:text-base whitespace-nowrap px-2 py-1">
                     Contact
                 </a>
 
                 {# --- Search Toggle --- #}
                 <button id="search-toggle" aria-label="Search"
-                        class="text-gray-600 hover:text-brand-600 transition focus:outline-none">
+                        class="text-gray-600 hover:text-brand-600 transition focus:outline-none px-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -69,7 +79,7 @@
                 </button>
 
                 <a href="/booking/"
-                   class="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 transition font-medium">
+                   class="bg-brand-600 text-white px-4 xl:px-5 py-2 rounded-lg hover:bg-brand-700 transition font-medium text-sm xl:text-base whitespace-nowrap ml-2">
                     Book Now
                 </a>
             </div>
@@ -86,14 +96,14 @@
         </div>
     </div>
 
-    {# --- Mobile Sidebar Overlay (hidden by default) --- #}
-    {# Dark backdrop — covers the page behind the sidebar #}
+    {# --- Mobile Dropdown Overlay (hidden by default) --- #}
+    {# Dark backdrop — covers the page behind the dropdown #}
     <div id="mobile-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" aria-hidden="true"></div>
 
-    {# Sidebar panel — slides in from the right #}
-    <div id="mobile-menu" class="fixed top-0 right-0 h-full w-72 bg-white shadow-xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out">
+    {# Dropdown panel — slides down from the top #}
+    <div id="mobile-menu" class="lg:hidden relative bg-white shadow-xl z-50 overflow-y-auto hidden">
         {# Close button #}
-        <div class="flex justify-end p-4">
+        <div class="flex justify-end px-4 pt-3 pb-1">
             <button id="mobile-menu-close" aria-label="Close menu" class="text-gray-600 hover:text-brand-600 focus:outline-none">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -101,8 +111,8 @@
                 </svg>
             </button>
         </div>
-        {# Sidebar links #}
-        <div class="px-6 py-4 space-y-4">
+        {# Menu links #}
+        <div class="px-6 pb-6 space-y-3">
             {# Mobile search bar #}
             <form action="/search/" method="get" class="relative mb-2">
                 <input type="text" name="query" placeholder="Search…"
@@ -117,22 +127,26 @@
 
             {# Mobile Resources expandable #}
             <div>
-                <button type="button" id="mobile-resources-toggle"
-                        class="flex items-center justify-between w-full text-gray-700 hover:text-brand-600 font-medium text-lg py-2 focus:outline-none">
+                <a href="/resources/"
+                   class="flex items-center justify-between w-full text-gray-700 hover:text-brand-600 font-medium text-lg py-2">
                     Resources
-                    <svg class="w-4 h-4 transition-transform" id="mobile-resources-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                </button>
+                    <button type="button" id="mobile-resources-toggle" aria-label="Toggle resources menu"
+                            class="text-gray-600 hover:text-brand-600 focus:outline-none p-1">
+                        <svg class="w-4 h-4 transition-transform" id="mobile-resources-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                </a>
                 <div id="mobile-resources-menu" class="hidden pl-4 space-y-2 mt-1">
-                    <a href="/resources/" class="block text-gray-600 hover:text-brand-600 text-base py-1">All Resources</a>
                     <a href="/resources/?category=what-is-thermography" class="block text-gray-600 hover:text-brand-600 text-base py-1">What is Thermography?</a>
                     <a href="/resources/?category=articles" class="block text-gray-600 hover:text-brand-600 text-base py-1">Articles</a>
+                    <a href="/resources/?category=experts" class="block text-gray-600 hover:text-brand-600 text-base py-1">Meet the Experts</a>
                 </div>
             </div>
+            <a href="/your-first-visit/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Your First Visit</a>
             <a href="/faq/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">FAQ</a>
             <a href="/contact/" class="block text-gray-700 hover:text-brand-600 font-medium text-lg py-2">Contact</a>
-            <a href="/booking/" class="block bg-brand-600 text-white text-center px-5 py-3 rounded-lg hover:bg-brand-700 font-medium text-lg mt-4">Book Now</a>
+            <a href="/booking/" class="block bg-brand-600 text-white text-center px-5 py-3 rounded-lg hover:bg-brand-700 font-medium text-lg mt-3">Book Now</a>
         </div>
     </div>
 
@@ -197,7 +211,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const rDropdown = document.getElementById('resources-dropdown');
 
     if (rToggle && rMenu) {
-        rToggle.addEventListener('click', function () {
+        rToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             rMenu.classList.toggle('hidden');
             rChevron.classList.toggle('rotate-180');
         });
@@ -223,7 +239,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const mChevron = document.getElementById('mobile-resources-chevron');
 
     if (mToggle && mMenu) {
-        mToggle.addEventListener('click', function () {
+        mToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             mMenu.classList.toggle('hidden');
             mChevron.classList.toggle('rotate-180');
         });

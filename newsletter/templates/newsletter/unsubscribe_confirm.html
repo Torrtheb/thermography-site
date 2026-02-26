@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Unsubscribe{% endblock %}
+
+{% block body_class %}template-unsubscribe{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-24 text-center">
+    <h1 class="text-3xl font-bold text-gray-800 mb-4">Unsubscribe</h1>
+    <p class="text-gray-600 mb-2">Are you sure you want to unsubscribe</p>
+    <p class="text-gray-800 font-semibold mb-8">{{ email }}?</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit"
+                class="inline-block bg-red-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-red-700 transition mr-3">
+            Yes, Unsubscribe
+        </button>
+        <a href="/"
+           class="inline-block bg-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-300 transition">
+            Cancel
+        </a>
+    </form>
+
+    <p class="text-sm text-gray-400 mt-8">You can always re-subscribe from our website.</p>
+</div>
+{% endblock %}

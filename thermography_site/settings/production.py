@@ -5,6 +5,8 @@ All secrets and host-specific values come from environment variables.
 See .env.example for the full list.
 """
 
+import base64
+import json
 import os
 
 import dj_database_url
@@ -18,13 +20,23 @@ DEBUG = False
 # ──────────────────────────────────────────────────────────
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]  # REQUIRED — will crash on startup if missing
 
+# Railway auto-injects RAILWAY_PUBLIC_DOMAIN (e.g. "myapp.up.railway.app").
+# Use it as a fallback so you don't have to set ALLOWED_HOSTS manually.
+_railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+
 ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()
 ]
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
+if _railway_domain:
+    _railway_origin = f"https://{_railway_domain}"
+    if _railway_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_railway_origin)
 
 # ──────────────────────────────────────────────────────────
 # Database — Neon PostgreSQL (or any DATABASE_URL provider)
@@ -54,6 +66,49 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
 # ──────────────────────────────────────────────────────────
+# Content Security Policy (CSP) — via django-csp
+# Restricts which origins can load scripts, styles, frames, etc.
+# ──────────────────────────────────────────────────────────
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        "script-src": [
+            "'self'",
+            "'unsafe-inline'",  # inline <script> blocks (AOS init, booking flow, etc.)
+            "https://unpkg.com",  # AOS.js
+            "https://gc.zgo.at",  # GoatCounter
+            "https://*.goatcounter.com",  # GoatCounter beacon
+        ],
+        "style-src": [
+            "'self'",
+            "'unsafe-inline'",  # inline style= attributes throughout templates
+            "https://unpkg.com",  # AOS CSS
+        ],
+        "img-src": [
+            "'self'",
+            "data:",  # inline SVG data URIs in CSS
+            "https://storage.googleapis.com",  # GCS media
+            "https://*.s3.amazonaws.com",  # S3 media fallback
+        ],
+        "font-src": ["'self'"],
+        "frame-src": [
+            "'self'",
+            "https://cal.com",  # Cal.com booking embed
+            "https://www.google.com",  # Google Maps embeds
+            "https://*.goatcounter.com",  # GoatCounter admin dashboard
+        ],
+        "connect-src": [
+            "'self'",
+            "https://*.goatcounter.com",  # GoatCounter beacon
+            "https://gc.zgo.at",  # GoatCounter script
+        ],
+        "base-uri": ["'self'"],
+        "form-action": ["'self'"],
+        "frame-ancestors": ["'self'"],
+    },
+}
+
+# ──────────────────────────────────────────────────────────
 # Static files — served by WhiteNoise (no separate web server needed)
 # ──────────────────────────────────────────────────────────
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
@@ -72,15 +127,24 @@ if os.environ.get("GS_BUCKET_NAME"):
     GS_BUCKET_NAME = os.environ["GS_BUCKET_NAME"]
     # Keep object ACLs disabled so this works with Uniform bucket-level access.
     GS_DEFAULT_ACL = None
-    GS_QUERYSTRING_AUTH = False  # cleaner URLs, no signed tokens
+    # Signed URLs — the bucket is private; each URL is valid for 1 hour.
+    # This prevents accidental public exposure of any uploaded file.
+    GS_QUERYSTRING_AUTH = True
+    GS_EXPIRATION = 3600  # signed URL lifetime in seconds (1 hour)
     GS_FILE_OVERWRITE = False  # prevent accidental overwrites
-    GS_OBJECT_PARAMETERS = {"cache_control": "public, max-age=86400"}
+    GS_OBJECT_PARAMETERS = {"cache_control": "private, max-age=86400"}
     MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
 
-    # On Cloud Run, authentication is automatic via the service account.
-    # No credentials file needed — it uses the attached SA identity.
-    # To test locally, set GOOGLE_APPLICATION_CREDENTIALS env var pointing
-    # to a service account JSON key file.
+    # Credentials: On Cloud Run, authentication is automatic via the
+    # attached service account.  On Railway (or any non-GCP host), supply
+    # the service account JSON key as a base64-encoded env var.
+    #   base64 -i gcs-key.json | tr -d '\n'  → set as GCS_CREDENTIALS_BASE64
+    _gcs_creds_b64 = os.environ.get("GCS_CREDENTIALS_BASE64")
+    if _gcs_creds_b64:
+        from google.oauth2 import service_account as _sa
+
+        _info = json.loads(base64.b64decode(_gcs_creds_b64))
+        GS_CREDENTIALS = _sa.Credentials.from_service_account_info(_info)
 
 # ──────────────────────────────────────────────────────────
 # Fallback: S3-compatible object storage (AWS S3, Cloudflare R2, etc.)
@@ -104,15 +168,24 @@ elif os.environ.get("AWS_STORAGE_BUCKET_NAME"):
     )
 
 # ──────────────────────────────────────────────────────────
-# Email (SMTP for contact form)
+# Email — Brevo (Sendinblue) SMTP relay for transactional email
+# Sign up at https://app.brevo.com → Settings → SMTP & API
 # ──────────────────────────────────────────────────────────
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST = "smtp-relay.brevo.com"
+EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")          # Your Brevo login email
+EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_KEY", "")       # Brevo SMTP key (not API key)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@yourdomain.com")
+
+# ──────────────────────────────────────────────────────────
+# Brevo (Sendinblue) Contacts API — for newsletter list sync
+# Get your API key at https://app.brevo.com → Settings → API Keys
+# Create a list and note its numeric ID.
+# ──────────────────────────────────────────────────────────
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_LIST_ID = os.environ.get("BREVO_LIST_ID", "")
 
 # ──────────────────────────────────────────────────────────
 # Analytics — GoatCounter site code (e.g. "mythermography")
@@ -121,9 +194,11 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 GOATCOUNTER_SITE_CODE = os.environ.get("GOATCOUNTER_SITE_CODE", "")
 
 # ──────────────────────────────────────────────────────────
-# Wagtail
+# Wagtail & site URL
 # ──────────────────────────────────────────────────────────
-WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", "https://example.com")
+_default_url = f"https://{_railway_domain}" if _railway_domain else "https://example.com"
+WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", _default_url)
+SITE_URL = os.environ.get("SITE_URL", _default_url)
 
 # ──────────────────────────────────────────────────────────
 # Logging — surface errors in platform logs

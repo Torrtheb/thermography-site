@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     "booking",
     "contact",
     "faq",
+    "first_visit",
+    "clients",
+    "newsletter",
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
     "wagtail.contrib.settings",
@@ -62,6 +65,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -94,6 +98,10 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "thermography_site.wsgi.application"
+
+# Brevo newsletter sync (overridden in production.py with real values)
+BREVO_API_KEY = ""
+BREVO_LIST_ID = ""
 
 
 # Database
@@ -131,7 +139,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "America/Vancouver"
 
 USE_I18N = True
 
@@ -175,6 +183,9 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000
 # Wagtail settings
 
 WAGTAIL_SITE_NAME = "Thermography"
+
+# Site URL (used for absolute links in emails, e.g. unsubscribe)
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
 # Search
 # https://docs.wagtail.org/en/stable/topics/search/backends.html

@@ -13,67 +13,83 @@
             {{ page.instructions|richtext }}
         </div>
         {% endif %}
+        {% if page.timezone_label %}
+        <p class="text-sm text-gray-500 mt-4">
+            🕐 All times shown in <strong>{{ page.timezone_label }}</strong>
+        </p>
+        {% endif %}
+        <p class="text-sm text-gray-500 mt-3">
+            First time? <a href="/your-first-visit/" class="text-brand-600 hover:text-brand-700 font-medium underline">Learn what to expect →</a>
+        </p>
     </div>
 </section>
 
-{# ========== TWO-STEP BOOKING FLOW ========== #}
-{% if services %}
+{# ========== THREE-STEP BOOKING FLOW ========== #}
+{% if locations %}
 <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16" id="booking-flow">
 
-    {# --- Step 1: Choose a Service --- #}
-    <div id="step-select">
+    {# --- Step 1: Choose a Location --- #}
+    <div id="step-location">
         <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">1</span>
-            <h2 class="text-2xl font-bold text-gray-900">Choose a Service</h2>
+            <h2 class="text-2xl font-bold text-gray-900">Choose a Location</h2>
         </div>
         <p class="text-gray-600 mb-8 ml-11" data-aos="fade-up">
-            Select the service you'd like to book to see available times.
+            Select where you'd like your appointment.
         </p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {% for service in services %}
+            {% for location in locations %}
             <div role="button"
-                    tabindex="0"
-                    aria-label="Select {{ service.title }}"
-                    class="service-card bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-lg
-                           hover:border-brand-400 transition-all duration-300 p-6 flex flex-col text-left
-                           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 cursor-pointer"
-                    data-slug="{{ service.slug }}"
-                    data-title="{{ service.title }}"
-                    data-cal-url="{{ service.cal_booking_url }}"
-                    data-aos="fade-up">
+                 tabindex="0"
+                 aria-label="Select {{ location.name }}"
+                 class="location-card bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-lg
+                        hover:border-brand-400 transition-all duration-300 p-6 flex flex-col text-left
+                        focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 cursor-pointer"
+                 data-location-id="{{ location.pk }}"
+                 data-location-name="{{ location.name }}"
+                 data-location-address="{{ location.address }}"
+                 data-location-map="{{ location.map_embed_url }}"
+                 data-location-permanent="{{ location.is_permanent|yesno:'true,false' }}"
+                 data-aos="fade-up">
 
-                <div class="flex items-start justify-between mb-3">
-                    <h3 class="text-xl font-bold text-gray-900">
-                        {{ service.title }}
+                <div class="flex items-start justify-between mb-2">
+                    <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        {% if location.is_permanent %}
+                        <span class="text-brand-600">📍</span>
+                        {% else %}
+                        <span class="text-orange-500">🗓️</span>
+                        {% endif %}
+                        {{ location.name }}
                     </h3>
-                    <span class="text-xl font-bold text-brand-700 flex-shrink-0 ml-4">
-                        {{ service.price_label }}
-                    </span>
                 </div>
 
-                <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
-                    {{ service.short_summary }}
-                </p>
-
-                <div class="flex items-center justify-between">
-                    {% if service.duration_label %}
-                    <span class="text-sm text-gray-500">
-                        ⏱ {{ service.duration_label }}
+                {# Date badge #}
+                {% if location.date_label %}
+                <div class="mb-3">
+                    {% if location.is_permanent %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        {{ location.date_label }}
                     </span>
                     {% else %}
-                    <span></span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                        {{ location.date_label }}
+                    </span>
                     {% endif %}
-
-                    <a href="{% pageurl service %}"
-                       onclick="event.stopPropagation();"
-                       class="text-brand-600 hover:text-brand-700 text-sm font-medium transition">
-                        View details →
-                    </a>
                 </div>
+                {% endif %}
+
+                <p class="text-gray-500 text-sm mb-3">
+                    {{ location.address }}
+                </p>
+
+                {# Service count #}
+                <p class="text-gray-400 text-xs">
+                    {{ service_count }} service{{ service_count|pluralize }} available
+                </p>
 
                 {# Selected indicator (hidden by default) #}
-                <div class="selected-badge hidden mt-4 pt-3 border-t border-brand-200">
+                <div class="location-selected-badge hidden mt-4 pt-3 border-t border-brand-200">
                     <span class="inline-flex items-center gap-1 text-brand-700 text-sm font-semibold">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
@@ -86,26 +102,154 @@
         </div>
     </div>
 
-    {# --- Step 2: Calendar & Availability (hidden until a service is selected) --- #}
-    <div id="step-calendar" class="hidden mt-16">
+    {# --- Location Details (map + address, shown after selection) --- #}
+    <div id="location-details" class="hidden mt-8">
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-6" data-aos="fade-up">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-900" id="location-detail-name"></h3>
+                <button type="button" id="change-location-btn"
+                        class="text-brand-600 hover:text-brand-700 text-sm font-medium transition underline">
+                    ← Change location
+                </button>
+            </div>
+            <p class="text-gray-600 text-sm mb-4" id="location-detail-address"></p>
+            <div id="location-map-container" class="hidden rounded-lg overflow-hidden">
+                <iframe id="location-map-iframe" width="100%" height="250" frameborder="0" loading="lazy"
+                        title="Map showing clinic location" style="border:0;" allowfullscreen="" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    </div>
+
+    {# --- Step 2: Choose a Service (hidden until location selected) --- #}
+    <div id="step-service" class="hidden mt-16">
         <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">2</span>
-            <h2 class="text-2xl font-bold text-gray-900">Pick a Date & Time</h2>
+            <h2 class="text-2xl font-bold text-gray-900">Choose a Service</h2>
         </div>
-        <div class="flex items-center justify-between mb-8 ml-11">
-            <p class="text-gray-600">
-                Showing availability for: <strong id="selected-service-name" class="text-brand-700"></strong>
-            </p>
-            <button type="button" id="change-service-btn"
-                    class="text-brand-600 hover:text-brand-700 text-sm font-medium transition underline">
-                ← Change service
-            </button>
+        <p class="text-gray-600 mb-8 ml-11" data-aos="fade-up">
+            Select the service you'd like to book at <strong id="step2-location-name" class="text-brand-700"></strong>.
+        </p>
+
+        <div id="service-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {# Service cards injected via JS based on selected location #}
         </div>
 
-        {# --- Cal.com Embed --- #}
+        {# No services fallback #}
+        <div id="no-services-fallback" class="hidden text-center py-8">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-8 max-w-lg mx-auto">
+                <p class="text-yellow-800 font-medium mb-4">
+                    No services are currently available at this location.
+                </p>
+                <button type="button" class="js-change-location text-brand-600 hover:text-brand-700 font-medium underline">
+                    ← Try a different location
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# --- Step 3: Calendar & Availability (hidden until service selected) --- #}
+    <div id="step-calendar" class="hidden mt-16">
+        <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
+            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">3</span>
+            <h2 class="text-2xl font-bold text-gray-900">Pick a Date & Time</h2>
+        </div>
+
+        {# Summary bar #}
+        <div class="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-8 ml-11 flex flex-wrap items-center gap-4 text-sm">
+            <span class="text-gray-600">📍 <strong id="summary-location" class="text-gray-900"></strong></span>
+            <span class="text-gray-300">|</span>
+            <span class="text-gray-600">🩺 <strong id="summary-service" class="text-gray-900"></strong></span>
+            <span class="ml-auto">
+                <button type="button" id="change-service-btn"
+                        class="text-brand-600 hover:text-brand-700 font-medium underline text-sm">
+                    ← Change
+                </button>
+            </span>
+        </div>
+
+        {# --- Policy Acknowledgement (must agree before calendar loads) --- #}
+        {% with site_settings=settings.home.SiteSettings %}
+        {% if site_settings.cancellation_policy or site_settings.deposit_policy or site_settings.payment_methods %}
+        <div id="policy-acknowledgement" class="ml-11 mb-8" data-aos="fade-up">
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-6">
+                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.251 2.251 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                    </svg>
+                    Cancellation &amp; Payment Policy
+                </h3>
+
+                <div class="space-y-4 text-sm text-gray-600">
+                    {% if site_settings.cancellation_policy %}
+                    <div>
+                        <h4 class="font-semibold text-gray-800 mb-1 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                            </svg>
+                            Cancellation Policy
+                        </h4>
+                        <div class="prose prose-sm prose-teal max-w-none ml-5.5">
+                            {{ site_settings.cancellation_policy|richtext }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if site_settings.deposit_policy %}
+                    <div>
+                        <h4 class="font-semibold text-gray-800 mb-1 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+                            </svg>
+                            Deposit Requirement
+                        </h4>
+                        <div class="prose prose-sm prose-teal max-w-none ml-5.5">
+                            {{ site_settings.deposit_policy|richtext }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if site_settings.payment_methods %}
+                    <div>
+                        <h4 class="font-semibold text-gray-800 mb-1 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                            </svg>
+                            Payment Methods
+                        </h4>
+                        <div class="prose prose-sm prose-teal max-w-none ml-5.5">
+                            {{ site_settings.payment_methods|richtext }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# Required checkbox #}
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <label for="policy-checkbox" class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" id="policy-checkbox"
+                               class="mt-0.5 h-5 w-5 rounded border-gray-300 text-brand-600
+                                      focus:ring-brand-500 focus:ring-2 cursor-pointer flex-shrink-0"
+                               required>
+                        <span class="text-sm text-gray-700 group-hover:text-gray-900 transition select-none">
+                            I have read and agree to the cancellation and payment policy.
+                        </span>
+                    </label>
+                    <p id="policy-checkbox-error" class="hidden mt-2 ml-8 text-sm text-red-600 font-medium">
+                        Please agree to the policy before booking.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {# Cal.com Embed #}
         <div id="cal-embed-container"
              class="rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-white min-h-[600px] flex items-center justify-center">
-            {# Loading spinner, replaced by iframe via JS #}
             <div id="cal-loading" class="text-center py-16">
                 <svg class="animate-spin h-10 w-10 text-brand-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -115,7 +259,7 @@
             </div>
         </div>
 
-        {# --- No Cal URL fallback --- #}
+        {# No Cal URL fallback #}
         <div id="no-cal-fallback" class="hidden text-center py-12">
             <div class="bg-brand-50 rounded-xl p-10 max-w-lg mx-auto">
                 <svg class="w-14 h-14 text-brand-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,7 +267,8 @@
                           d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 <p class="text-gray-600 text-lg mb-6">
-                    Online booking for this service isn't available yet. Please contact us to schedule.
+                    Online booking for this service at this location isn't available yet.<br>
+                    Please contact us to schedule.
                 </p>
                 <a href="/contact/"
                    class="inline-block bg-brand-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-brand-700 transition">
@@ -135,26 +280,15 @@
 </section>
 {% endif %}
 
-{# --- Cancellation Policy --- #}
-{% if settings.home.SiteSettings.cancellation_policy %}
-<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="bg-gray-50 border border-gray-200 rounded-xl p-8" data-aos="fade-up">
-        <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-            </svg>
-            Cancellation Policy
-        </h3>
-        <div class="prose prose-sm prose-teal max-w-none text-gray-600">
-            {{ settings.home.SiteSettings.cancellation_policy|richtext }}
-        </div>
-    </div>
-</section>
-{% endif %}
+{# --- Testimonials --- #}
+{% load testimonial_tags %}
+{% testimonials_section %}
 
-{# --- Fallback: no services configured at all --- #}
-{% if not services %}
+{# --- Policies (Deposit + Cancellation) --- #}
+{% include "includes/policies.html" %}
+
+{# --- Fallback: no locations configured --- #}
+{% if not locations %}
 <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
     {% if page.booking_embed_url %}
     <div class="rounded-xl overflow-hidden shadow-lg border border-gray-200" data-aos="fade-up">
@@ -169,10 +303,6 @@
     {% elif page.booking_link_url %}
     <div class="text-center py-12" data-aos="fade-up">
         <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-12 max-w-lg mx-auto">
-            <svg class="w-16 h-16 text-brand-500 mx-auto mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-            </svg>
             <p class="text-gray-600 text-lg mb-8">
                 Click below to choose a date and time that works for you.
             </p>
@@ -187,10 +317,6 @@
     {% else %}
     <div class="text-center py-12" data-aos="fade-up">
         <div class="bg-brand-50 rounded-xl p-12 max-w-lg mx-auto">
-            <svg class="w-16 h-16 text-brand-400 mx-auto mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
             <h2 class="text-2xl font-bold text-gray-900 mb-3">Coming Soon</h2>
             <p class="text-gray-600 text-lg mb-6">
                 Online booking will be available shortly. In the meantime, please contact us directly.
@@ -208,118 +334,381 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ location_service_map|json_script:"location-service-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const cards = document.querySelectorAll('.service-card');
-    const stepSelect = document.getElementById('step-select');
-    const stepCalendar = document.getElementById('step-calendar');
-    const embedContainer = document.getElementById('cal-embed-container');
-    const calLoading = document.getElementById('cal-loading');
-    const nocalFallback = document.getElementById('no-cal-fallback');
-    const selectedName = document.getElementById('selected-service-name');
-    const changeBtn = document.getElementById('change-service-btn');
+    // ── Data from Django (safely injected via json_script) ──
+    const locationServiceMap = JSON.parse(
+        document.getElementById('location-service-data').textContent
+    );
 
-    if (!cards.length) return;
+    // ── HTML escaping helper (defence-in-depth for CMS content) ──
+    function escapeHtml(str) {
+        const el = document.createElement('span');
+        el.textContent = str;
+        return el.innerHTML;
+    }
 
-    function selectService(slug) {
-        const card = document.querySelector(`.service-card[data-slug="${slug}"]`);
+    // ── DOM refs ──
+    const locationCards    = document.querySelectorAll('.location-card');
+    const stepLocation     = document.getElementById('step-location');
+    const stepService      = document.getElementById('step-service');
+    const stepCalendar     = document.getElementById('step-calendar');
+    const locationDetails  = document.getElementById('location-details');
+    const locDetailName    = document.getElementById('location-detail-name');
+    const locDetailAddress = document.getElementById('location-detail-address');
+    const locMapContainer  = document.getElementById('location-map-container');
+    const locMapIframe     = document.getElementById('location-map-iframe');
+    const serviceContainer = document.getElementById('service-cards-container');
+    const noServicesFallback = document.getElementById('no-services-fallback');
+    const step2LocName     = document.getElementById('step2-location-name');
+    const summaryLocation  = document.getElementById('summary-location');
+    const summaryService   = document.getElementById('summary-service');
+    const embedContainer   = document.getElementById('cal-embed-container');
+    const calLoading       = document.getElementById('cal-loading');
+    const nocalFallback    = document.getElementById('no-cal-fallback');
+    const changeLocationBtn = document.getElementById('change-location-btn');
+    const changeServiceBtn  = document.getElementById('change-service-btn');
+    const policyCheckbox    = document.getElementById('policy-checkbox');
+    const policyCheckboxErr = document.getElementById('policy-checkbox-error');
+
+    if (!locationCards.length) return;
+
+    let selectedLocationId = null;
+    let selectedLocationName = '';
+    let pendingCalSlug = null;   // service slug waiting for policy agreement
+
+    // ── Step 1: Select Location ──
+    function selectLocation(locationId) {
+        const card = document.querySelector(`.location-card[data-location-id="${locationId}"]`);
         if (!card) return;
 
-        const calUrl = card.dataset.calUrl;
-        const title = card.dataset.title;
+        selectedLocationId = locationId;
+        selectedLocationName = card.dataset.locationName;
 
-        // Highlight selected card
-        cards.forEach(c => {
+        // Get location data
+        const locData = locationServiceMap[String(locationId)] || {};
+
+        // Highlight selected
+        locationCards.forEach(c => {
             c.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
             c.classList.add('border-gray-200');
-            c.querySelector('.selected-badge').classList.add('hidden');
+            c.querySelector('.location-selected-badge').classList.add('hidden');
         });
         card.classList.remove('border-gray-200');
         card.classList.add('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
-        card.querySelector('.selected-badge').classList.remove('hidden');
+        card.querySelector('.location-selected-badge').classList.remove('hidden');
 
-        // Show calendar step
-        selectedName.textContent = title;
+        // Show location details
+        locDetailName.textContent = card.dataset.locationName;
+        locDetailAddress.textContent = card.dataset.locationAddress;
+        if (card.dataset.locationMap) {
+            locMapIframe.src = card.dataset.locationMap;
+            locMapContainer.classList.remove('hidden');
+        } else {
+            locMapContainer.classList.add('hidden');
+        }
+        locationDetails.classList.remove('hidden');
+
+        // Build service cards
+        const services = locData.services || {};
+        const slugs = Object.keys(services);
+
+        serviceContainer.innerHTML = '';
+        if (slugs.length === 0) {
+            noServicesFallback.classList.remove('hidden');
+            serviceContainer.classList.add('hidden');
+        } else {
+            noServicesFallback.classList.add('hidden');
+            serviceContainer.classList.remove('hidden');
+
+            slugs.forEach(slug => {
+                const svc = services[slug];
+                const cardEl = document.createElement('div');
+                cardEl.setAttribute('role', 'button');
+                cardEl.setAttribute('tabindex', '0');
+                cardEl.setAttribute('aria-label', 'Select ' + escapeHtml(svc.title));
+                cardEl.className = 'service-card bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-lg hover:border-brand-400 transition-all duration-300 p-6 flex flex-col text-left focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 cursor-pointer';
+                cardEl.dataset.slug = slug;
+                cardEl.dataset.title = svc.title;
+                cardEl.dataset.calUrl = svc.cal_url;
+
+                cardEl.innerHTML = `
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="text-xl font-bold text-gray-900">${escapeHtml(svc.title)}</h3>
+                        <span class="text-xl font-bold text-brand-700 flex-shrink-0 ml-4">${escapeHtml(svc.price)}</span>
+                    </div>
+                    ${svc.duration ? `<span class="text-sm text-gray-500 mb-3">⏱ ${escapeHtml(svc.duration)}</span>` : ''}
+                    ${svc.detail_url ? `<a href="${encodeURI(svc.detail_url)}" onclick="event.stopPropagation();" class="text-brand-600 hover:text-brand-700 text-sm font-medium transition mt-auto pt-2">View details →</a>` : ''}
+                    <div class="service-selected-badge hidden mt-4 pt-3 border-t border-brand-200">
+                        <span class="inline-flex items-center gap-1 text-brand-700 text-sm font-semibold">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                            </svg>
+                            Selected
+                        </span>
+                    </div>
+                `;
+
+                cardEl.addEventListener('click', () => selectService(slug));
+                cardEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectService(slug); }
+                });
+                serviceContainer.appendChild(cardEl);
+            });
+        }
+
+        // Show step 2
+        step2LocName.textContent = card.dataset.locationName;
+        stepService.classList.remove('hidden');
+        stepCalendar.classList.add('hidden');
+
+        // Scroll to location details
+        locationDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.set('location', locationId);
+        url.searchParams.delete('service');
+        window.history.replaceState({}, '', url);
+    }
+
+    // ── Step 2: Select Service ──
+    function selectService(slug) {
+        const locData = locationServiceMap[String(selectedLocationId)] || {};
+        const services = locData.services || {};
+        const svc = services[slug];
+        if (!svc) return;
+
+        // Highlight selected service card
+        serviceContainer.querySelectorAll('.service-card').forEach(c => {
+            c.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
+            c.classList.add('border-gray-200');
+            const badge = c.querySelector('.service-selected-badge');
+            if (badge) badge.classList.add('hidden');
+        });
+        const selectedCard = serviceContainer.querySelector(`.service-card[data-slug="${slug}"]`);
+        if (selectedCard) {
+            selectedCard.classList.remove('border-gray-200');
+            selectedCard.classList.add('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
+            const badge = selectedCard.querySelector('.service-selected-badge');
+            if (badge) badge.classList.remove('hidden');
+        }
+
+        // Show summary
+        summaryLocation.textContent = selectedLocationName;
+        summaryService.textContent = svc.title;
         stepCalendar.classList.remove('hidden');
 
-        // Scroll to calendar
-        stepCalendar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Store pending service slug — calendar loads only after policy agreement
+        pendingCalSlug = slug;
 
-        // Load Cal.com embed or show fallback
+        // If no policy checkbox exists, load calendar directly
+        if (!policyCheckbox) {
+            loadCalendar(svc);
+        } else if (policyCheckbox.checked) {
+            if (policyCheckboxErr) policyCheckboxErr.classList.add('hidden');
+            loadCalendar(svc);
+        } else {
+            embedContainer.classList.add('hidden');
+            nocalFallback.classList.add('hidden');
+            if (policyCheckboxErr) policyCheckboxErr.classList.remove('hidden');
+        }
+
+        // Scroll to policy section or calendar
+        const scrollTarget = (policyCheckbox && !policyCheckbox.checked)
+            ? document.getElementById('policy-acknowledgement') || stepCalendar
+            : stepCalendar;
+        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.set('service', slug);
+        window.history.replaceState({}, '', url);
+    }
+
+    // ── Load Cal.com calendar for a service ──
+    function loadCalendar(svc) {
+        const locData = locationServiceMap[String(selectedLocationId)] || {};
+        const jumpDate = getCalendarJumpDate(locData);
+        loadCalendarUrl(svc.cal_url, 'Book ' + svc.title, jumpDate);
+    }
+
+    // ── Decide which date the Cal.com calendar should open on ──
+    // Priority: starts_on (explicit) > display_until (auto-fallback) > today
+    // Only applies to non-permanent (pop-up) locations.
+    function getCalendarJumpDate(locData) {
+        // Permanent locations have regular weekly availability — no need to jump
+        if (locData.is_permanent) return '';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 1. Explicit starts_on date (best option)
+        if (locData.starts_on) {
+            const d = new Date(locData.starts_on + 'T00:00:00');
+            if (d >= today) return locData.starts_on;
+        }
+
+        // 2. Fallback: jump to the display_until month (the pop-up is visible
+        //    until this date, so availability is around this period)
+        if (locData.display_until) {
+            const d = new Date(locData.display_until + 'T00:00:00');
+            if (d >= today) {
+                // Jump to the 1st of that month
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                return y + '-' + m + '-01';
+            }
+        }
+
+        return ''; // today (default)
+    }
+
+    // ── Load Cal.com calendar from a URL ──
+    // Appends ?date=YYYY-MM-DD&layout=month_view so the calendar opens
+    // on the correct month (no clicking through empty months).
+    function loadCalendarUrl(calUrl, title, jumpDate) {
         if (calUrl) {
             nocalFallback.classList.add('hidden');
             embedContainer.classList.remove('hidden');
             calLoading.classList.remove('hidden');
 
-            // Remove existing iframe if any
+            // Remove existing iframe
             const oldIframe = embedContainer.querySelector('iframe');
             if (oldIframe) oldIframe.remove();
 
+            // Build Cal.com embed URL with date pre-navigation
+            const sep = calUrl.includes('?') ? '&' : '?';
+            let fullUrl = calUrl + sep + 'embed=true&theme=light&locale=en';
+
+            // Jump to the target date if provided
+            if (jumpDate) {
+                fullUrl += '&date=' + jumpDate + '&layout=month_view';
+            }
+
             const iframe = document.createElement('iframe');
-            iframe.src = calUrl;
+            iframe.src = fullUrl;
             iframe.width = '100%';
             iframe.height = '700';
             iframe.frameBorder = '0';
             iframe.loading = 'lazy';
-            iframe.title = 'Book ' + title;
+            iframe.title = title || 'Book an appointment';
             iframe.style.minHeight = '600px';
-
-            iframe.addEventListener('load', function () {
-                calLoading.classList.add('hidden');
-            });
-
+            iframe.addEventListener('load', () => calLoading.classList.add('hidden'));
             embedContainer.appendChild(iframe);
-
-            // Update URL without reloading
-            const url = new URL(window.location);
-            url.searchParams.set('service', slug);
-            window.history.replaceState({}, '', url);
         } else {
             embedContainer.classList.add('hidden');
             nocalFallback.classList.remove('hidden');
         }
     }
 
-    // Card click handlers
-    cards.forEach(card => {
-        card.addEventListener('click', function () {
-            selectService(this.dataset.slug);
-        });
-        card.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                selectService(this.dataset.slug);
+    // ── Policy checkbox listener ──
+    if (policyCheckbox) {
+        policyCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+                if (policyCheckboxErr) policyCheckboxErr.classList.add('hidden');
+                if (pendingCalSlug && selectedLocationId) {
+                    const locData = locationServiceMap[String(selectedLocationId)] || {};
+                    const services = locData.services || {};
+                    const svc = services[pendingCalSlug];
+                    if (svc) {
+                        loadCalendar(svc);
+                        setTimeout(() => {
+                            embedContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 200);
+                    }
+                }
+            } else {
+                embedContainer.classList.add('hidden');
+                const oldIframe = embedContainer.querySelector('iframe');
+                if (oldIframe) oldIframe.remove();
             }
-        });
-    });
-
-    // Change service button
-    if (changeBtn) {
-        changeBtn.addEventListener('click', function () {
-            stepCalendar.classList.add('hidden');
-            cards.forEach(c => {
-                c.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
-                c.classList.add('border-gray-200');
-                c.querySelector('.selected-badge').classList.add('hidden');
-            });
-            // Remove iframe to stop loading
-            const oldIframe = embedContainer.querySelector('iframe');
-            if (oldIframe) oldIframe.remove();
-            calLoading.classList.remove('hidden');
-
-            stepSelect.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            // Clear URL param
-            const url = new URL(window.location);
-            url.searchParams.delete('service');
-            window.history.replaceState({}, '', url);
         });
     }
 
-    // Pre-select from query param (?service=slug)
-    const preselected = '{{ preselected_slug|escapejs }}';
-    if (preselected) {
-        selectService(preselected);
+    // ── Change Location ──
+    function resetToLocationStep() {
+        stepService.classList.add('hidden');
+        stepCalendar.classList.add('hidden');
+        locationDetails.classList.add('hidden');
+        selectedLocationId = null;
+        pendingCalSlug = null;
+
+        if (policyCheckbox) {
+            policyCheckbox.checked = false;
+            if (policyCheckboxErr) policyCheckboxErr.classList.add('hidden');
+        }
+
+        locationCards.forEach(c => {
+            c.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
+            c.classList.add('border-gray-200');
+            c.querySelector('.location-selected-badge').classList.add('hidden');
+        });
+
+        const oldIframe = embedContainer.querySelector('iframe');
+        if (oldIframe) oldIframe.remove();
+        calLoading.classList.remove('hidden');
+
+        stepLocation.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const url = new URL(window.location);
+        url.searchParams.delete('location');
+        url.searchParams.delete('service');
+        window.history.replaceState({}, '', url);
+    }
+
+    // ── Change Service ──
+    function resetToServiceStep() {
+        stepCalendar.classList.add('hidden');
+        pendingCalSlug = null;
+
+        if (policyCheckbox) {
+            policyCheckbox.checked = false;
+            if (policyCheckboxErr) policyCheckboxErr.classList.add('hidden');
+        }
+
+        serviceContainer.querySelectorAll('.service-card').forEach(c => {
+            c.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-200');
+            c.classList.add('border-gray-200');
+            const badge = c.querySelector('.service-selected-badge');
+            if (badge) badge.classList.add('hidden');
+        });
+
+        const oldIframe = embedContainer.querySelector('iframe');
+        if (oldIframe) oldIframe.remove();
+        calLoading.classList.remove('hidden');
+
+        stepService.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const url = new URL(window.location);
+        url.searchParams.delete('service');
+        window.history.replaceState({}, '', url);
+    }
+
+    // ── Event Listeners ──
+    locationCards.forEach(card => {
+        card.addEventListener('click', function () { selectLocation(this.dataset.locationId); });
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectLocation(this.dataset.locationId); }
+        });
+    });
+
+    if (changeLocationBtn) changeLocationBtn.addEventListener('click', resetToLocationStep);
+    if (changeServiceBtn) changeServiceBtn.addEventListener('click', resetToServiceStep);
+
+    document.querySelectorAll('.js-change-location').forEach(btn => {
+        btn.addEventListener('click', resetToLocationStep);
+    });
+
+    // ── Pre-select from query params ──
+    const preLocation = '{{ preselected_location|escapejs }}';
+    const preService = '{{ preselected_service|escapejs }}';
+    if (preLocation) {
+        selectLocation(preLocation);
+        if (preService) {
+            setTimeout(() => selectService(preService), 100);
+        }
     }
 });
 </script>

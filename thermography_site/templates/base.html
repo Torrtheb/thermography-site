@@ -26,7 +26,9 @@
     <link rel="stylesheet" type="text/css" href="{% static 'css/tailwind.css' %}" />
 
     {# --- AOS (Animate On Scroll) --- #}
-    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css"
+          integrity="sha384-/rJKQnzOkEo+daG0jMjU1IwwY9unxt1NBw3Ef2fmOJ3PW/TfAg2KXVoWwMZQZtw9"
+          crossorigin="anonymous" />
 
     {# --- Custom styles --- #}
     <link rel="stylesheet" type="text/css" href="{% static 'css/thermography_site.css' %}" />
@@ -45,11 +47,17 @@
         {% block content %}{% endblock %}
     </main>
 
+    {# --- NEWSLETTER SIGNUP --- #}
+    {% load newsletter_tags %}
+    {% newsletter_signup %}
+
     {# --- FOOTER --- #}
     {% include "includes/footer.html" %}
 
     {# --- Scripts --- #}
-    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"
+            integrity="sha384-n1AULnKdMJlK1oQCLNDL9qZsDgXtH6jRYFCpBtWFc+a9Yve0KSoMn575rk755NJZ"
+            crossorigin="anonymous"></script>
     <script>
         AOS.init({
             duration: 700,
@@ -77,16 +85,21 @@
 
         function openMenu() {
             backdrop.classList.remove('hidden');
-            menu.classList.remove('translate-x-full');
+            menu.classList.remove('hidden');
         }
         function closeMenu() {
-            menu.classList.add('translate-x-full');
+            menu.classList.add('hidden');
             backdrop.classList.add('hidden');
         }
 
         menuButton.addEventListener('click', openMenu);
         menuClose.addEventListener('click', closeMenu);
         backdrop.addEventListener('click', closeMenu);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !menu.classList.contains('hidden')) {
+                closeMenu();
+            }
+        });
     </script>
 
     <script type="text/javascript" src="{% static 'js/thermography_site.js' %}"></script>

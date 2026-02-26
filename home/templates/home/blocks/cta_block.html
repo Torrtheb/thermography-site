@@ -1,5 +1,30 @@
 {# --- Call to Action: highlighted banner with heading, text, and button --- #}
+{# Supports two styles: "bold" (coloured bg) and "subtle" (light bg with border) #}
 
+{% if value.style == "subtle" %}
+<section class="bg-gray-50 py-16">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                {{ value.heading }}
+            </h2>
+
+            {% if value.text %}
+            <p class="text-gray-600 text-base md:text-lg mb-8 max-w-2xl mx-auto leading-relaxed">
+                {{ value.text }}
+            </p>
+            {% endif %}
+
+            {% if value.button_text and value.button_link %}
+            <a href="{{ value.button_link }}"
+               class="inline-block bg-brand-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-brand-700 transition shadow-sm">
+                {{ value.button_text }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% else %}
 <section class="bg-brand-700 text-white py-16">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
 
@@ -22,3 +47,4 @@
 
     </div>
 </section>
+{% endif %}

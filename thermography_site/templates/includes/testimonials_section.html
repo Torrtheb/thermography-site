@@ -1,0 +1,144 @@
+{# --- Testimonials Carousel: reusable across any page --- #}
+{# Included via {% testimonials_section %} template tag or directly #}
+{% load wagtailimages_tags %}
+
+{% if testimonials %}
+<section class="bg-white py-16">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {# Section header #}
+        <div class="text-center mb-12" data-aos="fade-up">
+            <h2 class="text-3xl font-bold text-gray-900 mb-3">
+                {{ heading|default:"What Our Clients Say" }}
+            </h2>
+            <p class="text-gray-500 text-lg">Real experiences from real clients</p>
+        </div>
+
+        {# Carousel wrapper #}
+        <div class="testimonial-carousel relative" data-per-page="{{ per_page|default:3 }}" data-aos="fade-up">
+
+            {# All cards — JS toggles visibility in groups of per_page #}
+            <div class="grid gap-8 md:grid-cols-{{ per_page|default:3 }}">
+                {% for t in testimonials %}
+                <div class="testimonial-card bg-gray-50 rounded-2xl p-8 shadow-sm hover:shadow-md transition relative"
+                     data-index="{{ forloop.counter0 }}"
+                     {% if forloop.counter0 >= per_page|default:3 %}style="display:none"{% endif %}>
+
+                    {# Stars #}
+                    <div class="flex gap-1 mb-4">
+                        {% for _ in "12345"|make_list %}
+                        {% if forloop.counter <= t.star_rating %}
+                        <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        {% else %}
+                        <svg class="w-5 h-5 text-gray-200" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    {# Quote #}
+                    <blockquote class="text-gray-700 text-lg leading-relaxed mb-6 italic">
+                        "{{ t.quote }}"
+                    </blockquote>
+
+                    {# Author #}
+                    <div class="flex items-center gap-3">
+                        {% if t.photo %}
+                        <div class="flex-shrink-0">
+                            {% image t.photo fill-48x48 class="w-12 h-12 rounded-full object-cover" %}
+                        </div>
+                        {% else %}
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">
+                            <span class="text-brand-700 font-bold text-lg">{{ t.author_name.0 }}</span>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <div class="font-semibold text-gray-900">{{ t.author_name }}</div>
+                            {% if t.role %}
+                            <div class="text-gray-500 text-sm">{{ t.role }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+                {% endfor %}
+            </div>
+
+            {# Navigation — only shown when there are more cards than per_page #}
+            {% with total=testimonials|length %}
+            {% if total > per_page|default:3 %}
+            <div class="flex items-center justify-center gap-4 mt-10">
+                {# Previous button #}
+                <button type="button" class="carousel-prev w-10 h-10 rounded-full border-2 border-brand-200 text-brand-600 hover:bg-brand-50 transition flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" disabled aria-label="Previous testimonials">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+
+                {# Dot indicators #}
+                <div class="carousel-dots flex gap-2"></div>
+
+                {# Next button #}
+                <button type="button" class="carousel-next w-10 h-10 rounded-full border-2 border-brand-200 text-brand-600 hover:bg-brand-50 transition flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Next testimonials">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            {% endif %}
+            {% endwith %}
+
+        </div>
+    </div>
+</section>
+
+{# Carousel JS — vanilla, no dependencies #}
+<script>
+(function(){
+    document.querySelectorAll('.testimonial-carousel').forEach(function(carousel) {
+        var perPage = parseInt(carousel.dataset.perPage) || 3;
+        var cards = carousel.querySelectorAll('.testimonial-card');
+        var total = cards.length;
+        var pages = Math.ceil(total / perPage);
+        if (pages <= 1) return;           // nothing to paginate
+
+        var current = 0;
+        var prevBtn = carousel.querySelector('.carousel-prev');
+        var nextBtn = carousel.querySelector('.carousel-next');
+        var dotsWrap = carousel.querySelector('.carousel-dots');
+
+        // Build dots
+        for (var i = 0; i < pages; i++) {
+            var dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = 'w-2.5 h-2.5 rounded-full transition ' + (i === 0 ? 'bg-brand-600' : 'bg-gray-300');
+            dot.dataset.page = i;
+            dot.setAttribute('aria-label', 'Page ' + (i + 1));
+            dot.addEventListener('click', function(){ goTo(parseInt(this.dataset.page)); });
+            dotsWrap.appendChild(dot);
+        }
+
+        function goTo(page) {
+            current = page;
+            cards.forEach(function(card) {
+                var idx = parseInt(card.dataset.index);
+                card.style.display = (idx >= current * perPage && idx < (current + 1) * perPage) ? '' : 'none';
+            });
+            // Update dots
+            dotsWrap.querySelectorAll('button').forEach(function(d, i) {
+                d.className = 'w-2.5 h-2.5 rounded-full transition ' + (i === current ? 'bg-brand-600' : 'bg-gray-300');
+            });
+            // Update buttons
+            prevBtn.disabled = current === 0;
+            nextBtn.disabled = current === pages - 1;
+        }
+
+        prevBtn.addEventListener('click', function(){ if (current > 0) goTo(current - 1); });
+        nextBtn.addEventListener('click', function(){ if (current < pages - 1) goTo(current + 1); });
+    });
+})();
+</script>
+{% endif %}

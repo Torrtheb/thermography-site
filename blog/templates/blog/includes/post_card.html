@@ -40,13 +40,13 @@
             <span>{{ post.author_name }}</span>
         </div>
 
-        <h2 class="text-xl font-bold text-gray-900 mb-2">
+        <h3 class="text-xl font-bold text-gray-900 mb-2">
             <a href="{% if post.is_external %}{{ post.external_url }}{% else %}{{ detail_url }}{% endif %}"
                {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
                class="hover:text-brand-600 transition">
                 {{ post.title }}
             </a>
-        </h2>
+        </h3>
 
         <p class="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">
             {{ post.excerpt }}

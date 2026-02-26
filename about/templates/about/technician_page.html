@@ -2,41 +2,73 @@
 {% load wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
-{# --- Page Header --- #}
-<section class="bg-brand-50 py-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            {{ page.title }}
-        </h1>
+{# --- Hero --- #}
+<section class="bg-brand-50 py-16 md:py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8" data-aos="fade-up">
+        {% if page.subtitle and page.hero_image %}
+        {# --- Side-by-side: text left, image right --- #}
+        <div class="flex flex-col md:flex-row md:items-center gap-8 md:gap-12">
+            <div class="md:w-1/2">
+                <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                    {{ page.title }}
+                </h1>
+                <p class="text-lg md:text-xl text-gray-600 leading-relaxed">
+                    {{ page.subtitle }}
+                </p>
+            </div>
+            <div class="md:w-1/2">
+                <div class="rounded-xl overflow-hidden shadow-lg">
+                    {% image page.hero_image fill-600x400 class="w-full h-auto" %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        {# --- Centred fallback (no image) --- #}
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                {{ page.title }}
+            </h1>
+            {% if page.subtitle %}
+            <p class="text-lg md:text-xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
+                {{ page.subtitle }}
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </section>
 
-{# ========== ABOUT THE CLINIC ========== #}
+{# ========== CLINIC CONTENT ========== #}
 {% if page.clinic_description %}
-<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
-
-        {# --- Clinic Image --- #}
-        {% if page.clinic_image %}
-        <div class="w-full md:w-2/5 flex-shrink-0" data-aos="fade-up">
-            {% image page.clinic_image fill-500x400 class="rounded-xl shadow-lg w-full h-auto" %}
-        </div>
-        {% endif %}
-
-        {# --- Clinic Info --- #}
-        <div class="w-full {% if page.clinic_image %}md:w-3/5{% endif %}" data-aos="fade-up" data-aos-delay="100">
-            <h2 class="text-3xl font-bold text-gray-900 mb-6">
-                {{ page.clinic_heading }}
-            </h2>
+<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if page.clinic_image %}
+    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-14 mb-12" data-aos="fade-up">
+        <div class="w-full md:w-1/2">
+            {% if page.clinic_heading %}
+            <h2 class="text-3xl font-bold text-gray-900 mb-6">{{ page.clinic_heading }}</h2>
+            {% endif %}
             <div class="prose prose-lg prose-teal max-w-none">
                 {{ page.clinic_description|richtext }}
             </div>
         </div>
+        <div class="w-full md:w-1/2 flex-shrink-0">
+            {% image page.clinic_image fill-600x450 class="rounded-xl shadow-lg w-full h-auto" %}
+        </div>
     </div>
+    {% else %}
+    <div data-aos="fade-up">
+        {% if page.clinic_heading %}
+        <h2 class="text-3xl font-bold text-gray-900 mb-6">{{ page.clinic_heading }}</h2>
+        {% endif %}
+        <div class="prose prose-lg prose-teal max-w-none">
+            {{ page.clinic_description|richtext }}
+        </div>
+    </div>
+    {% endif %}
 </section>
 
 {# --- Divider --- #}
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
     <hr class="border-gray-200">
 </div>
 {% endif %}
@@ -71,7 +103,7 @@
 
             {% if page.credentials %}
             <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl">
-                <h3 class="text-lg font-bold text-gray-900 mb-3">Credentials & Certifications</h3>
+                <h3 class="text-lg font-bold text-gray-900 mb-3">Credentials &amp; Certifications</h3>
                 <div class="prose prose-teal max-w-none">
                     {{ page.credentials|richtext }}
                 </div>
@@ -81,15 +113,60 @@
     </div>
 </section>
 
+{# ========== OUR THERMOGRAPHERS (optional) ========== #}
+{% if page.thermographers_heading and page.thermographers.all %}
+{# --- Divider --- #}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <hr class="border-gray-200">
+</div>
+
+<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="text-center mb-12" data-aos="fade-up">
+        <h2 class="text-3xl font-bold text-gray-900">{{ page.thermographers_heading }}</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        {% for person in page.thermographers.all %}
+        <div class="flex flex-col sm:flex-row items-start gap-6 bg-white border border-gray-200 rounded-xl shadow-sm p-6" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:0 }}00">
+            {% if person.photo %}
+            <div class="w-28 h-28 flex-shrink-0">
+                {% image person.photo fill-224x224 class="w-full h-full object-cover rounded-lg shadow" %}
+            </div>
+            {% endif %}
+            <div class="flex-1">
+                <h3 class="text-xl font-bold text-gray-900 mb-1">{{ person.name }}</h3>
+                {% if person.role %}
+                <p class="text-brand-600 font-medium text-sm mb-3">{{ person.role }}</p>
+                {% endif %}
+                {% if person.bio %}
+                <div class="prose prose-sm prose-teal max-w-none">
+                    {{ person.bio|richtext }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 {# --- CTA --- #}
 <section class="bg-brand-700 text-white py-16">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
-        <h2 class="text-3xl font-bold mb-4">Ready to get started?</h2>
-        <p class="text-brand-100 text-lg mb-8">Book your thermography appointment today.</p>
-        <a href="/booking/"
-           class="inline-block bg-white text-brand-700 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-50 transition shadow-lg hover:shadow-xl">
-            Book an Appointment
-        </a>
+        <h2 class="text-3xl font-bold mb-4">Learn More or Book an Appointment</h2>
+        <p class="text-brand-100 text-lg mb-8">
+            Interested in proactive thermographic imaging? Explore our services or schedule your appointment online.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a href="/services/"
+               class="inline-block bg-white text-brand-700 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-50 transition shadow-lg hover:shadow-xl">
+                View Services
+            </a>
+            <a href="/booking/"
+               class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg border-2 border-white/30 hover:bg-brand-500 transition shadow-lg hover:shadow-xl">
+                Book an Appointment
+            </a>
+        </div>
     </div>
 </section>
 {% endblock %}

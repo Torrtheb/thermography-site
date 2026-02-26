@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Unsubscribed{% endblock %}
+
+{% block body_class %}template-unsubscribed{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-24 text-center">
+    <h1 class="text-3xl font-bold text-gray-800 mb-4">You've Been Unsubscribed</h1>
+    <p class="text-gray-600 mb-2">
+        <strong>{{ email }}</strong> has been removed from our mailing list.
+    </p>
+    <p class="text-gray-500 mb-8">We're sorry to see you go! You can always re-subscribe from our website.</p>
+
+    <a href="/"
+       class="inline-block bg-brand-700 text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-800 transition">
+        Go to Homepage
+    </a>
+</div>
+{% endblock %}
