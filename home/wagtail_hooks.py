@@ -76,7 +76,7 @@ class WelcomePanel:
             '</div></a>'
 
             # Card: Settings
-            '<a href="/admin/settings/" style="text-decoration:none; color:inherit;">'
+            '<a href="/admin/settings/home/sitesettings/" style="text-decoration:none; color:inherit;">'
             '<div style="background:#fefce8; border:1px solid #fef08a; border-radius:12px; padding:1.2em; '
             'transition:box-shadow 0.2s; cursor:pointer;" '
             'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
