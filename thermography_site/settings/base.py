@@ -35,10 +35,10 @@ INSTALLED_APPS = [
     "blog",
     "about",
     "booking",
+    "clients",  # before contact so contact can use clients.fields for encryption
     "contact",
     "faq",
     "first_visit",
-    "clients",
     "newsletter",
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",

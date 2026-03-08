@@ -142,6 +142,11 @@ class BrevoAPIBackend(BaseEmailBackend):
         if reply_to:
             kwargs["reply_to"] = reply_to
 
+        # Pass through extra headers (e.g. List-Unsubscribe for deliverability)
+        extra = getattr(message, "extra_headers", {})
+        if extra:
+            kwargs["headers"] = extra
+
         send_smtp_email = sdk.SendSmtpEmail(**kwargs)
         result = api_instance.send_transac_email(send_smtp_email)
         logger.info(

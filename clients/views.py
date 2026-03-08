@@ -1,6 +1,11 @@
 """
 Custom Wagtail admin views for the clients app.
+
+Security: Avoid putting client names or emails in flash messages or logs
+in production; failure messages use client ids only.
 """
+
+import logging
 
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -12,6 +17,8 @@ from wagtail.admin.auth import require_admin_access
 from .forms import ComposeEmailForm
 from .models import Client
 from .email import send_custom_email
+
+logger = logging.getLogger(__name__)
 
 
 class ComposeEmailView(View):
@@ -99,12 +106,22 @@ class ComposeEmailView(View):
                     send_custom_email(client, subject, personalised_body)
                     sent += 1
                 except Exception as e:
-                    failed.append(f"{client.name}: {e}")
+                    failed.append(client.pk)
+                    logger.warning(
+                        "Send email failed for client_id=%s: %s",
+                        client.pk,
+                        e,
+                        exc_info=True,
+                    )
 
             if sent:
                 messages.success(request, f"Email sent successfully to {sent} client(s).")
             if failed:
-                messages.error(request, f"Failed to send to: {'; '.join(failed)}")
+                messages.error(
+                    request,
+                    f"Failed to send to {len(failed)} client(s) (IDs: {', '.join(str(pk) for pk in failed)}). "
+                    "Check server logs for details. You can retry from the Clients list.",
+                )
 
             return redirect(reverse("clients_compose_email"))
 

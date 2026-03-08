@@ -4,7 +4,7 @@
 A professional website for a thermography (health screening) business, built with Django + Wagtail CMS. The business owner is non-technical and needs to manage all content, availability, and pricing from an intuitive admin panel.
 
 ## Key Requirements
-- **Free hosting** (no paid plans) — Google Cloud Run free tier
+- **Free / low-cost hosting** — Railway or Google Cloud Run free tier
 - **Professional & beautiful** interface with scroll animations (AOS)
 - **Non-technical owner** must manage everything from Wagtail admin (simpler than WordPress)
 - **No client login** — clients book by selecting a slot and entering contact info
@@ -20,7 +20,7 @@ A professional website for a thermography (health screening) business, built wit
 - **Styling**: Tailwind CSS (CDN) + AOS scroll animations
 - **Database**: SQLite (dev) → Postgres (production)
 - **Package manager**: uv
-- **Deployment target**: Google Cloud Run (free tier)
+- **Deployment target**: Railway (primary) or Google Cloud Run (free tier)
 - **Repo**: https://github.com/Torrtheb/thermography-site
 
 ## Website Pages
@@ -179,7 +179,7 @@ thermography/
 - ✅ Added navbar scroll shadow effect
 - ✅ Updated all prose typography classes to prose-teal
 - ⬜ Wire up contact form to send email
-- ⬜ Security hardening (production settings)
+- ✅ Security hardening (production settings; see `SECURITY.md`)
 
 ### Phase 11: Deployment (Cloud Run) ⬜ NOT STARTED
 ### Phase 12: AI Agent (Future) ⬜ NOT STARTED

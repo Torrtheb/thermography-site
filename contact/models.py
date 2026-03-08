@@ -5,7 +5,8 @@ The owner can edit contact details (email, phone, address) and toggle
 the contact form on/off from the admin.
 
 When a visitor submits the form, an email is sent to the contact_email address.
-In development, emails print to the terminal (console backend).
+Submissions are stored encrypted at rest (same as clients app); viewable in
+Wagtail admin → Contact submissions.
 
 Page hierarchy:
   Root Page
@@ -13,6 +14,7 @@ Page hierarchy:
 """
 
 import hashlib
+import logging
 
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -23,13 +25,13 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 from modelcluster.fields import ParentalKey
 from wagtail.models import Page, Orderable
 from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
+
+from clients.fields import EncryptedCharField, EncryptedTextField
+
+logger = logging.getLogger(__name__)
 
 # Rate-limit: max 3 contact-form submissions per IP per 10 minutes
 CONTACT_RATE_LIMIT = 3
@@ -144,15 +146,30 @@ class ContactSubmissionRateLimit(models.Model):
 
 class ContactSubmission(models.Model):
     """
-    Stores every contact-form submission in the database.
-    Acts as a permanent record — email delivery may fail, but
-    the submission is always saved here.
+    Stores every contact-form submission in the database (PII encrypted at rest).
+
+    Name, email, phone, and message use the same Fernet encryption as the
+    clients app (FIELD_ENCRYPTION_KEY). Viewable in Wagtail admin → Contact submissions.
     """
 
-    name = models.CharField(max_length=200)
-    email = models.EmailField()
-    phone = models.CharField(max_length=30, blank=True)
-    message = models.TextField()
+    name = EncryptedCharField(
+        max_length=200,
+        help_text="Submitter's name (encrypted at rest).",
+    )
+    email = EncryptedCharField(
+        max_length=254,
+        help_text="Submitter's email (encrypted at rest).",
+    )
+    phone = EncryptedCharField(
+        max_length=30,
+        blank=True,
+        default="",
+        help_text="Submitter's phone (encrypted at rest).",
+    )
+    message = EncryptedTextField(
+        default="",
+        help_text="Message content (encrypted at rest).",
+    )
     submitted_at = models.DateTimeField(auto_now_add=True)
     email_sent = models.BooleanField(
         default=False,
@@ -164,13 +181,29 @@ class ContactSubmission(models.Model):
         help_text="SHA-256 hash of the submitter's IP (for rate-limit auditing).",
     )
 
+    panels = [
+        MultiFieldPanel(
+            [
+                FieldPanel("name"),
+                FieldPanel("email"),
+                FieldPanel("phone"),
+                FieldPanel("message"),
+            ],
+            heading="Submission (encrypted at rest)",
+        ),
+        FieldPanel("submitted_at", read_only=True),
+        FieldPanel("email_sent"),
+        FieldPanel("ip_hash", read_only=True),
+    ]
+
     class Meta:
         ordering = ["-submitted_at"]
         verbose_name = "Contact Submission"
         verbose_name_plural = "Contact Submissions"
 
     def __str__(self):
-        return f"{self.name} — {self.submitted_at:%Y-%m-%d %H:%M}"
+        name = (self.name or "").strip() or "—"
+        return f"{name} — {self.submitted_at:%Y-%m-%d %H:%M}"
 
 
 class Location(Orderable):

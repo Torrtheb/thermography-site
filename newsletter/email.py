@@ -1,14 +1,20 @@
 """
 Email sending utilities for the newsletter app.
 
-Uses Django's built-in email framework (Brevo SMTP in production,
+Uses Django's built-in email framework (Brevo HTTP API in production,
 console backend in development).
+
+Deliverability notes (avoid spam folders):
+  1. Authenticate the sending domain in Brevo (SPF + DKIM DNS records).
+  2. Use a real FROM address on that domain (not noreply@).
+  3. All emails include a List-Unsubscribe header (RFC 8058) so Gmail/Outlook
+     show a native unsubscribe button instead of flagging as spam.
 """
 
 import logging
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -36,6 +42,24 @@ def _get_unsubscribe_url(token) -> str:
     return f"{_get_base_url()}{path}"
 
 
+def _build_message(subject, plain_body, html_body, from_email, to_email, unsubscribe_url):
+    """Build an EmailMultiAlternatives with List-Unsubscribe headers."""
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=plain_body,
+        from_email=from_email,
+        to=[to_email],
+    )
+    if html_body:
+        msg.attach_alternative(html_body, "text/html")
+
+    if unsubscribe_url:
+        msg.extra_headers["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        msg.extra_headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+
+    return msg
+
+
 def send_welcome_email(email: str) -> bool:
     """
     Send a 'thank you for subscribing' confirmation email to a new subscriber.
@@ -49,7 +73,6 @@ def send_welcome_email(email: str) -> bool:
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
     subject = "Welcome! Thanks for Subscribing"
 
-    # Look up subscriber token for unsubscribe link
     try:
         subscriber = NewsletterSubscriber.objects.get(email=email)
         unsubscribe_url = _get_unsubscribe_url(subscriber.token)
@@ -72,23 +95,17 @@ def send_welcome_email(email: str) -> bool:
         f"The {context['site_name']} Team"
     )
 
-    # Try HTML template; fall back to plain text only
     try:
-        html_message = render_to_string(
-            "newsletter/emails/welcome.html", context
-        )
+        html_message = render_to_string("newsletter/emails/welcome.html", context)
     except Exception:
         html_message = None
 
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=from_email,
-            recipient_list=[email],
-            html_message=html_message,
-            fail_silently=False,
+        msg = _build_message(
+            subject, plain_message, html_message,
+            from_email, email, unsubscribe_url,
         )
+        msg.send(fail_silently=False)
         return True
     except Exception:
         logger.exception("Failed to send welcome email to %s", email)
@@ -137,13 +154,11 @@ def send_newsletter(campaign: NewsletterCampaign) -> tuple[int, int]:
     for email_addr, token in subscriber_list:
         unsubscribe_url = _get_unsubscribe_url(token)
 
-        # Plain-text version (fallback)
         personalised_body = (
             f"{full_body}\n\n---\n"
             f"To unsubscribe, visit: {unsubscribe_url}"
         )
 
-        # HTML version
         try:
             html_message = render_to_string(
                 "newsletter/emails/campaign.html",
@@ -158,14 +173,11 @@ def send_newsletter(campaign: NewsletterCampaign) -> tuple[int, int]:
             html_message = None
 
         try:
-            send_mail(
-                subject=campaign.subject,
-                message=personalised_body,
-                from_email=from_email,
-                recipient_list=[email_addr],
-                html_message=html_message,
-                fail_silently=False,
+            msg = _build_message(
+                campaign.subject, personalised_body, html_message,
+                from_email, email_addr, unsubscribe_url,
             )
+            msg.send(fail_silently=False)
             sent += 1
         except Exception:
             logger.exception("Failed to send newsletter to %s", email_addr)

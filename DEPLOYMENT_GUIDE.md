@@ -1,4 +1,26 @@
-# Thermography — Google Cloud Deployment Guide
+# Thermography — Deployment Guide
+
+This guide covers **Google Cloud Run** (below). For **Railway** (free/low-cost), see [Railway + free/low-cost stack](#railway--free-low-cost-stack) first, then use the same Neon, Brevo, and GoatCounter steps.
+
+---
+
+## Railway + free/low-cost stack
+
+If you deploy on **Railway** (no credit card for hobby tier, or low monthly cost):
+
+- **App**: Railway runs the Django app from this repo (e.g. Dockerfile or Nixpacks). Set `DJANGO_SETTINGS_MODULE=thermography_site.settings.production` and all variables from `.env.example` in the Railway project **Variables**.
+- **Database**: Use **Neon PostgreSQL** (free tier, same as Step 2 below). Put the connection string in `DATABASE_URL` with `?sslmode=require`.
+- **Media (images/documents)**: Use **Google Cloud Storage** (free 5 GB) with a service account key in `GCS_CREDENTIALS_BASE64`, or an S3-compatible option (e.g. **Cloudflare R2** free tier) via `AWS_*` env vars.
+- **Email**: **Brevo** (Sendinblue) free tier for transactional email and optional newsletter; use the HTTP API (no SMTP port issues on Railway).
+- **Analytics**: **GoatCounter** (free, privacy-friendly, no cookies).
+
+**Security on Railway**: Never put secrets in the repo. Use Railway’s Variables (or secrets). Set `FIELD_ENCRYPTION_KEY` for the Clients app and back it up; see `SECURITY.md`. Allow only your production domain in `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`.
+
+**Cost**: Neon free tier, GoatCounter free, Brevo free tier, GCS/R2 free tiers. Railway hobby tier has usage limits; check [railway.app/pricing](https://railway.app/pricing) for current free/low-cost options.
+
+---
+
+## Google Cloud Run (alternative)
 
 > **Total time**: ~45 minutes | **Cost**: $0/month on free tier  
 > **Stack**: Cloud Run + Neon PostgreSQL + Google Cloud Storage + GoatCounter
