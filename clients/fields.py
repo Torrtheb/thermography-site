@@ -8,12 +8,15 @@ Generate a key once with:
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 """
 
+import logging
 import os
 
 from cryptography.fernet import Fernet, InvalidToken
 
 from django.conf import settings
 from django.db import models
+
+logger = logging.getLogger(__name__)
 
 
 def _get_fernet():
@@ -57,7 +60,10 @@ class EncryptedTextField(models.TextField):
         try:
             return f.decrypt(value.encode()).decode()
         except InvalidToken:
-            # Value might be unencrypted (e.g. migrated data) — return as-is
+            logger.warning(
+                "EncryptedTextField: decryption failed — returning raw value. "
+                "Check FIELD_ENCRYPTION_KEY is correct."
+            )
             return value
 
     def deconstruct(self):
@@ -99,6 +105,10 @@ class EncryptedCharField(models.CharField):
         try:
             return f.decrypt(value.encode()).decode()
         except InvalidToken:
+            logger.warning(
+                "EncryptedCharField: decryption failed — returning raw value. "
+                "Check FIELD_ENCRYPTION_KEY is correct."
+            )
             return value
 
     def deconstruct(self):

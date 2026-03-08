@@ -1,0 +1,49 @@
+{% extends "wagtailadmin/generic/base.html" %}
+{% load wagtailadmin_tags i18n %}
+
+{% block titletag %}{{ page_title }}{% endblock %}
+
+{% block header %}
+    {% include "wagtailadmin/shared/header.html" with title=page_title icon="upload" %}
+{% endblock %}
+
+{% block main_content %}
+<form method="post" enctype="multipart/form-data" style="max-width: 640px;">
+    {% csrf_token %}
+
+    <div style="margin-bottom: 1.5rem;">
+        <label for="id_csv_file" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">CSV File</label>
+        {% if form.csv_file.errors %}<div class="help-critical" style="margin-bottom: 0.5rem;">{{ form.csv_file.errors }}</div>{% endif %}
+        <input type="file" name="csv_file" id="id_csv_file" accept=".csv"
+               style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <p class="help" style="margin-top: 0.5rem;">
+            {{ form.csv_file.help_text }}
+        </p>
+    </div>
+
+    <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+        <p style="font-weight: 600; margin-bottom: 0.5rem;">Example CSV format:</p>
+        <pre style="font-size: 0.8rem; overflow-x: auto; white-space: pre; color: #555; margin: 0;">name,email,phone,clinic_location,previous_visit_reason,last_appointment_date,notes
+Jane Smith,jane@email.com,250-555-1234,Nanaimo,breast_health,2025-11-15,Regular client
+Bob Jones,,,Victoria Pop-Up,initial_screening,,Phone booking</pre>
+        <p class="help" style="margin-top: 0.75rem;">
+            <strong>Visit reason</strong> must be one of:
+            <code>initial_screening</code>,
+            <code>follow_up</code>,
+            <code>breast_health</code>,
+            <code>full_body</code>,
+            <code>pain_inflammation</code>,
+            <code>other</code>
+            — or leave blank.
+        </p>
+    </div>
+
+    <footer style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit" class="button action-save button--icon">
+            {% icon name="upload" %}
+            Import Clients
+        </button>
+        <a href="{% url 'wagtailsnippets_clients_client:list' %}" class="button button-secondary">Cancel</a>
+    </footer>
+</form>
+{% endblock %}

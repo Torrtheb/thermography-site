@@ -85,10 +85,9 @@ def send_followup_email(client, message=""):
     plain_message = (
         f"Hi {context['client_name']},\n\n"
         f"Thank you for your recent thermography visit.\n\n"
-        f"{context['custom_message']}\n\n" if message else
-        f"Hi {context['client_name']},\n\n"
-        f"Thank you for your recent thermography visit.\n\n"
     )
+    if message:
+        plain_message += f"{context['custom_message']}\n\n"
     plain_message += (
         "If you have any questions about your results, don't hesitate to reach out.\n\n"
         "Best regards,\n"

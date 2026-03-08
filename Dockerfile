@@ -40,6 +40,8 @@ USER wagtail
 # Collect static files (needs a dummy secret key for the build step).
 RUN DJANGO_SECRET_KEY=build-placeholder python manage.py collectstatic --noinput --clear
 
-# Runtime command: run migrations then start gunicorn.
+# Runtime command: start gunicorn.
+# Migrations are run separately via `python manage.py migrate` (Railway deploy command
+# or a pre-deploy hook) to avoid race conditions with multiple container instances.
 # Railway sets PORT automatically; gunicorn must bind to 0.0.0.0.
-CMD set -xe; python manage.py migrate --noinput; gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+CMD gunicorn thermography_site.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120

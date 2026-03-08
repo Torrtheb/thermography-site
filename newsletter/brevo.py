@@ -19,6 +19,14 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _redact_email(email: str) -> str:
+    """Mask an email for safe logging, e.g. 'j***@example.com'."""
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.rsplit("@", 1)
+    return f"{local[0]}***@{domain}" if local else f"***@{domain}"
+
+
 def add_contact_to_brevo(email: str) -> bool:
     """
     Add or update a contact in the configured Brevo list.
@@ -46,18 +54,18 @@ def add_contact_to_brevo(email: str) -> bool:
             update_enabled=True,  # update if contact already exists
         )
         api_instance.create_contact(contact)
-        logger.info("Brevo: added/updated contact %s to list %s", email, list_id)
+        logger.info("Brevo: added/updated contact %s to list %s", _redact_email(email), list_id)
         return True
 
     except ApiException as e:
         # 409 = duplicate contact (already in list) — not an error
         if e.status == 409:
-            logger.info("Brevo: contact %s already exists — skipped.", email)
+            logger.info("Brevo: contact %s already exists — skipped.", _redact_email(email))
             return True
-        logger.warning("Brevo API error syncing %s: %s", email, e)
+        logger.warning("Brevo API error syncing %s: %s", _redact_email(email), e)
         return False
     except Exception:
-        logger.exception("Unexpected error syncing %s to Brevo", email)
+        logger.exception("Unexpected error syncing %s to Brevo", _redact_email(email))
         return False
 
 
@@ -82,11 +90,11 @@ def remove_contact_from_brevo(email: str) -> bool:
 
         body = sib_api_v3_sdk.RemoveContactFromList(emails=[email])
         api_instance.remove_contact_from_list(int(list_id), body)
-        logger.info("Brevo: removed %s from list %s", email, list_id)
+        logger.info("Brevo: removed %s from list %s", _redact_email(email), list_id)
         return True
 
     except Exception:
-        logger.exception("Error removing %s from Brevo list", email)
+        logger.exception("Error removing %s from Brevo list", _redact_email(email))
         return False
 
 
@@ -121,16 +129,16 @@ def unblock_contact_in_brevo(email: str) -> bool:
         # Remove from SMTP blocklist
         body = sib_api_v3_sdk.BlockDomain(email=email)
         api_instance.smtp_blocked_contacts_email_delete(email)
-        logger.info("Brevo: unblocked %s from SMTP blocklist", email)
+        logger.info("Brevo: unblocked %s from SMTP blocklist", _redact_email(email))
         return True
 
     except ApiException as e:
         if e.status == 404:
             # Contact wasn't on the blocklist — that's fine
-            logger.debug("Brevo: %s was not on SMTP blocklist.", email)
+            logger.debug("Brevo: %s was not on SMTP blocklist.", _redact_email(email))
             return True
-        logger.warning("Brevo API error unblocking %s: %s", email, e)
+        logger.warning("Brevo API error unblocking %s: %s", _redact_email(email), e)
         return False
     except Exception:
-        logger.exception("Unexpected error unblocking %s in Brevo", email)
+        logger.exception("Unexpected error unblocking %s in Brevo", _redact_email(email))
         return False

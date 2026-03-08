@@ -1,12 +1,22 @@
 """
 Custom Wagtail admin views for the clients app.
 
+Provides:
+  - ClientSearchView: searchable/filterable client list (works on encrypted fields)
+  - ComposeEmailView: compose and send emails to filtered clients
+  - CSVImportView: upload a CSV of client records
+  - csv_export_view: download all clients as CSV
+
 Security: Avoid putting client names or emails in flash messages or logs
 in production; failure messages use client ids only.
 """
 
+import csv
+import io
 import logging
+from datetime import date
 
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.contrib import messages
@@ -14,12 +24,110 @@ from django.views import View
 
 from wagtail.admin.auth import require_admin_access
 
-from .forms import ComposeEmailForm
-from .models import Client
+from .forms import ClientFilterForm, ComposeEmailForm, CSVImportForm
+from .models import Client, VISIT_REASON_CHOICES
 from .email import send_custom_email
 
 logger = logging.getLogger(__name__)
 
+VALID_VISIT_REASONS = {slug for slug, _ in VISIT_REASON_CHOICES}
+
+
+# ──────────────────────────────────────────────────────────
+# Shared filtering helper
+# ──────────────────────────────────────────────────────────
+
+def _filter_clients(request):
+    """Apply filters from GET params and return (queryset_or_list, filter_form, sort_key).
+
+    DB-level filters are applied to the queryset first. Then, because
+    encrypted fields (name, email, phone) can't be filtered at the DB level,
+    text search is done in Python after decryption.
+    """
+    filter_form = ClientFilterForm(request.GET)
+    filter_form.is_valid()
+    cd = filter_form.cleaned_data
+
+    qs = Client.objects.all()
+
+    # DB-level filters (non-encrypted fields)
+    if cd.get("clinic_location"):
+        qs = qs.filter(clinic_location__icontains=cd["clinic_location"])
+    if cd.get("previous_visit_reason"):
+        qs = qs.filter(previous_visit_reason=cd["previous_visit_reason"])
+    if cd.get("appt_from"):
+        qs = qs.filter(last_appointment_date__gte=cd["appt_from"])
+    if cd.get("appt_to"):
+        qs = qs.filter(last_appointment_date__lte=cd["appt_to"])
+
+    # Sorting
+    sort = request.GET.get("sort", "-last_appointment_date")
+    DB_SORT_FIELDS = {
+        "clinic_location", "-clinic_location",
+        "previous_visit_reason", "-previous_visit_reason",
+        "last_appointment_date", "-last_appointment_date",
+    }
+    PYTHON_SORT_FIELDS = {
+        "name": lambda c: (c.name or "").lower(),
+        "-name": lambda c: (c.name or "").lower(),
+    }
+    ALL_SORT_KEYS = DB_SORT_FIELDS | set(PYTHON_SORT_FIELDS.keys())
+
+    if sort not in ALL_SORT_KEYS:
+        sort = "-last_appointment_date"
+
+    if sort in DB_SORT_FIELDS:
+        clients = list(qs.order_by(sort))
+    else:
+        key_func = PYTHON_SORT_FIELDS[sort]
+        clients = sorted(qs, key=key_func, reverse=sort.startswith("-"))
+
+    # Python-level search on encrypted fields
+    search_q = (cd.get("search") or "").strip().lower()
+    if search_q:
+        clients = [
+            c for c in clients
+            if search_q in (c.name or "").lower()
+            or search_q in (c.email or "").lower()
+            or search_q in (c.phone or "").lower()
+        ]
+
+    return clients, filter_form, sort
+
+
+# ──────────────────────────────────────────────────────────
+# Client Search (works on encrypted fields)
+# ──────────────────────────────────────────────────────────
+
+class ClientSearchView(View):
+    """
+    Searchable, filterable client list that works on encrypted fields.
+
+    Wagtail's built-in snippet search can only query DB-level columns,
+    so encrypted name/email/phone are invisible to it. This view decrypts
+    in Python and filters client-side, giving the owner full search
+    across all fields.
+    """
+
+    template_name = "clients/admin/client_search.html"
+
+    def get(self, request):
+        clients, filter_form, current_sort = _filter_clients(request)
+        return render(request, self.template_name, {
+            "page_title": "Client Search",
+            "clients": clients,
+            "filter_form": filter_form,
+            "current_sort": current_sort,
+            "total_count": Client.objects.count(),
+        })
+
+
+client_search_view = require_admin_access(ClientSearchView.as_view())
+
+
+# ──────────────────────────────────────────────────────────
+# Compose & Send Email
+# ──────────────────────────────────────────────────────────
 
 class ComposeEmailView(View):
     """
@@ -31,45 +139,15 @@ class ComposeEmailView(View):
 
     template_name = "clients/admin/compose_email.html"
 
-    # Fields that can be sorted at the DB level (not encrypted)
-    DB_SORT_FIELDS = {
-        "clinic_location", "-clinic_location",
-        "previous_visit_reason", "-previous_visit_reason",
-        "last_appointment_date", "-last_appointment_date",
-    }
-
-    # Fields that require Python-level sorting (encrypted columns)
-    PYTHON_SORT_FIELDS = {
-        "name": lambda c: (c.name or "").lower(),
-        "-name": lambda c: (c.name or "").lower(),
-    }
-
-    ALL_SORT_KEYS = DB_SORT_FIELDS | set(PYTHON_SORT_FIELDS.keys())
-
-    def _get_clients(self, request):
-        sort = request.GET.get("sort", "-last_appointment_date")
-        if sort not in self.ALL_SORT_KEYS:
-            sort = "-last_appointment_date"
-
-        qs = Client.objects.all()
-
-        if sort in self.DB_SORT_FIELDS:
-            return qs.order_by(sort), sort
-
-        # Python-level sort for encrypted fields
-        key_func = self.PYTHON_SORT_FIELDS[sort]
-        reverse = sort.startswith("-")
-        clients = sorted(qs, key=key_func, reverse=reverse)
-        return clients, sort
-
     def _get_context(self, request, form, selected_ids=None):
-        clients, current_sort = self._get_clients(request)
+        clients, filter_form, current_sort = _filter_clients(request)
         return {
             "form": form,
             "page_title": "Send Email to Clients",
             "clients": clients,
             "selected_ids": selected_ids or set(),
             "current_sort": current_sort,
+            "filter_form": filter_form,
         }
 
     def get(self, request):
@@ -125,7 +203,6 @@ class ComposeEmailView(View):
 
             return redirect(reverse("clients_compose_email"))
 
-        # On validation error, preserve the selected checkboxes
         selected_ids = set()
         try:
             selected_ids = {int(v) for v in request.POST.getlist("recipients")}
@@ -137,6 +214,145 @@ class ComposeEmailView(View):
 compose_email_view = require_admin_access(ComposeEmailView.as_view())
 
 
-# NOTE: SendReportView was removed — private client reports are no longer
-# stored on or sent from this website. Reports are delivered via a separate
-# secure channel outside the application.
+# ──────────────────────────────────────────────────────────
+# CSV Export
+# ──────────────────────────────────────────────────────────
+
+def _csv_export(request):
+    """Download all clients as a CSV file (decrypted)."""
+    clients = Client.objects.all().order_by("pk")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="clients_export_{date.today().isoformat()}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow([
+        "name", "email", "phone", "clinic_location",
+        "previous_visit_reason", "last_appointment_date", "notes",
+    ])
+    for c in clients:
+        writer.writerow([
+            c.name,
+            c.email,
+            c.phone,
+            c.clinic_location,
+            c.previous_visit_reason,
+            c.last_appointment_date.isoformat() if c.last_appointment_date else "",
+            c.notes,
+        ])
+
+    return response
+
+
+csv_export_view = require_admin_access(_csv_export)
+
+
+# ──────────────────────────────────────────────────────────
+# CSV Import
+# ──────────────────────────────────────────────────────────
+
+EXPECTED_HEADERS = {"name", "email", "phone", "clinic_location",
+                    "previous_visit_reason", "last_appointment_date", "notes"}
+
+
+class CSVImportView(View):
+    """Upload a CSV to bulk-create client records."""
+
+    template_name = "clients/admin/csv_import.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {
+            "form": CSVImportForm(),
+            "page_title": "Import Clients from CSV",
+        })
+
+    def post(self, request):
+        form = CSVImportForm(request.POST, request.FILES)
+        if not form.is_valid():
+            return render(request, self.template_name, {
+                "form": form,
+                "page_title": "Import Clients from CSV",
+            })
+
+        csv_file = form.cleaned_data["csv_file"]
+        try:
+            decoded = csv_file.read().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            messages.error(request, "Could not read file. Ensure it is UTF-8 encoded.")
+            return render(request, self.template_name, {
+                "form": CSVImportForm(),
+                "page_title": "Import Clients from CSV",
+            })
+
+        reader = csv.DictReader(io.StringIO(decoded))
+
+        if not reader.fieldnames:
+            messages.error(request, "CSV file appears empty or has no header row.")
+            return render(request, self.template_name, {
+                "form": CSVImportForm(),
+                "page_title": "Import Clients from CSV",
+            })
+
+        normalised_headers = {h.strip().lower() for h in reader.fieldnames}
+        if "name" not in normalised_headers:
+            messages.error(
+                request,
+                f"CSV must have a 'name' column. Found: {', '.join(reader.fieldnames)}",
+            )
+            return render(request, self.template_name, {
+                "form": CSVImportForm(),
+                "page_title": "Import Clients from CSV",
+            })
+
+        created = 0
+        skipped = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            # Normalise keys
+            row = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
+
+            name = row.get("name", "").strip()
+            if not name:
+                skipped += 1
+                continue
+
+            last_appt = None
+            raw_date = row.get("last_appointment_date", "").strip()
+            if raw_date:
+                try:
+                    last_appt = date.fromisoformat(raw_date)
+                except ValueError:
+                    errors.append(f"Row {row_num}: invalid date '{raw_date}' — skipped date field.")
+
+            visit_reason = row.get("previous_visit_reason", "").strip()
+            if visit_reason and visit_reason not in VALID_VISIT_REASONS:
+                errors.append(f"Row {row_num}: unknown visit reason '{visit_reason}' — cleared.")
+                visit_reason = ""
+
+            Client.objects.create(
+                name=name,
+                email=row.get("email", "").strip(),
+                phone=row.get("phone", "").strip(),
+                clinic_location=row.get("clinic_location", "").strip(),
+                previous_visit_reason=visit_reason,
+                last_appointment_date=last_appt,
+                notes=row.get("notes", "").strip(),
+            )
+            created += 1
+
+        msg = f"Imported {created} client(s)."
+        if skipped:
+            msg += f" Skipped {skipped} row(s) with no name."
+        if errors:
+            msg += f" {len(errors)} warning(s): " + "; ".join(errors[:5])
+            if len(errors) > 5:
+                msg += f" … and {len(errors) - 5} more."
+
+        messages.success(request, msg)
+        return redirect(reverse("wagtailsnippets_clients_client:list"))
+
+
+csv_import_view = require_admin_access(CSVImportView.as_view())

@@ -325,7 +325,7 @@ class BookingPage(Page):
         location_service_map = {}
         for loc in locations:
             svc_map = {}
-            for link in loc.service_links.select_related("service").all():
+            for link in loc.service_links.all():
                 svc = link.service
                 if svc.live:
                     svc_map[svc.slug] = {

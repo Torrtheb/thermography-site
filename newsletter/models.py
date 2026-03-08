@@ -64,7 +64,7 @@ class NewsletterCampaign(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(null=True, blank=True)
     sent_by = models.ForeignKey(
-        "wagtailcore.Page",
+        "auth.User",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -114,21 +114,24 @@ class SubscribeRateLimit(models.Model):
         ]
 
     @classmethod
-    def is_rate_limited(cls, ip_address, max_attempts=5, window_minutes=60):
-        """Return True if this IP has exceeded the attempt limit."""
+    def check_and_increment(cls, ip_address, max_attempts=5, window_minutes=60):
+        """Atomically record an attempt and return (is_limited, ip_hash).
+
+        Combines the check and record into one call to avoid a TOCTOU race
+        where concurrent requests could all pass the check before any records.
+        """
         from datetime import timedelta
+        import random
 
-        ip_hash = hashlib.sha256(ip_address.encode()).hexdigest()
-        cutoff = timezone.now() - timedelta(minutes=window_minutes)
-        recent = cls.objects.filter(ip_hash=ip_hash, attempted_at__gte=cutoff).count()
-        return recent >= max_attempts
-
-    @classmethod
-    def record_attempt(cls, ip_address):
         ip_hash = hashlib.sha256(ip_address.encode()).hexdigest()
         cls.objects.create(ip_hash=ip_hash)
-        # Periodic cleanup: delete records older than 24 hours
-        from datetime import timedelta
-        cutoff = timezone.now() - timedelta(hours=24)
-        cls.objects.filter(attempted_at__lt=cutoff).delete()
-        return ip_hash
+
+        cutoff = timezone.now() - timedelta(minutes=window_minutes)
+        recent = cls.objects.filter(ip_hash=ip_hash, attempted_at__gte=cutoff).count()
+
+        # Probabilistic cleanup (~1 in 50 requests) to avoid DELETE on every call
+        if random.randint(1, 50) == 1:
+            cleanup_cutoff = timezone.now() - timedelta(hours=24)
+            cls.objects.filter(attempted_at__lt=cleanup_cutoff).delete()
+
+        return recent > max_attempts, ip_hash

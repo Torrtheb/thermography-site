@@ -31,12 +31,14 @@
 
     {# --- Card Body --- #}
     <div class="p-6 flex flex-col flex-grow">
-        {# Date & Author #}
+        {# Author (and date for non-article categories) #}
         <div class="flex items-center gap-2 text-sm text-gray-500 mb-3">
+            {% if section_slug != "articles" %}
             <time datetime="{{ post.publish_date|date:'Y-m-d' }}">
                 {{ post.publish_date|date:"M d, Y" }}
             </time>
             <span>·</span>
+            {% endif %}
             <span>{{ post.author_name }}</span>
         </div>
 

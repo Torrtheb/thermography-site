@@ -163,10 +163,10 @@ class ClientReport(models.Model):
         help_text="When the report delivery email was sent.",
     )
 
-    notes = models.TextField(
+    notes = EncryptedTextField(
         blank=True,
         default="",
-        help_text="Internal notes about this report.",
+        help_text="Internal notes about this report (encrypted at rest).",
     )
 
     created_at = models.DateTimeField(default=timezone.now, editable=False)

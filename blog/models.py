@@ -59,28 +59,53 @@ class BlogIndexPage(Page):
     max_count = 1
     subpage_types = ["blog.BlogPage"]
 
+    @staticmethod
+    def _sort_for_category(category_slug, posts):
+        """Articles: alphabetical by author last name, then title.
+        Other categories: newest first (default)."""
+        if category_slug == "articles":
+            return sorted(posts, key=lambda p: (
+                p.author_name.split()[-1].lower() if p.author_name else "",
+                p.title.lower(),
+            ))
+        return posts
+
+    @property
+    def latest_child_update(self):
+        """Timestamp of the most recently updated child BlogPage.
+
+        Used as a cache-busting key so the index re-renders when any
+        child page is published, not just when the index itself changes.
+        """
+        newest = (
+            BlogPage.objects.child_of(self)
+            .live()
+            .order_by("-last_published_at")
+            .values_list("last_published_at", flat=True)
+            .first()
+        )
+        return newest or self.last_published_at
+
     def get_context(self, request, *args, **kwargs):
         """Add published blog posts to the template, grouped by category."""
         context = super().get_context(request, *args, **kwargs)
 
-        # Evaluate once to avoid repeated DB queries per category
         all_posts = list(
             BlogPage.objects.child_of(self).live().public().order_by("-publish_date")
         )
 
-        # Category filter from URL: /resources/?category=articles
         active_category = request.GET.get("category", "")
         context["active_category"] = active_category
         context["categories"] = CATEGORY_CHOICES
 
         if active_category and active_category != "experts":
-            context["posts"] = [p for p in all_posts if p.category == active_category]
+            section_posts = [p for p in all_posts if p.category == active_category]
+            context["posts"] = self._sort_for_category(active_category, section_posts)
         elif active_category == "experts":
-            context["posts"] = []  # no blog posts when viewing experts
+            context["posts"] = []
         else:
             context["posts"] = all_posts
 
-        # Group posts by category for the "all" view (in-memory, no extra queries)
         context["sections"] = []
         for slug, label in CATEGORY_CHOICES:
             section_posts = [p for p in all_posts if p.category == slug]
@@ -88,7 +113,7 @@ class BlogIndexPage(Page):
                 context["sections"].append({
                     "slug": slug,
                     "label": label,
-                    "posts": section_posts,
+                    "posts": self._sort_for_category(slug, section_posts),
                 })
 
         # Meet the Experts — auto-pull active Expert snippets

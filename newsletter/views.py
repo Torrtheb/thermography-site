@@ -32,8 +32,14 @@ def subscribe(request):
     """AJAX endpoint to subscribe an email to the newsletter."""
     ip = _get_client_ip(request)
 
-    # Rate-limit check
-    if SubscribeRateLimit.is_rate_limited(ip):
+    # Check honeypot first — bots don't consume rate-limit budget
+    honeypot_val = request.POST.get("website", "")
+    if honeypot_val:
+        return JsonResponse({"ok": True, "message": "Thank you for subscribing!"})
+
+    # Atomic rate-limit: record attempt and check in one step
+    is_limited, ip_hash = SubscribeRateLimit.check_and_increment(ip)
+    if is_limited:
         return JsonResponse(
             {"ok": False, "error": "Too many attempts. Please try again later."},
             status=429,
@@ -41,17 +47,8 @@ def subscribe(request):
 
     form = NewsletterForm(request.POST)
 
-    # Check honeypot first (before full validation)
-    honeypot_val = request.POST.get("website", "")
-    if honeypot_val:
-        # Bot detected — pretend success so it doesn't retry
-        return JsonResponse({"ok": True, "message": "Thank you for subscribing!"})
-
     # Normalise email even if form has unique-constraint errors
     raw_email = (request.POST.get("email") or "").lower().strip()
-
-    # Record rate-limit attempt
-    ip_hash = SubscribeRateLimit.record_attempt(ip)
 
     # Check if already subscribed (before form validation rejects duplicate)
     if raw_email:

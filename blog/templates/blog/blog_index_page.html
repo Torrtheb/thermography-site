@@ -2,7 +2,7 @@
 {% load cache wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
-{% cache 600 "blog_index" page.last_published_at active_category %}
+{% cache 600 "blog_index" page.latest_child_update active_category %}
 {# --- Page Header --- #}
 <section class="bg-brand-50 py-16">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
@@ -60,7 +60,7 @@
     {% if posts %}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100 px-5">
         {% for post in posts %}
-        {% include "blog/includes/post_list_item.html" with post=post %}
+        {% include "blog/includes/post_list_item.html" with post=post section_slug=active_category %}
         {% endfor %}
     </div>
     {% else %}
@@ -78,7 +78,7 @@
         </h2>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100 px-5">
             {% for post in section.posts %}
-            {% include "blog/includes/post_list_item.html" with post=post %}
+            {% include "blog/includes/post_list_item.html" with post=post section_slug=section.slug %}
             {% endfor %}
         </div>
     </div>

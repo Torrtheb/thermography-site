@@ -24,6 +24,14 @@ from .models import NewsletterCampaign, NewsletterSubscriber
 logger = logging.getLogger(__name__)
 
 
+def _redact_email(email: str) -> str:
+    """Mask an email for safe logging, e.g. 'j***@example.com'."""
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.rsplit("@", 1)
+    return f"{local[0]}***@{domain}" if local else f"***@{domain}"
+
+
 def _get_base_url() -> str:
     """Return the site's base URL from settings, e.g. https://example.com."""
     url = getattr(settings, "SITE_URL", "http://localhost:8000").rstrip("/")
@@ -108,7 +116,7 @@ def send_welcome_email(email: str) -> bool:
         msg.send(fail_silently=False)
         return True
     except Exception:
-        logger.exception("Failed to send welcome email to %s", email)
+        logger.exception("Failed to send welcome email to %s", _redact_email(email))
         return False
 
 
@@ -143,9 +151,11 @@ def send_newsletter(campaign: NewsletterCampaign) -> tuple[int, int]:
     if campaign.sign_off:
         full_body = f"{campaign.body}\n\n{campaign.sign_off}"
 
-    # Convert plain-text body to simple HTML (preserve paragraphs)
+    # Convert plain-text body to simple HTML (preserve paragraphs).
+    # Escape each paragraph to prevent HTML injection via admin input.
+    from django.utils.html import escape
     body_html = "".join(
-        f"<p>{para}</p>" for para in campaign.body.split("\n\n") if para.strip()
+        f"<p>{escape(para)}</p>" for para in campaign.body.split("\n\n") if para.strip()
     )
 
     sent = 0
@@ -180,7 +190,7 @@ def send_newsletter(campaign: NewsletterCampaign) -> tuple[int, int]:
             msg.send(fail_silently=False)
             sent += 1
         except Exception:
-            logger.exception("Failed to send newsletter to %s", email_addr)
+            logger.exception("Failed to send newsletter to %s", _redact_email(email_addr))
             failed += 1
 
     campaign.sent_count = sent
