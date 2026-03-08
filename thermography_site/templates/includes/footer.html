@@ -36,13 +36,12 @@
             </div>
 
             {# --- Column 3: Contact Info (pulled from ContactPage in admin) --- #}
-            <div class="min-w-0">
+            <div class="min-w-0" style="overflow:hidden;">
                 <h2 class="text-white text-lg font-bold mb-4">Contact</h2>
                 <ul class="space-y-2 text-sm">
                     {% if contact %}
-                    <li class="flex items-start gap-1.5 min-w-0">
-                        <span class="flex-shrink-0">📧</span>
-                        <a href="mailto:{{ contact.contact_email }}" class="hover:text-white transition break-all">{{ contact.contact_email }}</a>
+                    <li style="word-break:break-all; overflow-wrap:anywhere;">
+                        📧 <a href="mailto:{{ contact.contact_email }}" class="hover:text-white transition">{{ contact.contact_email }}</a>
                     </li>
                     <li>📞 <a href="tel:{{ contact.contact_phone }}" class="hover:text-white transition">{{ contact.contact_phone }}</a></li>
                     {% with loc=contact.primary_location %}
