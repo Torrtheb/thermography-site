@@ -15,13 +15,16 @@
     {# ── Filter + Sort controls ── #}
     <details open style="margin-bottom: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.75rem 1rem;">
         <summary style="font-weight: 700; cursor: pointer; user-select: none;">Filter &amp; Sort Clients</summary>
+
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
-            <div>
+            <div style="position: relative;">
                 <label for="id_filter_location" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.2rem;">Location</label>
-                <input type="text" id="id_filter_location" name="clinic_location"
+                <input type="text" id="id_filter_location" name="clinic_location" autocomplete="off"
                        value="{{ filter_form.clinic_location.value|default_if_none:'' }}"
-                       placeholder="e.g. Nanaimo"
+                       placeholder="e.g. Parksville"
+                       data-ac-field="clinic_location"
                        style="width: 100%; padding: 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;">
+                <div class="ac-dropdown" style="display:none;"></div>
             </div>
             <div>
                 <label for="id_filter_reason" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.2rem;">Visit Reason</label>
@@ -44,47 +47,55 @@
                        value="{{ filter_form.appt_to.value|default_if_none:'' }}"
                        style="width: 100%; padding: 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;">
             </div>
-            <div>
-                <label for="id_search" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.2rem;">Search name/email/phone</label>
-                <input type="text" id="id_search" name="search"
+            <div style="position: relative;">
+                <label for="id_search" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.2rem;">Search name / email / phone</label>
+                <input type="text" id="id_search" name="search" autocomplete="off"
                        value="{{ filter_form.search.value|default_if_none:'' }}"
                        placeholder="Type to search…"
+                       data-ac-field="name"
                        style="width: 100%; padding: 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;">
-            </div>
-            <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
-                <button type="button" onclick="applyFilters()" class="button button-small" style="white-space: nowrap;">Apply</button>
-                <a href="{% url 'clients_compose_email' %}" class="button button-small button-secondary" style="white-space: nowrap;">Clear</a>
+                <div class="ac-dropdown" style="display:none;"></div>
             </div>
         </div>
-        <div style="margin-top: 0.75rem;">
-            <label for="sort-select" style="font-weight: 600; font-size: 0.8rem; margin-right: 0.5rem;">Sort by:</label>
-            <select id="sort-select" onchange="applyFilters()"
-                    style="padding: 0.35rem 2rem 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; -webkit-appearance: menulist; appearance: menulist;">
-                <option value="-last_appointment_date" {% if current_sort == '-last_appointment_date' %}selected{% endif %}>Last Appointment (newest)</option>
-                <option value="last_appointment_date"  {% if current_sort == 'last_appointment_date' %}selected{% endif %}>Last Appointment (oldest)</option>
-                <option value="name"                   {% if current_sort == 'name' %}selected{% endif %}>Name (A → Z)</option>
-                <option value="-name"                  {% if current_sort == '-name' %}selected{% endif %}>Name (Z → A)</option>
-                <option value="clinic_location"        {% if current_sort == 'clinic_location' %}selected{% endif %}>Location (A → Z)</option>
-                <option value="-clinic_location"       {% if current_sort == '-clinic_location' %}selected{% endif %}>Location (Z → A)</option>
-                <option value="previous_visit_reason"  {% if current_sort == 'previous_visit_reason' %}selected{% endif %}>Visit Reason (A → Z)</option>
-                <option value="-previous_visit_reason" {% if current_sort == '-previous_visit_reason' %}selected{% endif %}>Visit Reason (Z → A)</option>
-            </select>
+
+        {# ── Sort + Action buttons on their own row ── #}
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #eee;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <label for="sort-select" style="font-weight: 600; font-size: 0.8rem; white-space: nowrap;">Sort by:</label>
+                <select id="sort-select" onchange="applyFilters()"
+                        style="padding: 0.35rem 2rem 0.35rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; -webkit-appearance: menulist; appearance: menulist;">
+                    <option value="-last_appointment_date" {% if current_sort == '-last_appointment_date' %}selected{% endif %}>Last Appointment (newest)</option>
+                    <option value="last_appointment_date"  {% if current_sort == 'last_appointment_date' %}selected{% endif %}>Last Appointment (oldest)</option>
+                    <option value="name"                   {% if current_sort == 'name' %}selected{% endif %}>Name (A &rarr; Z)</option>
+                    <option value="-name"                  {% if current_sort == '-name' %}selected{% endif %}>Name (Z &rarr; A)</option>
+                    <option value="clinic_location"        {% if current_sort == 'clinic_location' %}selected{% endif %}>Location (A &rarr; Z)</option>
+                    <option value="-clinic_location"       {% if current_sort == '-clinic_location' %}selected{% endif %}>Location (Z &rarr; A)</option>
+                    <option value="previous_visit_reason"  {% if current_sort == 'previous_visit_reason' %}selected{% endif %}>Visit Reason (A &rarr; Z)</option>
+                    <option value="-previous_visit_reason" {% if current_sort == '-previous_visit_reason' %}selected{% endif %}>Visit Reason (Z &rarr; A)</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+                <button type="button" onclick="applyFilters()" class="button button-small" style="white-space: nowrap;">Apply Filters</button>
+                <a href="{% url 'clients_compose_email' %}" class="button button-small button-secondary" style="white-space: nowrap;">Clear</a>
+            </div>
         </div>
     </details>
 
     {# ── Recipients table ── #}
     <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
         Recipients
-        <span style="font-weight: 400; font-size: 0.9rem; color: #666;">({{ filtered_count }} match{{ filtered_count|pluralize:"es" }}, page {{ clients.number }}/{{ clients.paginator.num_pages }})</span>
+        <span style="font-weight: 400; font-size: 0.9rem; color: #666;">
+            ({{ filtered_count }} match{{ filtered_count|pluralize:"es" }}{% if clients.paginator.num_pages > 1 %}, page {{ clients.number }}/{{ clients.paginator.num_pages }}{% endif %})
+        </span>
     </h2>
     {% if form.recipients.errors %}
         <div class="help-critical" style="margin-bottom: 0.5rem;">{{ form.recipients.errors }}</div>
     {% endif %}
     <p class="help" style="margin-bottom: 0.5rem;">Select the client(s) to email. Only clients with an email on file can receive emails.</p>
 
-    <div style="max-height: 350px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.5rem;">
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.5rem;">
         <table class="listing" style="margin: 0;">
-            <thead>
+            <thead style="position: sticky; top: 0; background: #fff; z-index: 1;">
                 <tr>
                     <th style="width: 2.5rem; text-align: center;">
                         <input type="checkbox" id="select-all-cb" title="Select / deselect all" onclick="toggleAll(this.checked)">
@@ -182,6 +193,32 @@
     </footer>
 </form>
 
+{# ── Autocomplete dropdown styles ── #}
+<style>
+.ac-dropdown {
+    position: absolute;
+    left: 0; right: 0;
+    top: 100%;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.ac-dropdown .ac-item {
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.ac-dropdown .ac-item:hover,
+.ac-dropdown .ac-item.ac-active {
+    background: #e8f0fe;
+}
+</style>
+
 <script>
 function toggleAll(checked) {
     document.querySelectorAll('input[name="recipients"]').forEach(function(cb) { cb.checked = checked; });
@@ -202,5 +239,76 @@ function goToPage(num) {
     url.searchParams.set('page', num);
     window.location.href = url.toString();
 }
+
+/* ── Autocomplete for filter inputs ── */
+(function() {
+    var acUrl = "{% url 'clients_autocomplete' %}";
+    var timer = null;
+
+    document.querySelectorAll('[data-ac-field]').forEach(function(input) {
+        var dropdown = input.parentElement.querySelector('.ac-dropdown');
+        if (!dropdown) return;
+        var field = input.getAttribute('data-ac-field');
+        var activeIdx = -1;
+
+        function hide() { dropdown.style.display = 'none'; dropdown.innerHTML = ''; activeIdx = -1; }
+
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            var q = input.value.trim();
+            if (q.length < 1) { hide(); return; }
+            timer = setTimeout(function() {
+                fetch(acUrl + '?field=' + encodeURIComponent(field) + '&q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        if (!items.length) { hide(); return; }
+                        dropdown.innerHTML = '';
+                        activeIdx = -1;
+                        items.forEach(function(val) {
+                            var div = document.createElement('div');
+                            div.className = 'ac-item';
+                            div.textContent = val;
+                            div.addEventListener('mousedown', function(e) {
+                                e.preventDefault();
+                                input.value = val;
+                                hide();
+                            });
+                            dropdown.appendChild(div);
+                        });
+                        dropdown.style.display = 'block';
+                    })
+                    .catch(function() { hide(); });
+            }, 200);
+        });
+
+        input.addEventListener('keydown', function(e) {
+            var items = dropdown.querySelectorAll('.ac-item');
+            if (!items.length) {
+                if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIdx = Math.min(activeIdx + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIdx = Math.max(activeIdx - 1, 0);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIdx >= 0) { input.value = items[activeIdx].textContent; hide(); }
+                else { applyFilters(); }
+                return;
+            } else if (e.key === 'Escape') {
+                hide(); return;
+            } else { return; }
+            items.forEach(function(el, i) {
+                el.classList.toggle('ac-active', i === activeIdx);
+            });
+            if (activeIdx >= 0) items[activeIdx].scrollIntoView({block: 'nearest'});
+        });
+
+        input.addEventListener('blur', function() { setTimeout(hide, 150); });
+    });
+})();
 </script>
 {% endblock %}

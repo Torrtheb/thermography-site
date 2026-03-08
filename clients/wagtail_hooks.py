@@ -5,6 +5,7 @@ Provides:
 - A searchable, filterable Client snippet in the Wagtail admin sidebar
 - "Send Email" menu item for composing emails to clients
 - "Import CSV" / "Export CSV" for bulk client management
+- Autocomplete suggestions endpoint for filter fields
 """
 
 from django.urls import path, reverse
@@ -14,7 +15,12 @@ from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
 from .models import Client
-from .views import client_search_view, compose_email_view, csv_export_view, csv_import_view
+from .views import (
+    autocomplete_view,
+    compose_email_view,
+    csv_export_view,
+    csv_import_view,
+)
 
 
 # ──────────────────────────────────────────────────────────
@@ -51,10 +57,10 @@ register_snippet(Client, viewset=ClientViewSet)
 @hooks.register("register_admin_urls")
 def register_client_admin_urls():
     return [
-        path("clients/search/", client_search_view, name="clients_search"),
         path("clients/email/", compose_email_view, name="clients_compose_email"),
         path("clients/import-csv/", csv_import_view, name="clients_csv_import"),
         path("clients/export-csv/", csv_export_view, name="clients_csv_export"),
+        path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
     ]
 
 
@@ -63,22 +69,12 @@ def register_client_admin_urls():
 # ──────────────────────────────────────────────────────────
 
 @hooks.register("register_admin_menu_item")
-def register_search_menu_item():
-    return MenuItem(
-        "Client Search",
-        reverse("clients_search"),
-        icon_name="search",
-        order=201,
-    )
-
-
-@hooks.register("register_admin_menu_item")
 def register_email_menu_item():
     return MenuItem(
         "Send Email",
         reverse("clients_compose_email"),
         icon_name="mail",
-        order=202,
+        order=201,
     )
 
 
@@ -88,7 +84,7 @@ def register_import_menu_item():
         "Import Clients CSV",
         reverse("clients_csv_import"),
         icon_name="upload",
-        order=203,
+        order=202,
     )
 
 
@@ -98,5 +94,5 @@ def register_export_menu_item():
         "Export Clients CSV",
         reverse("clients_csv_export"),
         icon_name="download",
-        order=204,
+        order=203,
     )

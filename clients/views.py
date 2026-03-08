@@ -2,10 +2,10 @@
 Custom Wagtail admin views for the clients app.
 
 Provides:
-  - ClientSearchView: searchable/filterable client list (works on encrypted fields)
   - ComposeEmailView: compose and send emails to filtered clients
   - CSVImportView: upload a CSV of client records
   - csv_export_view: download all clients as CSV
+  - autocomplete_view: JSON suggestions for filter fields
 
 Security: Avoid putting client names or emails in flash messages or logs
 in production; failure messages use client ids only.
@@ -13,12 +13,13 @@ in production; failure messages use client ids only.
 
 import csv
 import io
+import json
 import logging
 from datetime import date
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.contrib import messages
@@ -109,38 +110,6 @@ def _filter_clients(request):
         ]
 
     return clients, filter_form, sort
-
-
-# ──────────────────────────────────────────────────────────
-# Client Search (works on encrypted fields)
-# ──────────────────────────────────────────────────────────
-
-class ClientSearchView(View):
-    """
-    Searchable, filterable client list that works on encrypted fields.
-
-    Wagtail's built-in snippet search can only query DB-level columns,
-    so encrypted name/email/phone are invisible to it. This view decrypts
-    in Python and filters client-side, giving the owner full search
-    across all fields.
-    """
-
-    template_name = "clients/admin/client_search.html"
-
-    def get(self, request):
-        clients, filter_form, current_sort = _filter_clients(request)
-        page_obj = _paginate(request, clients)
-        return render(request, self.template_name, {
-            "page_title": "Client Search",
-            "clients": page_obj,
-            "filter_form": filter_form,
-            "current_sort": current_sort,
-            "total_count": Client.objects.count(),
-            "filtered_count": len(clients),
-        })
-
-
-client_search_view = require_admin_access(ClientSearchView.as_view())
 
 
 # ──────────────────────────────────────────────────────────
@@ -376,3 +345,50 @@ class CSVImportView(View):
 
 
 csv_import_view = require_admin_access(CSVImportView.as_view())
+
+
+# ──────────────────────────────────────────────────────────
+# Autocomplete suggestions for filter fields
+# ──────────────────────────────────────────────────────────
+
+def _autocomplete(request):
+    """Return JSON suggestions for a given field and prefix.
+
+    Query params:
+      field  – one of: clinic_location, name, email, phone
+      q      – the prefix to match (case-insensitive)
+    """
+    field = request.GET.get("field", "")
+    q = (request.GET.get("q") or "").strip().lower()
+    if not q or len(q) < 1:
+        return JsonResponse([], safe=False)
+
+    MAX_SUGGESTIONS = 10
+
+    if field == "clinic_location":
+        values = (
+            Client.objects.filter(clinic_location__icontains=q)
+            .values_list("clinic_location", flat=True)
+            .distinct()[:MAX_SUGGESTIONS]
+        )
+        return JsonResponse(list(values), safe=False)
+
+    if field in ("name", "email", "phone"):
+        seen = set()
+        results = []
+        for client in Client.objects.all().iterator():
+            val = getattr(client, field, "") or ""
+            if not val:
+                continue
+            low = val.lower()
+            if q in low and low not in seen:
+                seen.add(low)
+                results.append(val)
+                if len(results) >= MAX_SUGGESTIONS:
+                    break
+        return JsonResponse(results, safe=False)
+
+    return JsonResponse([], safe=False)
+
+
+autocomplete_view = require_admin_access(_autocomplete)
