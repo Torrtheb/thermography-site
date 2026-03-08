@@ -35,7 +35,6 @@ from wagtail.blocks import (
     ListBlock,          # a repeatable list of one block type
     StreamBlock,        # the main container (menu of block types)
     ChoiceBlock,        # dropdown select
-    IntegerBlock,       # integer input
     BooleanBlock,       # checkbox
 )
 from wagtail.images.blocks import ImageChooserBlock  # image picker

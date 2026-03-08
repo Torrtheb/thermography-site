@@ -50,6 +50,25 @@ class HomePage(Page):
     max_num = 1 means only one HomePage can exist (there's only one homepage).
     """
 
+    @property
+    def latest_content_update(self):
+        """Cache-busting key that tracks changes to related models.
+
+        The homepage renders data from Testimonials and Locations which
+        change independently of the page itself. By checking the latest
+        pk from those models (pks are monotonically increasing, so a new
+        or changed record means a new max pk), we ensure the template
+        cache invalidates when any referenced model changes.
+        """
+        from booking.models import Location
+
+        signals = [
+            self.last_published_at,
+            Testimonial.objects.order_by("-pk").values_list("pk", flat=True).first(),
+            Location.objects.order_by("-pk").values_list("pk", flat=True).first(),
+        ]
+        return "-".join(str(s) for s in signals if s is not None)
+
     body = StreamField(
         [
             # Each tuple is ("internal_name", BlockClass)

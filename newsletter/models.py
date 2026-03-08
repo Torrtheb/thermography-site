@@ -134,4 +134,4 @@ class SubscribeRateLimit(models.Model):
             cleanup_cutoff = timezone.now() - timedelta(hours=24)
             cls.objects.filter(attempted_at__lt=cleanup_cutoff).delete()
 
-        return recent > max_attempts, ip_hash
+        return recent >= max_attempts, ip_hash

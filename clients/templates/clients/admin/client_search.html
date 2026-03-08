@@ -71,7 +71,8 @@
 
 {# ── Results summary ── #}
 <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.75rem;">
-    Showing {{ clients|length }} of {{ total_count }} client{{ total_count|pluralize }}.
+    Showing page {{ clients.number }} of {{ clients.paginator.num_pages }}
+    ({{ filtered_count }} match{{ filtered_count|pluralize:"es" }} out of {{ total_count }} total).
 </p>
 
 {# ── Client table ── #}
@@ -120,6 +121,23 @@
     </div>
 </div>
 
+{# ── Pagination ── #}
+{% if clients.has_other_pages %}
+<nav style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+    {% if clients.has_previous %}
+    <a href="javascript:void(0)" onclick="goToPage(1)" class="button button-small button-secondary">&laquo; First</a>
+    <a href="javascript:void(0)" onclick="goToPage({{ clients.previous_page_number }})" class="button button-small button-secondary">&lsaquo; Prev</a>
+    {% endif %}
+    <span style="padding: 0.35rem 0.75rem; font-size: 0.85rem; line-height: 1.5;">
+        Page {{ clients.number }} of {{ clients.paginator.num_pages }}
+    </span>
+    {% if clients.has_next %}
+    <a href="javascript:void(0)" onclick="goToPage({{ clients.next_page_number }})" class="button button-small button-secondary">Next &rsaquo;</a>
+    <a href="javascript:void(0)" onclick="goToPage({{ clients.paginator.num_pages }})" class="button button-small button-secondary">Last &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}
+
 <script>
 function applyFilters() {
     var url = new URL(window.location.href);
@@ -129,6 +147,12 @@ function applyFilters() {
     url.searchParams.set('appt_from', document.getElementById('id_appt_from').value);
     url.searchParams.set('appt_to', document.getElementById('id_appt_to').value);
     url.searchParams.set('search', document.getElementById('id_search').value);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+function goToPage(num) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('page', num);
     window.location.href = url.toString();
 }
 document.getElementById('id_search').addEventListener('keydown', function(e) {

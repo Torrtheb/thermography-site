@@ -1,7 +1,7 @@
 """
 Custom Django email backend — sends via Brevo's transactional HTTP API.
 
-Uses the already-installed ``sib-api-v3-sdk`` to bypass SMTP entirely,
+Uses the official ``brevo-python`` v4 SDK to bypass SMTP entirely,
 which avoids port-blocking issues on PaaS hosts like Railway.
 
 The backend reads the API key from ``settings.BREVO_API_KEY``.
@@ -19,7 +19,6 @@ from django.core.mail.backends.base import BaseEmailBackend
 
 logger = logging.getLogger(__name__)
 
-# Regex to extract "Display Name <email@example.com>" format
 _ADDRESS_RE = re.compile(r"^(.+?)\s*<(.+?)>\s*$")
 
 
@@ -43,7 +42,6 @@ class BrevoAPIBackend(BaseEmailBackend):
         super().__init__(fail_silently=fail_silently, **kwargs)
         self.api_key = api_key or getattr(settings, "BREVO_API_KEY", "")
 
-    # The HTTP API is stateless — no persistent connection to manage.
     def open(self):
         return True
 
@@ -63,18 +61,14 @@ class BrevoAPIBackend(BaseEmailBackend):
                 raise ValueError("BREVO_API_KEY is not configured")
             return 0
 
-        import sib_api_v3_sdk
+        from brevo import Brevo
 
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key["api-key"] = self.api_key
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-            sib_api_v3_sdk.ApiClient(configuration)
-        )
+        client = Brevo(api_key=self.api_key)
 
         sent_count = 0
         for message in email_messages:
             try:
-                self._send_one(api_instance, message, sib_api_v3_sdk)
+                self._send_one(client, message)
                 sent_count += 1
             except Exception:
                 logger.exception(
@@ -87,45 +81,54 @@ class BrevoAPIBackend(BaseEmailBackend):
 
         return sent_count
 
-    def _send_one(self, api_instance, message, sdk):
+    def _send_one(self, client, message):
         """Send a single EmailMessage via the Brevo transactional API."""
-        # Sender
+        from brevo.transactional_emails.types import (
+            SendTransacEmailRequestSender,
+            SendTransacEmailRequestToItem,
+            SendTransacEmailRequestCcItem,
+            SendTransacEmailRequestBccItem,
+            SendTransacEmailRequestReplyTo,
+        )
+
         from_email = message.from_email or settings.DEFAULT_FROM_EMAIL
-        sender = _parse_address(from_email)
+        sender_parsed = _parse_address(from_email)
+        sender = SendTransacEmailRequestSender(**sender_parsed)
 
-        # Recipients
-        to_list = [_parse_address(addr) for addr in message.to] if message.to else []
-        cc_list = (
-            [_parse_address(addr) for addr in message.cc] if message.cc else None
-        )
-        bcc_list = (
-            [_parse_address(addr) for addr in message.bcc] if message.bcc else None
-        )
+        to_list = [
+            SendTransacEmailRequestToItem(**_parse_address(addr))
+            for addr in message.to
+        ] if message.to else []
 
-        # Reply-to
+        cc_list = [
+            SendTransacEmailRequestCcItem(**_parse_address(addr))
+            for addr in message.cc
+        ] if message.cc else None
+
+        bcc_list = [
+            SendTransacEmailRequestBccItem(**_parse_address(addr))
+            for addr in message.bcc
+        ] if message.bcc else None
+
         reply_to = None
         if message.reply_to:
-            reply_to = _parse_address(message.reply_to[0])
+            parsed = _parse_address(message.reply_to[0])
+            reply_to = SendTransacEmailRequestReplyTo(**parsed)
 
-        # Content — handle EmailMultiAlternatives (html_message kwarg)
-        # and plain EmailMessage with content_subtype='html'.
         text_content = None
         html_content = None
 
         if hasattr(message, "alternatives") and message.alternatives:
-            # EmailMultiAlternatives: body is plain text, alternatives has HTML
             text_content = message.body
             for content, mimetype in message.alternatives:
                 if mimetype == "text/html":
                     html_content = content
                     break
         elif getattr(message, "content_subtype", "plain") == "html":
-            # EmailMessage with content_subtype = "html"
             html_content = message.body
         else:
             text_content = message.body
 
-        # Build API request
         kwargs = {
             "to": to_list,
             "sender": sender,
@@ -142,13 +145,11 @@ class BrevoAPIBackend(BaseEmailBackend):
         if reply_to:
             kwargs["reply_to"] = reply_to
 
-        # Pass through extra headers (e.g. List-Unsubscribe for deliverability)
         extra = getattr(message, "extra_headers", {})
         if extra:
             kwargs["headers"] = extra
 
-        send_smtp_email = sdk.SendSmtpEmail(**kwargs)
-        result = api_instance.send_transac_email(send_smtp_email)
+        result = client.transactional_emails.send_transac_email(**kwargs)
         logger.info(
             "Brevo API: sent '%s' to %s (message_id=%s)",
             message.subject,

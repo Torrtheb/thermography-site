@@ -335,6 +335,7 @@ class BookingPage(Page):
                         "duration": svc.duration_label,
                         "detail_url": svc.url,
                     }
+            loc.service_count = len(svc_map)
             location_service_map[str(loc.pk)] = {
                 "services": svc_map,
                 "starts_on": loc.starts_on.isoformat() if loc.starts_on else "",
@@ -342,12 +343,6 @@ class BookingPage(Page):
                 "is_permanent": loc.is_permanent,
             }
         context["location_service_map"] = location_service_map
-
-        # Service count (max across locations, for display)
-        context["service_count"] = max(
-            (len(m["services"]) for m in location_service_map.values()),
-            default=0,
-        )
 
         # For deep-linking: /booking/?location=<id>&service=<slug>
         context["preselected_location"] = request.GET.get("location", "")

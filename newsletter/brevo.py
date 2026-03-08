@@ -1,8 +1,7 @@
 """
-Brevo (Sendinblue) integration — sync newsletter subscribers to a Brevo contact list.
+Brevo integration — sync newsletter subscribers to a Brevo contact list.
 
-This module provides a simple function to add a contact to a Brevo list.
-It's called automatically when someone subscribes via the site.
+Uses the official brevo-python v4 SDK (replaces deprecated sib-api-v3-sdk).
 
 Required env vars (production):
   BREVO_API_KEY       — Your Brevo v3 API key (not SMTP key)
@@ -27,39 +26,41 @@ def _redact_email(email: str) -> str:
     return f"{local[0]}***@{domain}" if local else f"***@{domain}"
 
 
+def _get_client():
+    """Return a configured Brevo client, or None if the API key is missing."""
+    api_key = getattr(settings, "BREVO_API_KEY", "")
+    if not api_key:
+        return None
+
+    from brevo import Brevo
+    return Brevo(api_key=api_key)
+
+
 def add_contact_to_brevo(email: str) -> bool:
     """
     Add or update a contact in the configured Brevo list.
     Returns True on success, False on failure (logged, never raises).
     """
-    api_key = getattr(settings, "BREVO_API_KEY", "")
     list_id = getattr(settings, "BREVO_LIST_ID", None)
+    client = _get_client()
 
-    if not api_key or not list_id:
+    if not client or not list_id:
         logger.debug("Brevo sync skipped — BREVO_API_KEY or BREVO_LIST_ID not set.")
         return False
 
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        from brevo.core.api_error import ApiError
 
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key["api-key"] = api_key
-        api_instance = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
-
-        # Create or update the contact and add to the list
-        contact = sib_api_v3_sdk.CreateContact(
+        client.contacts.create_contact(
             email=email,
             list_ids=[int(list_id)],
-            update_enabled=True,  # update if contact already exists
+            update_enabled=True,
         )
-        api_instance.create_contact(contact)
         logger.info("Brevo: added/updated contact %s to list %s", _redact_email(email), list_id)
         return True
 
-    except ApiException as e:
-        # 409 = duplicate contact (already in list) — not an error
-        if e.status == 409:
+    except ApiError as e:
+        if e.status_code == 409:
             logger.info("Brevo: contact %s already exists — skipped.", _redact_email(email))
             return True
         logger.warning("Brevo API error syncing %s: %s", _redact_email(email), e)
@@ -74,22 +75,19 @@ def remove_contact_from_brevo(email: str) -> bool:
     Remove a contact from the configured Brevo list (not from Brevo entirely).
     Returns True on success, False on failure.
     """
-    api_key = getattr(settings, "BREVO_API_KEY", "")
     list_id = getattr(settings, "BREVO_LIST_ID", None)
+    client = _get_client()
 
-    if not api_key or not list_id:
+    if not client or not list_id:
         return False
 
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        from brevo.contacts.types import RemoveContactFromListRequestBodyEmails
 
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key["api-key"] = api_key
-        api_instance = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
-
-        body = sib_api_v3_sdk.RemoveContactFromList(emails=[email])
-        api_instance.remove_contact_from_list(int(list_id), body)
+        client.contacts.remove_contact_from_list(
+            list_id=int(list_id),
+            request=RemoveContactFromListRequestBodyEmails(emails=[email]),
+        )
         logger.info("Brevo: removed %s from list %s", _redact_email(email), list_id)
         return True
 
@@ -107,34 +105,22 @@ def unblock_contact_in_brevo(email: str) -> bool:
     notifications). This function lifts that block so emails can be delivered
     again — call it when a user explicitly re-subscribes.
 
-    Uses the SMTP API (not Contacts API) because the blocklist is SMTP-level.
     Returns True on success, False on failure (logged, never raises).
     """
-    api_key = getattr(settings, "BREVO_API_KEY", "")
-
-    if not api_key:
+    client = _get_client()
+    if not client:
         logger.debug("Brevo unblock skipped — BREVO_API_KEY not set.")
         return False
 
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        from brevo.core.api_error import ApiError
 
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key["api-key"] = api_key
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-            sib_api_v3_sdk.ApiClient(configuration)
-        )
-
-        # Remove from SMTP blocklist
-        body = sib_api_v3_sdk.BlockDomain(email=email)
-        api_instance.smtp_blocked_contacts_email_delete(email)
+        client.transactional_emails.unblock_or_resubscribe_a_transactional_contact(email)
         logger.info("Brevo: unblocked %s from SMTP blocklist", _redact_email(email))
         return True
 
-    except ApiException as e:
-        if e.status == 404:
-            # Contact wasn't on the blocklist — that's fine
+    except ApiError as e:
+        if e.status_code == 404:
             logger.debug("Brevo: %s was not on SMTP blocklist.", _redact_email(email))
             return True
         logger.warning("Brevo API error unblocking %s: %s", _redact_email(email), e)

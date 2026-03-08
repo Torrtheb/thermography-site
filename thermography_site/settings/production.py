@@ -57,8 +57,10 @@ if os.environ.get("DATABASE_URL"):
     }
 
 # ──────────────────────────────────────────────────────────
-# Caching — in-process memory cache (template fragments, etc.)
-# Used for explicit cache calls (e.g. {% cache %} in templates).
+# Caching — DB-backed cache shared across all Gunicorn workers.
+# LocMemCache is per-process (each worker has its own), so template
+# fragment caches were duplicated and not shared. DatabaseCache
+# is shared and needs no external service (Redis, Memcached).
 # We do NOT use Django's per-site cache middleware (UpdateCache /
 # FetchFromCache) because it can cache responses that include
 # CSRF tokens and interfere with Wagtail's admin publish flow
@@ -66,8 +68,8 @@ if os.environ.get("DATABASE_URL"):
 # ──────────────────────────────────────────────────────────
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "thermography-prod",
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache_table",
         "TIMEOUT": 600,  # 10 minutes
     }
 }

@@ -89,6 +89,18 @@ class ServicesIndexPage(Page):
     max_count = 1                          # only one services index
     subpage_types = ["services.ServicePage"]  # only ServicePages underneath
 
+    @property
+    def latest_child_update(self):
+        """Cache-busting key that includes the most recent child publish."""
+        newest = (
+            ServicePage.objects.child_of(self)
+            .live()
+            .order_by("-last_published_at")
+            .values_list("last_published_at", flat=True)
+            .first()
+        )
+        return newest or self.last_published_at
+
     def get_context(self, request, *args, **kwargs):
         """
         Add live (published) child ServicePages to the template context.
@@ -179,6 +191,19 @@ class ServicePage(Page):
         index.SearchField("short_summary"),
         index.SearchField("description"),
     ]
+
+    @property
+    def latest_content_update(self):
+        """Cache-busting key that also covers testimonials and site policies."""
+        from home.models import Testimonial
+
+        latest_testimonial_pk = (
+            Testimonial.objects.filter(service=self)
+            .order_by("-pk")
+            .values_list("pk", flat=True)
+            .first()
+        )
+        return f"{self.last_published_at}-t{latest_testimonial_pk}"
 
     class Meta:
         verbose_name = "Service Page"

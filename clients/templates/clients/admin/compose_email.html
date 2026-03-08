@@ -75,7 +75,7 @@
     {# ── Recipients table ── #}
     <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
         Recipients
-        <span style="font-weight: 400; font-size: 0.9rem; color: #666;">({{ clients|length }} client{{ clients|length|pluralize }})</span>
+        <span style="font-weight: 400; font-size: 0.9rem; color: #666;">({{ filtered_count }} match{{ filtered_count|pluralize:"es" }}, page {{ clients.number }}/{{ clients.paginator.num_pages }})</span>
     </h2>
     {% if form.recipients.errors %}
         <div class="help-critical" style="margin-bottom: 0.5rem;">{{ form.recipients.errors }}</div>
@@ -123,6 +123,23 @@
             </tbody>
         </table>
     </div>
+
+    {# ── Pagination for recipients ── #}
+    {% if clients.has_other_pages %}
+    <nav style="display: flex; justify-content: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">
+        {% if clients.has_previous %}
+        <a href="javascript:void(0)" onclick="goToPage(1)" class="button button-small button-secondary">&laquo; First</a>
+        <a href="javascript:void(0)" onclick="goToPage({{ clients.previous_page_number }})" class="button button-small button-secondary">&lsaquo; Prev</a>
+        {% endif %}
+        <span style="padding: 0.35rem 0.75rem; font-size: 0.85rem; line-height: 1.5;">
+            Page {{ clients.number }} of {{ clients.paginator.num_pages }}
+        </span>
+        {% if clients.has_next %}
+        <a href="javascript:void(0)" onclick="goToPage({{ clients.next_page_number }})" class="button button-small button-secondary">Next &rsaquo;</a>
+        <a href="javascript:void(0)" onclick="goToPage({{ clients.paginator.num_pages }})" class="button button-small button-secondary">Last &raquo;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
 
     {# ── Message fields ── #}
     <h2 style="font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem;">Message</h2>
@@ -177,6 +194,12 @@ function applyFilters() {
     url.searchParams.set('appt_from', document.getElementById('id_appt_from').value);
     url.searchParams.set('appt_to', document.getElementById('id_appt_to').value);
     url.searchParams.set('search', document.getElementById('id_search').value);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+function goToPage(num) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('page', num);
     window.location.href = url.toString();
 }
 </script>

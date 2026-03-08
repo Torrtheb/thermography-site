@@ -2,7 +2,7 @@
 {% load cache wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
-{% cache 600 "service_detail" page.pk page.last_published_at %}
+{% cache 600 "service_detail" page.pk page.latest_content_update %}
 {# --- Service Detail Page --- #}
 <article class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-0">
 

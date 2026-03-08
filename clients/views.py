@@ -16,6 +16,8 @@ import io
 import logging
 from datetime import date
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -31,6 +33,20 @@ from .email import send_custom_email
 logger = logging.getLogger(__name__)
 
 VALID_VISIT_REASONS = {slug for slug, _ in VISIT_REASON_CHOICES}
+
+CLIENTS_PER_PAGE = 50
+
+
+def _paginate(request, items, per_page=CLIENTS_PER_PAGE):
+    """Return a Page object from a list of items."""
+    paginator = Paginator(items, per_page)
+    page_num = request.GET.get("page", 1)
+    try:
+        return paginator.page(page_num)
+    except PageNotAnInteger:
+        return paginator.page(1)
+    except EmptyPage:
+        return paginator.page(paginator.num_pages)
 
 
 # ──────────────────────────────────────────────────────────
@@ -113,12 +129,14 @@ class ClientSearchView(View):
 
     def get(self, request):
         clients, filter_form, current_sort = _filter_clients(request)
+        page_obj = _paginate(request, clients)
         return render(request, self.template_name, {
             "page_title": "Client Search",
-            "clients": clients,
+            "clients": page_obj,
             "filter_form": filter_form,
             "current_sort": current_sort,
             "total_count": Client.objects.count(),
+            "filtered_count": len(clients),
         })
 
 
@@ -141,13 +159,15 @@ class ComposeEmailView(View):
 
     def _get_context(self, request, form, selected_ids=None):
         clients, filter_form, current_sort = _filter_clients(request)
+        page_obj = _paginate(request, clients)
         return {
             "form": form,
             "page_title": "Send Email to Clients",
-            "clients": clients,
+            "clients": page_obj,
             "selected_ids": selected_ids or set(),
             "current_sort": current_sort,
             "filter_form": filter_form,
+            "filtered_count": len(clients),
         }
 
     def get(self, request):
@@ -179,7 +199,7 @@ class ComposeEmailView(View):
 
             for client in recipients:
                 try:
-                    first_name = client.name.split()[0] if client.name else "there"
+                    first_name = (client.name.split()[0] if client.name and client.name.strip() else "there")
                     personalised_body = f"Hi {first_name},\n\n{body}\n\n{sign_off}"
                     send_custom_email(client, subject, personalised_body)
                     sent += 1
@@ -310,38 +330,38 @@ class CSVImportView(View):
         skipped = 0
         errors = []
 
-        for row_num, row in enumerate(reader, start=2):
-            # Normalise keys
-            row = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
+        with transaction.atomic():
+            for row_num, row in enumerate(reader, start=2):
+                row = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
 
-            name = row.get("name", "").strip()
-            if not name:
-                skipped += 1
-                continue
+                name = row.get("name", "").strip()
+                if not name:
+                    skipped += 1
+                    continue
 
-            last_appt = None
-            raw_date = row.get("last_appointment_date", "").strip()
-            if raw_date:
-                try:
-                    last_appt = date.fromisoformat(raw_date)
-                except ValueError:
-                    errors.append(f"Row {row_num}: invalid date '{raw_date}' — skipped date field.")
+                last_appt = None
+                raw_date = row.get("last_appointment_date", "").strip()
+                if raw_date:
+                    try:
+                        last_appt = date.fromisoformat(raw_date)
+                    except ValueError:
+                        errors.append(f"Row {row_num}: invalid date '{raw_date}' — skipped date field.")
 
-            visit_reason = row.get("previous_visit_reason", "").strip()
-            if visit_reason and visit_reason not in VALID_VISIT_REASONS:
-                errors.append(f"Row {row_num}: unknown visit reason '{visit_reason}' — cleared.")
-                visit_reason = ""
+                visit_reason = row.get("previous_visit_reason", "").strip()
+                if visit_reason and visit_reason not in VALID_VISIT_REASONS:
+                    errors.append(f"Row {row_num}: unknown visit reason '{visit_reason}' — cleared.")
+                    visit_reason = ""
 
-            Client.objects.create(
-                name=name,
-                email=row.get("email", "").strip(),
-                phone=row.get("phone", "").strip(),
-                clinic_location=row.get("clinic_location", "").strip(),
-                previous_visit_reason=visit_reason,
-                last_appointment_date=last_appt,
-                notes=row.get("notes", "").strip(),
-            )
-            created += 1
+                Client.objects.create(
+                    name=name,
+                    email=row.get("email", "").strip(),
+                    phone=row.get("phone", "").strip(),
+                    clinic_location=row.get("clinic_location", "").strip(),
+                    previous_visit_reason=visit_reason,
+                    last_appointment_date=last_appt,
+                    notes=row.get("notes", "").strip(),
+                )
+                created += 1
 
         msg = f"Imported {created} client(s)."
         if skipped:

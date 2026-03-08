@@ -17,7 +17,7 @@
 {% endblock %}
 
 {% block content %}
-{% cache 600 "services_index" page.last_published_at %}
+{% cache 600 "services_index" page.latest_child_update %}
 {# --- Page Header --- #}
 <section class="bg-brand-50 py-16 md:py-20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">

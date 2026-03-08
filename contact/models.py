@@ -68,43 +68,6 @@ class ContactSubmissionRateLimit(models.Model):
         return int(timezone.now().timestamp()) // CONTACT_RATE_WINDOW
 
     @classmethod
-    def get_count(cls, ip_hash: str, window_key: int) -> int:
-        return (
-            cls.objects.filter(ip_hash=ip_hash, window_key=window_key)
-            .values_list("submission_count", flat=True)
-            .first()
-            or 0
-        )
-
-    @classmethod
-    def increment(cls, ip_hash: str, window_key: int) -> None:
-        updated = cls.objects.filter(
-            ip_hash=ip_hash, window_key=window_key
-        ).update(
-            submission_count=F("submission_count") + 1,
-            updated_at=timezone.now(),
-        )
-        if not updated:
-            try:
-                cls.objects.create(
-                    ip_hash=ip_hash,
-                    window_key=window_key,
-                    submission_count=1,
-                )
-            except IntegrityError:
-                # Concurrent create won the race; increment existing row.
-                cls.objects.filter(
-                    ip_hash=ip_hash, window_key=window_key
-                ).update(
-                    submission_count=F("submission_count") + 1,
-                    updated_at=timezone.now(),
-                )
-
-        # Basic cleanup: keep roughly the last 7 days of buckets.
-        keep_windows = (7 * 24 * 3600) // CONTACT_RATE_WINDOW
-        cls.objects.filter(window_key__lt=window_key - keep_windows).delete()
-
-    @classmethod
     def check_and_increment(cls, ip_hash: str, window_key: int, limit: int) -> bool:
         """Atomically check rate limit and record the attempt.
 

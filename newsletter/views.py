@@ -1,3 +1,6 @@
+import logging
+
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
@@ -12,6 +15,8 @@ from .forms import ComposeNewsletterForm, NewsletterForm
 from .models import NewsletterCampaign, NewsletterSubscriber, SubscribeRateLimit
 from .email import send_newsletter, send_welcome_email
 
+logger = logging.getLogger(__name__)
+
 
 def _get_client_ip(request):
     """Extract client IP, using the rightmost X-Forwarded-For value.
@@ -22,7 +27,6 @@ def _get_client_ip(request):
     """
     xff = request.META.get("HTTP_X_FORWARDED_FOR")
     if xff:
-        # Rightmost entry is the one added by the trusted proxy
         return xff.split(",")[-1].strip()
     return request.META.get("REMOTE_ADDR", "")
 
@@ -32,12 +36,10 @@ def subscribe(request):
     """AJAX endpoint to subscribe an email to the newsletter."""
     ip = _get_client_ip(request)
 
-    # Check honeypot first — bots don't consume rate-limit budget
     honeypot_val = request.POST.get("website", "")
     if honeypot_val:
         return JsonResponse({"ok": True, "message": "Thank you for subscribing!"})
 
-    # Atomic rate-limit: record attempt and check in one step
     is_limited, ip_hash = SubscribeRateLimit.check_and_increment(ip)
     if is_limited:
         return JsonResponse(
@@ -47,22 +49,18 @@ def subscribe(request):
 
     form = NewsletterForm(request.POST)
 
-    # Normalise email even if form has unique-constraint errors
     raw_email = (request.POST.get("email") or "").lower().strip()
 
-    # Check if already subscribed (before form validation rejects duplicate)
     if raw_email:
         existing = NewsletterSubscriber.objects.filter(email=raw_email).first()
         if existing:
             if not existing.is_active:
-                # Re-subscribe: reactivate locally + unblock in Brevo
                 existing.is_active = True
                 existing.ip_hash = ip_hash
                 existing.save(update_fields=["is_active", "ip_hash"])
-                unblock_contact_in_brevo(raw_email)  # lift SMTP blocklist first
+                unblock_contact_in_brevo(raw_email)
                 add_contact_to_brevo(raw_email)
                 send_welcome_email(raw_email)
-            # Same response for both active and inactive to prevent email enumeration
             return JsonResponse(
                 {"ok": True, "message": "Thank you for subscribing!"}
             )
@@ -73,8 +71,14 @@ def subscribe(request):
 
     email = form.cleaned_data["email"]
 
-    # Create new subscriber
-    NewsletterSubscriber.objects.create(email=email, ip_hash=ip_hash)
+    try:
+        NewsletterSubscriber.objects.create(email=email, ip_hash=ip_hash)
+    except IntegrityError:
+        logger.info("Duplicate subscriber race handled for email hash")
+        return JsonResponse(
+            {"ok": True, "message": "Thank you for subscribing!"}
+        )
+
     add_contact_to_brevo(email)
     send_welcome_email(email)
     return JsonResponse(

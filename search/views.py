@@ -104,15 +104,15 @@ def _build_excerpt(page, query, max_len=220):
 
     # Truncate if the sentence is very long
     if len(best) > max_len:
-        # Cut around the keyword position
         idx = best.lower().find(query_lower)
         if idx >= 0:
             start = max(0, idx - 80)
             end = min(len(best), idx + len(query) + 140)
+            original_len = len(best)
             best = best[start:end].strip()
             if start > 0:
                 best = "…" + best
-            if end < len(best):
+            if end < original_len:
                 best = best + "…"
         else:
             best = best[:max_len] + "…"

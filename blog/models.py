@@ -65,7 +65,7 @@ class BlogIndexPage(Page):
         Other categories: newest first (default)."""
         if category_slug == "articles":
             return sorted(posts, key=lambda p: (
-                p.author_name.split()[-1].lower() if p.author_name else "",
+                p.author_name.split()[-1].lower() if p.author_name and p.author_name.strip() else "",
                 p.title.lower(),
             ))
         return posts
