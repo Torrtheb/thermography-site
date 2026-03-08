@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% load wagtailcore_tags %}
+{% load cache wagtailcore_tags %}
 
 {% block content %}
+{% cache 600 "home" page.last_published_at %}
 {% for block in page.body %}
     {% include_block block %}
 {% endfor %}
+{% endcache %}
 {% endblock %}

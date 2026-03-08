@@ -57,9 +57,12 @@ if os.environ.get("DATABASE_URL"):
     }
 
 # ──────────────────────────────────────────────────────────
-# Caching — in-process memory cache for rendered pages
-# Eliminates repeated DB queries for anonymous visitors.
-# Cache is per-worker and resets on each deploy.
+# Caching — in-process memory cache (template fragments, etc.)
+# Used for explicit cache calls (e.g. {% cache %} in templates).
+# We do NOT use Django's per-site cache middleware (UpdateCache /
+# FetchFromCache) because it can cache responses that include
+# CSRF tokens and interfere with Wagtail's admin publish flow
+# (symptom: needing to click Publish twice).
 # ──────────────────────────────────────────────────────────
 CACHES = {
     "default": {
@@ -68,12 +71,6 @@ CACHES = {
         "TIMEOUT": 600,  # 10 minutes
     }
 }
-
-# Cache anonymous page views (bypass cache for logged-in users / admin)
-MIDDLEWARE.insert(0, "django.middleware.cache.UpdateCacheMiddleware")
-MIDDLEWARE.append("django.middleware.cache.FetchFromCacheMiddleware")
-CACHE_MIDDLEWARE_SECONDS = 600  # 10 min
-CACHE_MIDDLEWARE_KEY_PREFIX = "thermo"
 
 # Persistent DB connections — avoids reconnecting on every request
 # (Railway europe-west4 → Neon eu-central-1, ~5-10ms).
