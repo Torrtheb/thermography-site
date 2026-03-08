@@ -29,40 +29,95 @@ class WelcomePanel:
 
     def render(self):
         return mark_safe(
-            '<section class="panel summary nice-padding">'
-            '<h2 style="margin-top:0;">\U0001f44b Welcome to your website editor!</h2>'
-            '<p style="font-size:1.1em; color:#555;">'
-            "Here's how to make changes to your website:"
+            '<section class="panel summary nice-padding" style="padding:2em;">'
+
+            # Header
+            '<div style="text-align:center; margin-bottom:2em;">'
+            '<div style="font-size:2.5em; margin-bottom:0.3em;">Welcome back</div>'
+            '<p style="font-size:1.05em; color:#666; margin:0;">'
+            'Here\'s everything you can do from this dashboard.'
             '</p>'
-            '<table style="width:100%; border-collapse:collapse; margin:1em 0;">'
-            '<tr style="border-bottom:1px solid #eee;">'
-            '<td style="padding:10px 10px 10px 0; font-size:1.3em;">\U0001f4dd</td>'
-            '<td style="padding:10px;">'
-            '<strong>Edit pages</strong><br>'
-            '<span style="color:#666;">Click <strong>"Pages"</strong> in the left menu, then click any page to edit it.</span>'
-            '</td></tr>'
-            '<tr style="border-bottom:1px solid #eee;">'
-            '<td style="padding:10px 10px 10px 0; font-size:1.3em;">\U0001f5bc\ufe0f</td>'
-            '<td style="padding:10px;">'
-            '<strong>Add photos</strong><br>'
-            '<span style="color:#666;">Click <strong>"Images"</strong> to upload or manage your photos.</span>'
-            '</td></tr>'
-            '<tr style="border-bottom:1px solid #eee;">'
-            '<td style="padding:10px 10px 10px 0; font-size:1.3em;">\u2699\ufe0f</td>'
-            '<td style="padding:10px;">'
-            '<strong>Site settings</strong><br>'
-            '<span style="color:#666;">Click <strong>"Settings"</strong> to change business name, tagline, or cancellation policy.</span>'
-            '</td></tr>'
-            '<tr>'
-            '<td style="padding:10px 10px 10px 0; font-size:1.3em;">\u2705</td>'
-            '<td style="padding:10px;">'
-            '<strong>Publish your changes</strong><br>'
-            '<span style="color:#666;">After editing, click the green <strong>"Publish"</strong> button at the bottom to make changes live.</span>'
-            '</td></tr>'
-            '</table>'
-            '<p style="color:#888; font-size:0.9em;">'
-            '\U0001f4a1 <em>Tip: You can preview changes before publishing by clicking "Preview" at the bottom of any page editor.</em>'
+            '</div>'
+
+            # Quick-action cards grid
+            '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1em; margin-bottom:2em;">'
+
+            # Card: Edit pages
+            '<a href="/admin/pages/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\U0001f4dd</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Edit Pages</div>'
+            '<div style="font-size:0.85em; color:#666;">Update text, images, and content on any page.</div>'
+            '</div></a>'
+
+            # Card: Images
+            '<a href="/admin/images/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\U0001f5bc\ufe0f</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Photos & Images</div>'
+            '<div style="font-size:0.85em; color:#666;">Upload, replace, or organize your photos.</div>'
+            '</div></a>'
+
+            # Card: Clients
+            '<a href="/admin/snippets/clients/client/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#fdf4ff; border:1px solid #e9d5ff; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\U0001f465</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Clients</div>'
+            '<div style="font-size:0.85em; color:#666;">View, add, or manage your client records.</div>'
+            '</div></a>'
+
+            # Card: Settings
+            '<a href="/admin/settings/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#fefce8; border:1px solid #fef08a; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\u2699\ufe0f</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Site Settings</div>'
+            '<div style="font-size:0.85em; color:#666;">Business name, tagline, policies.</div>'
+            '</div></a>'
+
+            # Card: Testimonials
+            '<a href="/admin/snippets/home/testimonial/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\u2b50</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Testimonials</div>'
+            '<div style="font-size:0.85em; color:#666;">Add or edit client testimonials.</div>'
+            '</div></a>'
+
+            # Card: Locations
+            '<a href="/admin/snippets/booking/location/" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\U0001f4cd</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Locations</div>'
+            '<div style="font-size:0.85em; color:#666;">Manage clinic locations and pop-ups.</div>'
+            '</div></a>'
+
+            '</div>'  # end grid
+
+            # How-to tip
+            '<div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:1.2em; text-align:center;">'
+            '<p style="margin:0; color:#555; font-size:0.95em;">'
+            '\U0001f4a1 <strong>Tip:</strong> After editing any page, click the green <strong>"Publish"</strong> '
+            'button to make your changes live. Use <strong>"Preview"</strong> to check before publishing.'
             '</p>'
+            '</div>'
+
             '</section>'
         )
 
@@ -180,12 +235,23 @@ def simplify_main_menu(request, menu_items):
 
 @hooks.register("insert_global_admin_css")
 def admin_css():
-    """Add subtle CSS tweaks to make the admin feel less technical."""
+    """Add CSS tweaks for friendlier admin UX + mobile scroll fixes."""
     return mark_safe(
-        '<style>'
-        '.c-sf-block-type-description { color: #666 !important; font-size: 0.85em; }'
-        '.help { font-size: 0.9em !important; }'
-        '.content-wrapper h1 { font-size: 1.5em; }'
-        '.content-wrapper { padding-bottom: 100px !important; }'  # stop save bar overlapping content
-        '</style>'
+        "<style>"
+        ".c-sf-block-type-description { color: #666 !important; font-size: 0.85em; }"
+        ".help { font-size: 0.9em !important; }"
+        ".content-wrapper h1 { font-size: 1.5em; }"
+        ".content-wrapper { padding-bottom: 100px !important; }"
+        "#main, .content-wrapper, .content, .nice-padding {"
+        "  overflow-x: auto !important;"
+        "  overflow-y: visible !important;"
+        "  max-width: 100vw;"
+        "}"
+        ".w-main { overflow: auto !important; }"
+        ".listing { min-width: 0; }"
+        ".w-table { overflow-x: auto !important; }"
+        "footer.w-sticky-footer, .footer, .actions {"
+        "  position: sticky !important;"
+        "}"
+        "</style>"
     )
