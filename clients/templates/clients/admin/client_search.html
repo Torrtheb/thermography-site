@@ -104,8 +104,10 @@
                     <td style="color: #555;">{{ client.get_previous_visit_reason_display|default:"—" }}</td>
                     <td style="color: #555;">{{ client.last_appointment_date|date:"M j, Y"|default:"—" }}</td>
                     <td>
-                        <a href="{% url 'clients_compose_email' %}?client_id={{ client.pk }}" title="Send email" style="color: #007d7e; font-size: 0.85rem;">
-                            {% icon name="mail" %} Email
+                        <a href="{% url 'clients_compose_email' %}?client_id={{ client.pk }}" title="Send email"
+                           style="color:#007d7e; font-size:0.85rem; display:inline-flex; align-items:center; gap:0.25rem; text-decoration:none;">
+                            <svg class="icon icon-mail" style="width:1em; height:1em; vertical-align:middle;"><use href="#icon-mail"></use></svg>
+                            Email
                         </a>
                     </td>
                 </tr>
