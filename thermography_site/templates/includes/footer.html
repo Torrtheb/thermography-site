@@ -36,13 +36,19 @@
             </div>
 
             {# --- Column 3: Contact Info (pulled from ContactPage in admin) --- #}
-            <div>
+            <div class="min-w-0">
                 <h2 class="text-white text-lg font-bold mb-4">Contact</h2>
                 <ul class="space-y-2 text-sm">
                     {% if contact %}
-                    <li>📧 <a href="mailto:{{ contact.contact_email }}" class="hover:text-white transition">{{ contact.contact_email }}</a></li>
+                    <li class="flex items-start gap-1.5 min-w-0">
+                        <span class="flex-shrink-0">📧</span>
+                        <a href="mailto:{{ contact.contact_email }}" class="hover:text-white transition break-all">{{ contact.contact_email }}</a>
+                    </li>
                     <li>📞 <a href="tel:{{ contact.contact_phone }}" class="hover:text-white transition">{{ contact.contact_phone }}</a></li>
-                    {% if contact.address %}<li>📍 {{ contact.address|truncatewords:10 }}</li>{% endif %}
+                    {% with loc=contact.primary_location %}
+                    {% if loc %}<li>📍 {{ loc.name }}</li>
+                    {% elif contact.address %}<li>📍 {{ contact.address|truncatewords:10 }}</li>{% endif %}
+                    {% endwith %}
                     {% if contact.facebook_url or contact.instagram_url %}
                     <li class="flex items-center gap-3 pt-2">
                         {% if contact.facebook_url %}

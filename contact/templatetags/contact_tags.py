@@ -17,8 +17,8 @@ register = template.Library()
 
 @register.simple_tag
 def get_contact_info():
-    """Return the live ContactPage, or None if it doesn't exist yet."""
+    """Return the live ContactPage (with locations prefetched), or None."""
     try:
-        return ContactPage.objects.live().public().first()
+        return ContactPage.objects.live().public().prefetch_related("locations").first()
     except Exception:
         return None
