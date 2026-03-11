@@ -253,5 +253,19 @@ def admin_css():
         "footer.w-sticky-footer, .footer, .actions {"
         "  position: sticky !important;"
         "}"
+
+        ".w-dropdown__content, [data-tippy-root], .tippy-box, .tippy-content {"
+        "  max-height: none !important;"
+        "  overflow: visible !important;"
+        "}"
+        ".w-dropdown__content ul, .tippy-content ul {"
+        "  max-height: none !important;"
+        "  overflow: visible !important;"
+        "}"
+        ".listing td, .listing th {"
+        "  overflow: visible !important;"
+        "}"
+        ".listing tr { position: relative; }"
+
         "</style>"
     )
