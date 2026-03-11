@@ -242,12 +242,11 @@ def admin_css():
         ".help { font-size: 0.9em !important; }"
         ".content-wrapper h1 { font-size: 1.5em; }"
         ".content-wrapper { padding-bottom: 100px !important; }"
-        "#main, .content-wrapper, .content, .nice-padding {"
-        "  overflow-x: auto !important;"
-        "  overflow-y: visible !important;"
+        "#main, .content-wrapper, .content {"
+        "  overflow: visible !important;"
         "  max-width: 100vw;"
         "}"
-        ".w-main { overflow: auto !important; }"
+        ".w-main { overflow: visible !important; }"
         ".listing { min-width: 0; }"
         ".w-table { overflow-x: auto !important; }"
         "footer.w-sticky-footer, .footer, .actions {"
@@ -268,6 +267,6 @@ def admin_css():
         "}"
         "ul.actions, td.actions { overflow: visible !important; }"
         ".listing td, .listing th { overflow: visible !important; }"
-
+        ".w-userbar { z-index: 1 !important; }"
         "</style>"
     )

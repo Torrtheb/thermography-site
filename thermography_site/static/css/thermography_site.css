@@ -43,6 +43,12 @@ nav.scrolled {
     transition: transform 0.4s ease;
 }
 
+/* Collapse empty paragraphs from rich text editors */
+.prose p:empty,
+.includes-list p:empty {
+    display: none;
+}
+
 /* Teal accent underline for active nav links */
 .nav-link-active {
     border-bottom: 2px solid #3b7a84;
