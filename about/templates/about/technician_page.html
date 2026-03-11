@@ -162,6 +162,7 @@
 {% endif %}
 
 {# --- CTA --- #}
+{% if page.show_cta %}
 <section class="bg-brand-700 text-white py-16">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
         <h2 class="text-3xl font-bold mb-4">Learn More or Book an Appointment</h2>
@@ -180,5 +181,6 @@
         </div>
     </div>
 </section>
+{% endif %}
 {% endcache %}
 {% endblock %}

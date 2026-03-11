@@ -155,6 +155,16 @@ class TechnicianPage(Page):
         help_text="Heading for the thermographers section. Leave blank to hide the section.",
     )
 
+    # ── Section visibility toggles ─────────────────────────
+    show_cta = models.BooleanField(
+        "Show 'Book an Appointment' section",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("subtitle"),
         FieldPanel("hero_image"),
@@ -182,6 +192,14 @@ class TechnicianPage(Page):
                 InlinePanel("thermographers", label="Thermographer", min_num=0, max_num=10),
             ],
             heading="Our Thermographers (optional)",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_cta"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
         ),
     ]
 

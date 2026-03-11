@@ -1,21 +1,21 @@
 """
-First Visit app — "Your First Visit" step-by-step guide.
+First Visit app -- "Your First Visit" step-by-step guide.
 
 A single page that walks new clients through what to expect:
-  1. Book — select a clinic, date & appointment
-  2. Instructions — preparation tips before the appointment
-  3. Appointment — what happens during the session
-  4. Wait — processing / waiting period
-  5. Sample Report — what the report looks like
-  6. Follow-Up — next steps after receiving results
+  1. Book -- select a clinic, date & appointment
+  2. Instructions -- preparation tips before the appointment
+  3. Appointment -- what happens during the session
+  4. Wait -- processing / waiting period
+  5. Sample Report -- what the report looks like
+  6. Follow-Up -- next steps after receiving results
 
 The owner edits each step's content from Wagtail admin.
 The page uses a visual numbered timeline on the public site.
 
 Page hierarchy:
   Root Page
-    └── Home Page
-          └── Your First Visit  ← FirstVisitPage (only one)
+    -> Home Page
+          -> Your First Visit  <- FirstVisitPage (only one)
 """
 
 from django.db import models
@@ -36,14 +36,14 @@ class FirstVisitPage(Page):
     max_count = 1: only one of these pages.
     """
 
-    # ── Page intro ────────────────────────────────────────────────
+    # -- Page intro --
     intro = RichTextField(
         blank=True,
         help_text="Optional intro text shown above the steps "
-                  "(e.g., 'We want you to feel comfortable and prepared…').",
+                  "(e.g., 'We want you to feel comfortable and prepared...').",
     )
 
-    # ── Step 1: Book ──────────────────────────────────────────────
+    # -- Step 1: Book --
     step1_heading = models.CharField(
         max_length=200,
         default="Book Your Appointment",
@@ -61,7 +61,7 @@ class FirstVisitPage(Page):
         help_text="Optional image for this step.",
     )
 
-    # ── Step 2: Instructions ──────────────────────────────────────
+    # -- Step 2: Instructions --
     step2_heading = models.CharField(
         max_length=200,
         default="Preparation Instructions",
@@ -80,7 +80,7 @@ class FirstVisitPage(Page):
         help_text="Optional image for this step.",
     )
 
-    # ── Step 3: Appointment ───────────────────────────────────────
+    # -- Step 3: Appointment --
     step3_heading = models.CharField(
         max_length=200,
         default="Your Appointment",
@@ -98,7 +98,7 @@ class FirstVisitPage(Page):
         help_text="Optional image for this step.",
     )
 
-    # ── Step 4: Wait ──────────────────────────────────────────────
+    # -- Step 4: Wait --
     step4_heading = models.CharField(
         max_length=200,
         default="Processing Your Results",
@@ -116,7 +116,7 @@ class FirstVisitPage(Page):
         help_text="Optional image for this step.",
     )
 
-    # ── Step 5: Sample Report ─────────────────────────────────────
+    # -- Step 5: Sample Report --
     step5_heading = models.CharField(
         max_length=200,
         default="Your Report",
@@ -134,7 +134,7 @@ class FirstVisitPage(Page):
         help_text="Optional image (e.g., a redacted sample report).",
     )
 
-    # ── Step 6: Follow-Up ─────────────────────────────────────────
+    # -- Step 6: Follow-Up --
     step6_heading = models.CharField(
         max_length=200,
         default="Follow-Up",
@@ -142,7 +142,7 @@ class FirstVisitPage(Page):
     )
     step6_body = RichTextField(
         blank=True,
-        help_text="Next steps — review with the technician, scheduling a follow-up, etc.",
+        help_text="Next steps -- review with the technician, scheduling a follow-up, etc.",
     )
     step6_image = models.ForeignKey(
         get_image_model_string(),
@@ -152,7 +152,7 @@ class FirstVisitPage(Page):
         help_text="Optional image for this step.",
     )
 
-    # ── Bottom CTA ────────────────────────────────────────────────
+    # -- Bottom CTA --
     cta_text = models.CharField(
         max_length=200,
         default="Ready to book your first appointment?",
@@ -169,36 +169,64 @@ class FirstVisitPage(Page):
         help_text="URL the button links to (default: /booking/).",
     )
 
-    # ── Admin panel layout ────────────────────────────────────────
+    # -- Section visibility toggles --
+    show_cta = models.BooleanField(
+        "Show bottom call-to-action",
+        default=True,
+    )
+    show_policies = models.BooleanField(
+        "Show cancellation / deposit policies",
+        default=True,
+    )
+    show_testimonials = models.BooleanField(
+        "Show testimonials section",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
+    # -- Admin panel layout --
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
         MultiFieldPanel(
             [FieldPanel("step1_heading"), FieldPanel("step1_body"), FieldPanel("step1_image")],
-            heading="Step 1 — Book",
+            heading="Step 1 -- Book",
         ),
         MultiFieldPanel(
             [FieldPanel("step2_heading"), FieldPanel("step2_body"), FieldPanel("step2_image")],
-            heading="Step 2 — Instructions",
+            heading="Step 2 -- Instructions",
         ),
         MultiFieldPanel(
             [FieldPanel("step3_heading"), FieldPanel("step3_body"), FieldPanel("step3_image")],
-            heading="Step 3 — Appointment",
+            heading="Step 3 -- Appointment",
         ),
         MultiFieldPanel(
             [FieldPanel("step4_heading"), FieldPanel("step4_body"), FieldPanel("step4_image")],
-            heading="Step 4 — Wait",
+            heading="Step 4 -- Wait",
         ),
         MultiFieldPanel(
             [FieldPanel("step5_heading"), FieldPanel("step5_body"), FieldPanel("step5_image")],
-            heading="Step 5 — Sample Report",
+            heading="Step 5 -- Sample Report",
         ),
         MultiFieldPanel(
             [FieldPanel("step6_heading"), FieldPanel("step6_body"), FieldPanel("step6_image")],
-            heading="Step 6 — Follow-Up",
+            heading="Step 6 -- Follow-Up",
         ),
         MultiFieldPanel(
             [FieldPanel("cta_text"), FieldPanel("cta_button_text"), FieldPanel("cta_button_url")],
             heading="Bottom Call-to-Action",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_cta"),
+                FieldPanel("show_policies"),
+                FieldPanel("show_testimonials"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
         ),
     ]
 

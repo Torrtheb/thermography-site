@@ -163,6 +163,24 @@ class ServicePage(Page):
         help_text="Featured services may be highlighted on the homepage.",
     )
 
+    # ── Section visibility toggles ─────────────────────────
+    show_cta = models.BooleanField(
+        "Show 'Book an Appointment' button",
+        default=True,
+    )
+    show_policies = models.BooleanField(
+        "Show cancellation / deposit policies",
+        default=True,
+    )
+    show_testimonials = models.BooleanField(
+        "Show testimonials section",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
     # --- Admin panel layout ---
     content_panels = Page.content_panels + [
         FieldPanel("short_summary"),
@@ -182,6 +200,16 @@ class ServicePage(Page):
             heading="Service Image",
         ),
         FieldPanel("is_featured"),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_cta"),
+                FieldPanel("show_policies"),
+                FieldPanel("show_testimonials"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
+        ),
     ]
 
     # --- Page hierarchy rules ---

@@ -290,6 +290,20 @@ class BookingPage(Page):
         help_text="Text on the booking button (only used with the direct link fallback).",
     )
 
+    # ── Section visibility toggles ─────────────────────────
+    show_policies = models.BooleanField(
+        "Show cancellation / deposit policies",
+        default=True,
+    )
+    show_testimonials = models.BooleanField(
+        "Show testimonials section",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("headline"),
         FieldPanel("instructions"),
@@ -302,6 +316,15 @@ class BookingPage(Page):
             ],
             heading="General Booking Widget (optional fallback)",
             help_text="Used only if no locations/services are configured.",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_policies"),
+                FieldPanel("show_testimonials"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
         ),
     ]
 

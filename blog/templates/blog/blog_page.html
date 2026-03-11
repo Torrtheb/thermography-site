@@ -78,6 +78,7 @@
     {% endif %}
 
     {# --- CTA --- #}
+    {% if page.show_cta %}
     <div class="border-t border-gray-200 pt-8 text-center" data-aos="fade-up">
         {% if page.related_service %}
         <p class="text-gray-600 mb-2">Interested in this service?</p>
@@ -101,6 +102,7 @@
         </a>
         {% endif %}
     </div>
+    {% endif %}
 
 </article>
 {% endcache %}

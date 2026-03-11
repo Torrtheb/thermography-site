@@ -281,11 +281,15 @@
 {% endif %}
 
 {# --- Testimonials --- #}
+{% if page.show_testimonials %}
 {% load testimonial_tags %}
 {% testimonials_section %}
+{% endif %}
 
 {# --- Policies (Deposit + Cancellation) --- #}
+{% if page.show_policies %}
 {% include "includes/policies.html" %}
+{% endif %}
 
 {# --- Fallback: no locations configured --- #}
 {% if not locations %}

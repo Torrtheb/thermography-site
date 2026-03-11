@@ -196,6 +196,16 @@ class BlogPage(Page):
         help_text="Optional link to the original source article.",
     )
 
+    # -- Section visibility toggles --
+    show_cta = models.BooleanField(
+        "Show 'Book an Appointment' button",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
     @property
     def is_external(self):
         """True if this post links to an external article."""
@@ -223,6 +233,14 @@ class BlogPage(Page):
         ),
         FieldPanel("related_service"),
         FieldPanel("is_featured"),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_cta"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
+        ),
     ]
 
     parent_page_types = ["blog.BlogIndexPage"]

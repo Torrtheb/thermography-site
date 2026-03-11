@@ -47,9 +47,11 @@
         {% block content %}{% endblock %}
     </main>
 
-    {# --- NEWSLETTER SIGNUP --- #}
+    {# --- NEWSLETTER SIGNUP (hidden if page.show_newsletter is False) --- #}
+    {% if page.show_newsletter is not False %}
     {% load newsletter_tags %}
     {% newsletter_signup %}
+    {% endif %}
 
     {# --- FOOTER --- #}
     {% include "includes/footer.html" %}

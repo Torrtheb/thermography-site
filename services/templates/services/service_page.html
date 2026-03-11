@@ -53,6 +53,7 @@
     </div>
 
     {# --- CTA --- #}
+    {% if page.show_cta %}
     <div class="text-center py-4" data-aos="fade-up">
         <a href="/booking/?service={{ page.slug }}"
            class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
@@ -62,6 +63,7 @@
             First time? <a href="/your-first-visit/" class="text-brand-600 hover:text-brand-700 font-medium underline">See what to expect →</a>
         </p>
     </div>
+    {% endif %}
 
     {# --- Pricing & Duration (collapsible) --- #}
     {% if page.price_label or page.duration_label %}
@@ -99,11 +101,15 @@
 
 </article>
 {# --- Policies (Deposit + Cancellation) --- #}
+{% if page.show_policies %}
 {% include "includes/policies.html" %}
+{% endif %}
 
 {# --- Testimonials --- #}
+{% if page.show_testimonials %}
 {% load testimonial_tags %}
 {% testimonials_section service=page %}
+{% endif %}
 {% endcache %}
 {% endblock %}
 

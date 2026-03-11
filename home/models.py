@@ -107,13 +107,20 @@ class HomePage(Page):
         },
     )
 
-    # --- Admin panel layout ---
-    # content_panels defines what the owner sees when editing the page
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("body"),
+        MultiFieldPanel(
+            [FieldPanel("show_newsletter")],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
+        ),
     ]
 
-    # Only allow one homepage
     max_count = 1
 
 
