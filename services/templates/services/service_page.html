@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load cache wagtailcore_tags wagtailimages_tags %}
+{% load cache wagtailcore_tags wagtailimages_tags services_tags %}
 
 {% block content %}
 {% cache 600 "service_detail" page.pk page.latest_content_update %}
@@ -49,15 +49,15 @@
 
     {# --- Full Description --- #}
     <div class="prose prose-lg prose-teal max-w-none mb-8" data-aos="fade-up">
-        {{ page.description|richtext }}
+        {{ page.description|richtext|strip_empty_richtext_paragraphs }}
     </div>
 
     {# --- CTA --- #}
     {% if page.show_cta %}
     <div class="text-center py-4" data-aos="fade-up">
-        <a href="/booking/?service={{ page.slug }}"
+        <a href="{% if page.cta_button_url %}{{ page.cta_button_url }}{% else %}/booking/?service={{ page.slug }}{% endif %}"
            class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
-            Book an Appointment
+            {{ page.cta_button_text }}
         </a>
         <p class="text-sm text-gray-500 mt-4">
             First time? <a href="/your-first-visit/" class="text-brand-600 hover:text-brand-700 font-medium underline">See what to expect →</a>

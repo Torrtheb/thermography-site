@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load cache wagtailcore_tags wagtailimages_tags %}
+{% load cache wagtailcore_tags wagtailimages_tags testimonial_tags %}
 
 {% block content %}
 {% cache 600 "about" page.last_published_at %}
@@ -165,22 +165,34 @@
 {% if page.show_cta %}
 <section class="bg-brand-700 text-white py-16">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
-        <h2 class="text-3xl font-bold mb-4">Learn More or Book an Appointment</h2>
+        <h2 class="text-3xl font-bold mb-4">{{ page.cta_heading }}</h2>
+        {% if page.cta_text %}
         <p class="text-brand-100 text-lg mb-8">
-            Interested in proactive thermographic imaging? Explore our services or schedule your appointment online.
+            {{ page.cta_text }}
         </p>
+        {% endif %}
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="/services/"
+            <a href="{{ page.secondary_cta_button_url }}"
                class="inline-block bg-white text-brand-700 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-brand-50 transition shadow-lg hover:shadow-xl">
-                View Services
+                {{ page.secondary_cta_button_text }}
             </a>
-            <a href="/booking/"
+            <a href="{{ page.cta_button_url }}"
                class="inline-block bg-brand-600 text-white font-semibold px-8 py-4 rounded-lg text-lg border-2 border-white/30 hover:bg-brand-500 transition shadow-lg hover:shadow-xl">
-                Book an Appointment
+                {{ page.cta_button_text }}
             </a>
         </div>
     </div>
 </section>
+{% endif %}
+
+{# --- Testimonials --- #}
+{% if page.show_testimonials %}
+{% testimonials_section %}
+{% endif %}
+
+{# --- Policies (Deposit + Cancellation) --- #}
+{% if page.show_policies %}
+{% include "includes/policies.html" %}
 {% endif %}
 {% endcache %}
 {% endblock %}

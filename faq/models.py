@@ -13,7 +13,7 @@ from django.db import models
 
 from wagtail.models import Page
 from wagtail.fields import StreamField
-from wagtail.admin.panels import FieldPanel
+from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.blocks import CharBlock, RichTextBlock, StructBlock
 from wagtail.search import index
 from wagtail.images import get_image_model_string
@@ -64,10 +64,67 @@ class FAQPage(Page):
         blank=True,
     )
 
+    show_cta = models.BooleanField(
+        "Show 'Book an Appointment' section",
+        default=True,
+    )
+    show_policies = models.BooleanField(
+        "Show cancellation / deposit policies",
+        default=True,
+    )
+    show_testimonials = models.BooleanField(
+        "Show testimonials section",
+        default=True,
+    )
+    show_newsletter = models.BooleanField(
+        "Show newsletter signup",
+        default=True,
+    )
+    cta_heading = models.CharField(
+        max_length=200,
+        default="Still have questions?",
+        help_text="Heading for the bottom CTA section.",
+    )
+    cta_text = models.TextField(
+        blank=True,
+        default="Book an appointment and we'll walk through everything together.",
+        help_text="Optional supporting text below the CTA heading.",
+    )
+    cta_button_text = models.CharField(
+        max_length=100,
+        default="Book an Appointment",
+        help_text="Text shown on the CTA button.",
+    )
+    cta_button_url = models.CharField(
+        max_length=300,
+        default="/booking/",
+        help_text="URL for the CTA button.",
+    )
+
     content_panels = Page.content_panels + [
         FieldPanel("intro"),
         FieldPanel("intro_image"),
         FieldPanel("faq_items"),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_cta"),
+                FieldPanel("show_policies"),
+                FieldPanel("show_testimonials"),
+                FieldPanel("show_newsletter"),
+            ],
+            heading="Page Sections",
+            help_text="Toggle which repeating sections appear on this page.",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("cta_heading"),
+                FieldPanel("cta_text"),
+                FieldPanel("cta_button_text"),
+                FieldPanel("cta_button_url"),
+            ],
+            heading="Bottom CTA",
+            help_text="Customize the call-to-action shown near the page bottom.",
+        ),
     ]
 
     max_count = 1

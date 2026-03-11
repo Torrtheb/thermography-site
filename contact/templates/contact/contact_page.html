@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load testimonial_tags %}
 
 {% block content %}
 {# --- Page Header --- #}
@@ -239,4 +240,31 @@
 </section>
 {% endif %}
 {% endwith %}
+{# --- Testimonials --- #}
+{% if page.show_testimonials %}
+{% testimonials_section %}
+{% endif %}
+
+{# --- Policies (Deposit + Cancellation) --- #}
+{% if page.show_policies %}
+{% include "includes/policies.html" %}
+{% endif %}
+
+{# --- Bottom CTA --- #}
+{% if page.show_cta %}
+<section class="bg-brand-50 py-16" data-aos="fade-up">
+    <div class="max-w-3xl mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">{{ page.cta_heading }}</h2>
+        {% if page.cta_text %}
+        <p class="text-gray-600 text-lg mb-8">
+            {{ page.cta_text }}
+        </p>
+        {% endif %}
+        <a href="{{ page.cta_button_url }}"
+           class="inline-block bg-brand-600 text-white font-semibold px-10 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
+            {{ page.cta_button_text }}
+        </a>
+    </div>
+</section>
+{% endif %}
 {% endblock %}

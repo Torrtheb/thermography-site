@@ -14,6 +14,8 @@ Usage in any template:
   {% testimonials_section limit=2 %}
 """
 
+import random
+
 from django import template
 from home.models import Testimonial
 
@@ -39,8 +41,11 @@ def testimonials_section(service=None, per_page=3, featured_only=True):
         # Show testimonials for this service, fall back to general ones
         service_qs = list(qs.filter(service=service))
         if service_qs:
+            random.shuffle(service_qs)
             return {"testimonials": service_qs, "per_page": per_page}
         # Fall back to testimonials with no linked service (general ones)
         qs = qs.filter(service__isnull=True)
 
-    return {"testimonials": list(qs), "per_page": per_page}
+    testimonials = list(qs)
+    random.shuffle(testimonials)
+    return {"testimonials": testimonials, "per_page": per_page}

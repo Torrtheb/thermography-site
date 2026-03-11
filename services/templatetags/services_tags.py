@@ -7,7 +7,10 @@ Usage:
     {% get_services featured_only=True as services %}
 """
 
+import re
+
 from django import template
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
@@ -21,3 +24,21 @@ def get_services(featured_only=False):
     if featured_only:
         qs = qs.filter(is_featured=True)
     return qs
+
+
+_EMPTY_PARAGRAPH_RE = re.compile(
+    r"<p>(?:\s|&nbsp;|&#160;|<br\s*/?>)*</p>",
+    flags=re.IGNORECASE,
+)
+
+
+@register.filter(name="strip_empty_richtext_paragraphs")
+def strip_empty_richtext_paragraphs(value):
+    """
+    Remove blank rich-text paragraphs produced by editor line breaks.
+
+    This prevents visible vertical gaps in checklist/intro rich-text blocks.
+    """
+    if not value:
+        return value
+    return mark_safe(_EMPTY_PARAGRAPH_RE.sub("", str(value)))
