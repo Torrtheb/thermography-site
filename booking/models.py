@@ -290,6 +290,89 @@ class BookingPage(Page):
         help_text="Text on the booking button (only used with the direct link fallback).",
     )
 
+    # ── Booking flow copy (editable in admin) ───────────────
+    first_time_text = models.CharField(
+        max_length=200,
+        blank=True,
+        default="First time? Learn what to expect →",
+        help_text="Link below the header. Leave blank to hide.",
+    )
+
+    step1_heading = models.CharField(
+        max_length=100,
+        default="Choose a Location",
+        help_text="Heading for step 1.",
+    )
+    step1_description = models.CharField(
+        max_length=200,
+        blank=True,
+        default="Select where you'd like your appointment.",
+        help_text="Description under the heading. Leave blank to hide.",
+    )
+
+    step2_heading = models.CharField(
+        max_length=100,
+        default="Choose a Service",
+        help_text="Heading for step 2.",
+    )
+    step2_description_prefix = models.CharField(
+        max_length=150,
+        default="Select the service you'd like to book at",
+        help_text="Text before the location name, e.g. 'Select the service you'd like to book at'.",
+    )
+    step2_no_services_message = models.CharField(
+        max_length=200,
+        default="No services are currently available at this location.",
+        help_text="Shown when a location has no services configured.",
+    )
+    step2_try_different_location = models.CharField(
+        max_length=100,
+        default="← Try a different location",
+        help_text="Button text when no services are available.",
+    )
+
+    step3_heading = models.CharField(
+        max_length=100,
+        default="Pick a Date & Time",
+        help_text="Heading for step 3.",
+    )
+    step3_change_service_text = models.CharField(
+        max_length=50,
+        default="← Change",
+        help_text="Button to go back and change the selected service.",
+    )
+    change_location_text = models.CharField(
+        max_length=80,
+        default="← Change location",
+        help_text="Button to go back and change the selected location.",
+    )
+
+    policy_checkbox_label = models.CharField(
+        max_length=200,
+        default="I have read and agree to the cancellation and payment policy.",
+        help_text="Label for the required policy agreement checkbox.",
+    )
+    policy_checkbox_error = models.CharField(
+        max_length=100,
+        default="Please agree to the policy before booking.",
+        help_text="Error message when checkbox is not checked.",
+    )
+
+    loading_calendar_text = models.CharField(
+        max_length=80,
+        default="Loading calendar…",
+        help_text="Shown while the booking calendar loads.",
+    )
+    no_booking_message = models.TextField(
+        default="Online booking for this service at this location isn't available yet.\n\nPlease contact us to schedule.",
+        help_text="Shown when a service has no Cal.com URL configured. Use line breaks for multiple paragraphs.",
+    )
+    no_booking_button_text = models.CharField(
+        max_length=50,
+        default="Contact Us",
+        help_text="Button text when booking isn't available.",
+    )
+
     # ── Section visibility toggles ─────────────────────────
     show_policies = models.BooleanField(
         "Show cancellation / deposit policies",
@@ -308,6 +391,46 @@ class BookingPage(Page):
         FieldPanel("headline"),
         FieldPanel("instructions"),
         FieldPanel("timezone_label"),
+        FieldPanel("first_time_text"),
+        MultiFieldPanel(
+            [
+                FieldPanel("step1_heading"),
+                FieldPanel("step1_description"),
+            ],
+            heading="Step 1 — Choose Location",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("step2_heading"),
+                FieldPanel("step2_description_prefix"),
+                FieldPanel("step2_no_services_message"),
+                FieldPanel("step2_try_different_location"),
+            ],
+            heading="Step 2 — Choose Service",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("step3_heading"),
+                FieldPanel("step3_change_service_text"),
+                FieldPanel("change_location_text"),
+            ],
+            heading="Step 3 — Pick Date & Time",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("policy_checkbox_label"),
+                FieldPanel("policy_checkbox_error"),
+            ],
+            heading="Policy Acknowledgement",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("loading_calendar_text"),
+                FieldPanel("no_booking_message"),
+                FieldPanel("no_booking_button_text"),
+            ],
+            heading="Fallback Messages",
+        ),
         MultiFieldPanel(
             [
                 FieldPanel("booking_embed_url"),

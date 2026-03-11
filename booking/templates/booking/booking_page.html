@@ -18,9 +18,11 @@
             🕐 All times shown in <strong>{{ page.timezone_label }}</strong>
         </p>
         {% endif %}
+        {% if page.first_time_text %}
         <p class="text-sm text-gray-500 mt-3">
-            First time? <a href="/your-first-visit/" class="text-brand-600 hover:text-brand-700 font-medium underline">Learn what to expect →</a>
+            <a href="/your-first-visit/" class="text-brand-600 hover:text-brand-700 font-medium underline">{{ page.first_time_text }}</a>
         </p>
+        {% endif %}
     </div>
 </section>
 
@@ -32,11 +34,15 @@
     <div id="step-location">
         <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">1</span>
-            <h2 class="text-2xl font-bold text-gray-900">Choose a Location</h2>
+            <h2 class="text-2xl font-bold text-gray-900">{{ page.step1_heading }}</h2>
         </div>
+        {% if page.step1_description %}
         <p class="text-gray-600 mb-8 ml-11" data-aos="fade-up">
-            Select where you'd like your appointment.
+            {{ page.step1_description }}
         </p>
+        {% else %}
+        <div class="mb-8 ml-11"></div>
+        {% endif %}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {% for location in locations %}
@@ -109,7 +115,7 @@
                 <h3 class="text-lg font-bold text-gray-900" id="location-detail-name"></h3>
                 <button type="button" id="change-location-btn"
                         class="text-brand-600 hover:text-brand-700 text-sm font-medium transition underline">
-                    ← Change location
+                    {{ page.change_location_text }}
                 </button>
             </div>
             <p class="text-gray-600 text-sm mb-4" id="location-detail-address"></p>
@@ -124,10 +130,10 @@
     <div id="step-service" class="hidden mt-16">
         <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">2</span>
-            <h2 class="text-2xl font-bold text-gray-900">Choose a Service</h2>
+            <h2 class="text-2xl font-bold text-gray-900">{{ page.step2_heading }}</h2>
         </div>
         <p class="text-gray-600 mb-8 ml-11" data-aos="fade-up">
-            Select the service you'd like to book at <strong id="step2-location-name" class="text-brand-700"></strong>.
+            {{ page.step2_description_prefix }} <strong id="step2-location-name" class="text-brand-700"></strong>.
         </p>
 
         <div id="service-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -138,10 +144,10 @@
         <div id="no-services-fallback" class="hidden text-center py-8">
             <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-8 max-w-lg mx-auto">
                 <p class="text-yellow-800 font-medium mb-4">
-                    No services are currently available at this location.
+                    {{ page.step2_no_services_message }}
                 </p>
                 <button type="button" class="js-change-location text-brand-600 hover:text-brand-700 font-medium underline">
-                    ← Try a different location
+                    {{ page.step2_try_different_location }}
                 </button>
             </div>
         </div>
@@ -151,7 +157,7 @@
     <div id="step-calendar" class="hidden mt-16">
         <div class="flex items-center gap-3 mb-2" data-aos="fade-up">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">3</span>
-            <h2 class="text-2xl font-bold text-gray-900">Pick a Date & Time</h2>
+            <h2 class="text-2xl font-bold text-gray-900">{{ page.step3_heading }}</h2>
         </div>
 
         {# Summary bar #}
@@ -162,7 +168,7 @@
             <span class="ml-auto">
                 <button type="button" id="change-service-btn"
                         class="text-brand-600 hover:text-brand-700 font-medium underline text-sm">
-                    ← Change
+                    {{ page.step3_change_service_text }}
                 </button>
             </span>
         </div>
@@ -235,11 +241,11 @@
                                       focus:ring-brand-500 focus:ring-2 cursor-pointer flex-shrink-0"
                                required>
                         <span class="text-sm text-gray-700 group-hover:text-gray-900 transition select-none">
-                            I have read and agree to the cancellation and payment policy.
+                            {{ page.policy_checkbox_label }}
                         </span>
                     </label>
                     <p id="policy-checkbox-error" class="hidden mt-2 ml-8 text-sm text-red-600 font-medium">
-                        Please agree to the policy before booking.
+                        {{ page.policy_checkbox_error }}
                     </p>
                 </div>
             </div>
@@ -255,7 +261,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p class="text-gray-500">Loading calendar…</p>
+                <p class="text-gray-500">{{ page.loading_calendar_text }}</p>
             </div>
         </div>
 
@@ -266,13 +272,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                           d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                <p class="text-gray-600 text-lg mb-6">
-                    Online booking for this service at this location isn't available yet.<br>
-                    Please contact us to schedule.
-                </p>
+                <div class="text-gray-600 text-lg mb-6">
+                    {{ page.no_booking_message|linebreaksbr }}
+                </div>
                 <a href="/contact/"
                    class="inline-block bg-brand-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-brand-700 transition">
-                    Contact Us
+                    {{ page.no_booking_button_text }}
                 </a>
             </div>
         </div>
