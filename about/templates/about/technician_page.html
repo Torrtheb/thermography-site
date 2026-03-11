@@ -2,11 +2,10 @@
 {% load wagtailcore_tags wagtailimages_tags testimonial_tags %}
 
 {% block content %}
-{# --- Hero --- #}
+{# ========== HERO ========== #}
 <section class="bg-brand-50 py-16 md:py-20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8" data-aos="fade-up">
         {% if page.subtitle and page.hero_image %}
-        {# --- Side-by-side: text left, image right --- #}
         <div class="flex flex-col md:flex-row md:items-center gap-8 md:gap-12">
             <div class="md:w-1/2">
                 <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
@@ -23,7 +22,6 @@
             </div>
         </div>
         {% else %}
-        {# --- Centred fallback (no image) --- #}
         <div class="text-center">
             <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
                 {{ page.title }}
@@ -38,58 +36,33 @@
     </div>
 </section>
 
-{# ========== CLINIC CONTENT ========== #}
-{% if page.clinic_description %}
-<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    {% if page.clinic_image %}
-    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-14 mb-12" data-aos="fade-up">
-        <div class="w-full md:w-1/2">
-            {% if page.clinic_heading %}
-            <h2 class="text-3xl font-bold text-gray-900 mb-6">{{ page.clinic_heading }}</h2>
-            {% endif %}
-            <div class="prose prose-lg prose-teal max-w-none">
-                {{ page.clinic_description|richtext }}
-            </div>
-        </div>
-        <div class="w-full md:w-1/2 flex-shrink-0">
-            {% image page.clinic_image fill-600x450 class="rounded-xl shadow-lg w-full h-auto" %}
-        </div>
-    </div>
-    {% else %}
-    <div data-aos="fade-up">
-        {% if page.clinic_heading %}
-        <h2 class="text-3xl font-bold text-gray-900 mb-6">{{ page.clinic_heading }}</h2>
-        {% endif %}
-        <div class="prose prose-lg prose-teal max-w-none">
-            {{ page.clinic_description|richtext }}
-        </div>
-    </div>
-    {% endif %}
-</section>
-
-{# --- Divider --- #}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-    <hr class="border-gray-200">
-</div>
-{% endif %}
-
-{# ========== ABOUT THE TECHNICIAN ========== #}
+{# ========== SECTION 1: OWNER STORY ========== #}
 <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
+    {% if page.owner_story_heading %}
+    <h2 class="text-3xl font-bold text-gray-900 mb-10 text-center" data-aos="fade-up">
+        {{ page.owner_story_heading }}
+    </h2>
+    {% endif %}
 
-        {# --- Photo Side --- #}
+    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
+        {# --- Photo column --- #}
         {% if page.headshot %}
         <div class="w-full md:w-2/5 flex-shrink-0" data-aos="fade-up">
             {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% if page.owner_story_image %}
+            <div class="mt-6">
+                {% image page.owner_story_image fill-400x280 class="rounded-xl shadow w-full h-auto" %}
+            </div>
+            {% endif %}
         </div>
         {% endif %}
 
-        {# --- Bio Side --- #}
+        {# --- Bio column --- #}
         <div class="w-full {% if page.headshot %}md:w-3/5{% endif %}" data-aos="fade-up" data-aos-delay="100">
-            <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet Your Technician</p>
-            <h2 class="text-3xl font-bold text-gray-900 mb-2">
+            <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet the Owner</p>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">
                 {{ page.full_name }}
-            </h2>
+            </h3>
 
             {% if page.years_experience %}
             <p class="text-brand-600 font-semibold text-lg mb-6">
@@ -103,7 +76,7 @@
 
             {% if page.credentials %}
             <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl">
-                <h3 class="text-lg font-bold text-gray-900 mb-3">Credentials &amp; Certifications</h3>
+                <h4 class="text-lg font-bold text-gray-900 mb-3">Credentials &amp; Certifications</h4>
                 <div class="prose prose-teal max-w-none">
                     {{ page.credentials|richtext }}
                 </div>
@@ -113,9 +86,47 @@
     </div>
 </section>
 
-{# ========== OUR THERMOGRAPHERS (optional) ========== #}
+{# ========== SECTION 2: CREATING THE CLINIC ========== #}
+{% if page.clinic_description %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <hr class="border-gray-200">
+</div>
+
+<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    {% if page.clinic_story_heading %}
+    <h2 class="text-3xl font-bold text-gray-900 mb-10 text-center" data-aos="fade-up">
+        {{ page.clinic_story_heading }}
+    </h2>
+    {% endif %}
+
+    {% if page.clinic_image or page.clinic_story_image %}
+    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-14" data-aos="fade-up">
+        <div class="w-full {% if page.clinic_image %}md:w-1/2{% endif %}">
+            <div class="prose prose-lg prose-teal max-w-none">
+                {{ page.clinic_description|richtext }}
+            </div>
+        </div>
+        <div class="w-full md:w-1/2 flex-shrink-0 space-y-6">
+            {% if page.clinic_image %}
+            {% image page.clinic_image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% endif %}
+            {% if page.clinic_story_image %}
+            {% image page.clinic_story_image fill-600x400 class="rounded-xl shadow w-full h-auto" %}
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div data-aos="fade-up">
+        <div class="prose prose-lg prose-teal max-w-none">
+            {{ page.clinic_description|richtext }}
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+
+{# ========== SECTION 3: THERMOGRAPHER PROFILES ========== #}
 {% if page.thermographers_heading and page.thermographers.all %}
-{# --- Divider --- #}
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
     <hr class="border-gray-200">
 </div>
@@ -160,7 +171,25 @@
 </section>
 {% endif %}
 
-{# --- CTA --- #}
+{# ========== SECTION 4: REACH OUT / CONTACT CTA ========== #}
+{% if page.show_contact_cta %}
+<section class="bg-gray-50 py-16">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">{{ page.contact_heading }}</h2>
+        {% if page.contact_text %}
+        <p class="text-gray-600 text-lg mb-8">
+            {{ page.contact_text }}
+        </p>
+        {% endif %}
+        <a href="{{ page.contact_button_url }}"
+           class="inline-block bg-brand-600 text-white font-semibold px-10 py-4 rounded-lg text-lg hover:bg-brand-700 transition shadow-lg hover:shadow-xl">
+            {{ page.contact_button_text }}
+        </a>
+    </div>
+</section>
+{% endif %}
+
+{# ========== BOTTOM: BOOKING CTA ========== #}
 {% if page.show_cta %}
 <section class="bg-brand-700 text-white py-16">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
@@ -184,12 +213,12 @@
 </section>
 {% endif %}
 
-{# --- Testimonials --- #}
+{# ========== BOTTOM: TESTIMONIALS ========== #}
 {% if page.show_testimonials %}
 {% testimonials_section %}
 {% endif %}
 
-{# --- Policies (Deposit + Cancellation) --- #}
+{# ========== BOTTOM: POLICIES ========== #}
 {% if page.show_policies %}
 {% include "includes/policies.html" %}
 {% endif %}

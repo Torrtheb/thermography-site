@@ -1,15 +1,18 @@
 """
-About / "Who We Are" app — clinic overview and technician profile.
+About Us page — multi-section storytelling layout.
 
-Single page type:
-  TechnicianPage — shows an "About the Clinic" section followed by the
-  technician's name, photo, bio, credentials, and years of experience.
-  Only one can exist (max_count = 1).
+Sections (in display order):
+  1. Hero — title, subtitle, hero image
+  2. Owner Story — personal journey, photo, bio, credentials
+  3. Creating the Clinic — clinic narrative, images
+  4. People Reading Your Thermograms — thermographer profiles
+  5. Reach Out CTA — link to contact page
+  6. Bottom sections — booking CTA, testimonials, policies, newsletter
 
 Page hierarchy:
   Root Page
     └── Home Page
-    └── Who We Are  ← TechnicianPage
+    └── About Us  ← TechnicianPage (only one)
 """
 
 from django.db import models
@@ -71,16 +74,12 @@ class Thermographer(Orderable):
 
 class TechnicianPage(Page):
     """
-    The 'Who We Are' / 'About Us' page.
-
-    Two sections:
-      1. About the Clinic — intro, mission, optional image
-      2. Meet the Technician — headshot, bio, credentials
+    The About Us page — multi-section storytelling layout.
 
     max_count = 1: only one of these pages.
     """
 
-    # ── About the Clinic ──────────────────────────────────────────
+    # ── Hero ───────────────────────────────────────────────────
     subtitle = models.CharField(
         max_length=300,
         blank=True,
@@ -96,31 +95,26 @@ class TechnicianPage(Page):
         help_text="Optional image shown beside the title and subtitle in the hero.",
     )
 
-    clinic_heading = models.CharField(
+    # ── Section 1: Owner Story ─────────────────────────────────
+    owner_story_heading = models.CharField(
         max_length=200,
-        default="About Our Clinic",
+        default="Our Story",
         blank=True,
-        help_text="Optional heading above the clinic description. Leave blank if headings are in the description.",
+        help_text="Heading for the owner story section.",
     )
 
-    clinic_description = RichTextField(
-        blank=True,
-        help_text="Tell visitors about the clinic — mission, values, what makes it special.",
-    )
-
-    clinic_image = models.ForeignKey(
+    owner_story_image = models.ForeignKey(
         get_image_model_string(),
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="+",
-        help_text="Optional photo of the clinic, office, or equipment.",
+        help_text="Optional image for the owner story section (e.g. a candid photo).",
     )
 
-    # ── About the Technician ──────────────────────────────────────
     full_name = models.CharField(
         max_length=200,
-        help_text="Technician's full name.",
+        help_text="Owner / technician's full name.",
     )
 
     headshot = models.ForeignKey(
@@ -133,7 +127,8 @@ class TechnicianPage(Page):
     )
 
     bio = RichTextField(
-        help_text="About the technician — background, passion, approach.",
+        help_text="The owner's personal story — why women's health, why Vancouver Island, "
+                  "entrepreneurship journey, interest in breast health, etc.",
     )
 
     credentials = RichTextField(
@@ -147,15 +142,85 @@ class TechnicianPage(Page):
         help_text="Years of experience (optional, shown as a stat).",
     )
 
-    # ── About Our Thermographers (optional team section) ──────────
-    thermographers_heading = models.CharField(
+    # ── Section 2: Creating the Clinic ─────────────────────────
+    clinic_story_heading = models.CharField(
         max_length=200,
-        default="Meet Our Thermographers",
+        default="Creating the Clinic",
         blank=True,
-        help_text="Heading for the thermographers section. Leave blank to hide the section.",
+        help_text="Heading for the clinic story section.",
     )
 
-    # ── Section visibility toggles ─────────────────────────
+    # Keep original field names for backward compatibility
+    clinic_heading = models.CharField(
+        max_length=200,
+        default="About Our Clinic",
+        blank=True,
+        help_text="(Legacy) Optional sub-heading. Use clinic_story_heading instead.",
+    )
+
+    clinic_description = RichTextField(
+        blank=True,
+        help_text="The clinic's story — recently moved, community-oriented space, "
+                  "part of Thermography Inc / Dr. Alexander Mostovoy, mobile clinic, etc.",
+    )
+
+    clinic_image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Primary image for the clinic section (e.g. the clinic space).",
+    )
+
+    clinic_story_image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Optional second image (e.g. the mobile clinic or community event).",
+    )
+
+    # ── Section 3: Thermographer Profiles ──────────────────────
+    thermographers_heading = models.CharField(
+        max_length=200,
+        default="People Reading Your Thermograms",
+        blank=True,
+        help_text="Heading for the thermographer profiles section. Leave blank to hide.",
+    )
+
+    # ── Section 4: Reach Out / Contact CTA ─────────────────────
+    show_contact_cta = models.BooleanField(
+        "Show 'Reach Out' contact section",
+        default=True,
+    )
+
+    contact_heading = models.CharField(
+        max_length=200,
+        default="Have Questions?",
+        help_text="Heading for the contact CTA section.",
+    )
+
+    contact_text = models.TextField(
+        blank=True,
+        default="We'd love to hear from you. Reach out anytime — no question is too small.",
+        help_text="Optional supporting text below the contact heading.",
+    )
+
+    contact_button_text = models.CharField(
+        max_length=100,
+        default="Get in Touch",
+        help_text="Text shown on the contact button.",
+    )
+
+    contact_button_url = models.CharField(
+        max_length=300,
+        default="/contact/",
+        help_text="URL for the contact button.",
+    )
+
+    # ── Bottom section toggles ─────────────────────────────────
     show_cta = models.BooleanField(
         "Show 'Book an Appointment' section",
         default=True,
@@ -172,6 +237,8 @@ class TechnicianPage(Page):
         "Show testimonials section",
         default=True,
     )
+
+    # ── Bottom CTA copy ────────────────────────────────────────
     cta_heading = models.CharField(
         max_length=200,
         default="Learn More or Book an Appointment",
@@ -203,33 +270,55 @@ class TechnicianPage(Page):
         help_text="URL for the secondary CTA button.",
     )
 
+    # ── Admin panel layout ─────────────────────────────────────
     content_panels = Page.content_panels + [
-        FieldPanel("subtitle"),
-        FieldPanel("hero_image"),
         MultiFieldPanel(
             [
-                FieldPanel("clinic_heading"),
-                FieldPanel("clinic_description"),
-                FieldPanel("clinic_image"),
+                FieldPanel("subtitle"),
+                FieldPanel("hero_image"),
             ],
-            heading="About the Clinic",
+            heading="Hero",
         ),
         MultiFieldPanel(
             [
+                FieldPanel("owner_story_heading"),
                 FieldPanel("full_name"),
                 FieldPanel("headshot"),
+                FieldPanel("owner_story_image"),
                 FieldPanel("bio"),
                 FieldPanel("credentials"),
                 FieldPanel("years_experience"),
             ],
-            heading="About the Technician",
+            heading="Section 1 — Owner Story",
+            help_text="The owner's personal journey — why women's health, why Vancouver Island, etc.",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("clinic_story_heading"),
+                FieldPanel("clinic_description"),
+                FieldPanel("clinic_image"),
+                FieldPanel("clinic_story_image"),
+            ],
+            heading="Section 2 — Creating the Clinic",
+            help_text="The clinic's story — community space, Thermography Inc, mobile clinic, etc.",
         ),
         MultiFieldPanel(
             [
                 FieldPanel("thermographers_heading"),
                 InlinePanel("thermographers", label="Thermographer", min_num=0, max_num=10),
             ],
-            heading="Our Thermographers (optional)",
+            heading="Section 3 — People Reading Your Thermograms",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("show_contact_cta"),
+                FieldPanel("contact_heading"),
+                FieldPanel("contact_text"),
+                FieldPanel("contact_button_text"),
+                FieldPanel("contact_button_url"),
+            ],
+            heading="Section 4 — Reach Out",
+            help_text="A contact CTA linking visitors to the contact page.",
         ),
         MultiFieldPanel(
             [
@@ -238,7 +327,7 @@ class TechnicianPage(Page):
                 FieldPanel("show_policies"),
                 FieldPanel("show_testimonials"),
             ],
-            heading="Page Sections",
+            heading="Bottom Page Sections",
             help_text="Toggle which repeating sections appear on this page.",
         ),
         MultiFieldPanel(
