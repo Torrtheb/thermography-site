@@ -1,8 +1,7 @@
 {% extends "base.html" %}
-{% load cache wagtailcore_tags wagtailimages_tags testimonial_tags %}
+{% load wagtailcore_tags wagtailimages_tags testimonial_tags %}
 
 {% block content %}
-{% cache 600 "blog_detail" page.pk page.last_published_at %}
 <article class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
     {# --- Back link --- #}
@@ -118,5 +117,4 @@
 {% if page.show_policies %}
 {% include "includes/policies.html" %}
 {% endif %}
-{% endcache %}
 {% endblock %}

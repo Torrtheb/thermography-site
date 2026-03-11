@@ -1,8 +1,7 @@
 {% extends "base.html" %}
-{% load cache wagtailcore_tags wagtailimages_tags %}
+{% load wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
-{% cache 600 "first_visit" page.last_published_at %}
 {# --- Page Header --- #}
 <section class="bg-brand-50 py-16">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
@@ -185,5 +184,4 @@
     </div>
 </section>
 {% endif %}
-{% endcache %}
 {% endblock %}

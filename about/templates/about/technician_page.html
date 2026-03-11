@@ -1,8 +1,7 @@
 {% extends "base.html" %}
-{% load cache wagtailcore_tags wagtailimages_tags testimonial_tags %}
+{% load wagtailcore_tags wagtailimages_tags testimonial_tags %}
 
 {% block content %}
-{% cache 600 "about" page.last_published_at %}
 {# --- Hero --- #}
 <section class="bg-brand-50 py-16 md:py-20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8" data-aos="fade-up">
@@ -194,5 +193,4 @@
 {% if page.show_policies %}
 {% include "includes/policies.html" %}
 {% endif %}
-{% endcache %}
 {% endblock %}
