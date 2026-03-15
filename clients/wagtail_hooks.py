@@ -26,6 +26,7 @@ from .views import (
     csv_export_view,
     csv_import_view,
     deposit_export_view,
+    mark_received_view,
     send_deposit_request_view,
     send_deposit_confirmation_view,
 )
@@ -70,8 +71,8 @@ class DepositViewSet(SnippetViewSet):
     menu_order = 199
     add_to_admin_menu = True
     list_display = [
-        "__str__", "status_badge", "email_status_display",
-        "payment_method", "appointment_date", "created_at",
+        "client_name_display", "client_email_display", "status_badge",
+        "email_status_display", "service_name", "appointment_date", "created_at",
     ]
     list_filter = [
         "status",
@@ -98,6 +99,7 @@ def register_client_admin_urls():
         path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
         path("deposits/export-csv/", deposit_export_view, name="deposits_csv_export"),
         path("deposits/<int:deposit_id>/approve/", approve_deposit_view, name="deposit_approve"),
+        path("deposits/<int:deposit_id>/mark-received/", mark_received_view, name="deposit_mark_received"),
         path("deposits/<int:deposit_id>/send-request/", send_deposit_request_view, name="deposit_send_request"),
         path("deposits/<int:deposit_id>/send-confirmation/", send_deposit_confirmation_view, name="deposit_send_confirmation"),
     ]

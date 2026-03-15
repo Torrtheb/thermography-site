@@ -561,3 +561,68 @@ def _approve_deposit_action(request, deposit_id):
 
 
 approve_deposit_view = require_admin_access(_approve_deposit_action)
+
+
+# ──────────────────────────────────────────────────────────
+# Mark deposit received + send confirmation + confirm Cal.com
+# ──────────────────────────────────────────────────────────
+
+def _mark_received_action(request, deposit_id):
+    """One-click: mark deposit as received, send confirmation email, and
+    confirm the Cal.com booking.
+
+    Transitions the deposit from 'pending' → 'received', sends the
+    confirmation email, and auto-confirms in Cal.com.
+    """
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    if deposit.status != "pending":
+        messages.warning(request, "This deposit is not in 'pending' status.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    from django.utils import timezone
+
+    deposit.status = "received"
+    deposit.received_date = timezone.localdate()
+    deposit.save(update_fields=["status", "received_date", "updated_at"])
+
+    client = deposit.client
+    if not client.email:
+        messages.warning(request, "Deposit marked as received, but client has no email — cannot send confirmation.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    date_str = ""
+    if deposit.appointment_date:
+        date_str = deposit.appointment_date.strftime("%B %d, %Y")
+
+    payment_method = deposit.get_payment_method_display() if deposit.payment_method else ""
+
+    try:
+        send_deposit_confirmation(client, deposit.amount, appointment_date=date_str, payment_method=payment_method)
+        deposit.deposit_confirmed_sent = True
+        deposit.save(update_fields=["deposit_confirmed_sent", "updated_at"])
+        messages.success(request, f"Deposit received! Confirmation email sent to {client.name}.")
+    except Exception as e:
+        logger.exception("Failed to send deposit confirmation for deposit pk=%s", deposit.pk)
+        messages.error(request, f"Deposit marked as received, but failed to send email: {e}")
+
+    if deposit.cal_booking_uid:
+        from booking.webhooks import confirm_calcom_booking
+        try:
+            confirmed = confirm_calcom_booking(deposit.cal_booking_uid)
+            if confirmed:
+                messages.success(request, "Cal.com booking confirmed automatically.")
+            else:
+                messages.warning(request, "Could not auto-confirm in Cal.com — please confirm manually.")
+        except Exception:
+            logger.exception("Failed to auto-confirm Cal.com booking for deposit pk=%s", deposit.pk)
+            messages.warning(request, "Could not auto-confirm in Cal.com — please confirm manually.")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+mark_received_view = require_admin_access(_mark_received_action)

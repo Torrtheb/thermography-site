@@ -376,6 +376,14 @@ class Deposit(index.Indexed, models.Model):
         date_str = self.appointment_date.isoformat() if self.appointment_date else "no date"
         return f"${self.amount} deposit — {client_name} ({date_str})"
 
+    def client_name_display(self):
+        return self.client.name if self.client_id else "Unknown"
+    client_name_display.short_description = "Client"
+
+    def client_email_display(self):
+        return self.client.email if self.client_id else "—"
+    client_email_display.short_description = "Email"
+
     def status_badge(self):
         """HTML status badge for the admin listing."""
         from django.utils.html import format_html
@@ -401,39 +409,42 @@ class Deposit(index.Indexed, models.Model):
 
         parts = []
 
+        btn = (
+            'display:inline-block; padding:3px 8px; border-radius:4px; '
+            'font-size:0.75rem; text-decoration:none; font-weight:600;'
+        )
+        tag = 'color:#155724; background:#d4edda; padding:2px 6px; border-radius:4px; font-size:0.75rem;'
+
         if self.status == "awaiting_review":
             parts.append(
                 f'<a href="/admin/deposits/{self.pk}/approve/" '
-                f'style="color:#fff; background:#6d28d9; padding:3px 8px; '
-                f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
+                f'style="color:#fff; background:#6d28d9; {btn}">'
                 f'✅ Approve &amp; Send Deposit Request</a>'
             )
-        elif self.deposit_request_sent:
+        elif self.status == "pending":
+            parts.append(f'<span style="{tag}">📧 Request sent</span>')
             parts.append(
-                '<span style="color:#155724; background:#d4edda; padding:2px 6px; '
-                'border-radius:4px; font-size:0.75rem;">📧 Request sent</span>'
+                f'<a href="/admin/deposits/{self.pk}/mark-received/" '
+                f'style="color:#fff; background:#2563eb; {btn}">'
+                f'💰 Mark Received &amp; Confirm</a>'
             )
-        else:
-            parts.append(
-                f'<a href="/admin/deposits/{self.pk}/send-request/" '
-                f'style="color:#fff; background:#d97706; padding:3px 8px; '
-                f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
-                f'📧 Send deposit request</a>'
-            )
-
-        if self.status == "received":
+        elif self.status == "received":
             if self.deposit_confirmed_sent:
-                parts.append(
-                    '<span style="color:#155724; background:#d4edda; padding:2px 6px; '
-                    'border-radius:4px; font-size:0.75rem;">✅ Confirmation sent</span>'
-                )
+                parts.append(f'<span style="{tag}">✅ Confirmed</span>')
             else:
                 parts.append(
                     f'<a href="/admin/deposits/{self.pk}/send-confirmation/" '
-                    f'style="color:#fff; background:#059669; padding:3px 8px; '
-                    f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
+                    f'style="color:#fff; background:#059669; {btn}">'
                     f'✅ Send confirmation</a>'
                 )
+        elif self.deposit_request_sent:
+            parts.append(f'<span style="{tag}">📧 Request sent</span>')
+        else:
+            parts.append(
+                f'<a href="/admin/deposits/{self.pk}/send-request/" '
+                f'style="color:#fff; background:#d97706; {btn}">'
+                f'📧 Send deposit request</a>'
+            )
 
         return mark_safe(" ".join(parts))
     email_status_display.short_description = "Actions"
