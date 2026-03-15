@@ -347,6 +347,13 @@ class BookingPage(Page):
         help_text="Button to go back and change the selected location.",
     )
 
+    deposit_instructions = RichTextField(
+        blank=True,
+        default="After booking, you will receive an email with payment instructions.",
+        help_text="Shown in the policy section on the booking page. "
+                  "Explain how clients should pay their deposit.",
+    )
+
     policy_checkbox_label = models.CharField(
         max_length=200,
         default="I have read and agree to the cancellation and payment policy.",
@@ -418,10 +425,11 @@ class BookingPage(Page):
         ),
         MultiFieldPanel(
             [
+                FieldPanel("deposit_instructions"),
                 FieldPanel("policy_checkbox_label"),
                 FieldPanel("policy_checkbox_error"),
             ],
-            heading="Policy Acknowledgement",
+            heading="Policy & Deposit Section",
         ),
         MultiFieldPanel(
             [
