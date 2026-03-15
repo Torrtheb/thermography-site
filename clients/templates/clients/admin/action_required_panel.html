@@ -23,6 +23,7 @@
                 <thead>
                     <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Amount</th>
@@ -33,6 +34,7 @@
                     {% for dep in needs_review %}
                     <tr style="border-bottom:1px solid #f3f4f6;">
                         <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
@@ -62,6 +64,7 @@
                 <thead>
                     <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
                         <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
@@ -71,6 +74,7 @@
                     {% for dep in needs_confirmation %}
                     <tr style="border-bottom:1px solid #f3f4f6;">
                         <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem;">

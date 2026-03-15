@@ -397,7 +397,7 @@ class Deposit(index.Indexed, models.Model):
 
     def email_status_display(self):
         """Show contextual action buttons in the admin listing."""
-        from django.utils.html import format_html
+        from django.utils.safestring import mark_safe
 
         parts = []
 
@@ -435,7 +435,7 @@ class Deposit(index.Indexed, models.Model):
                     f'✅ Send confirmation</a>'
                 )
 
-        return format_html(" ".join(parts))
+        return mark_safe(" ".join(parts))
     email_status_display.short_description = "Actions"
 
 

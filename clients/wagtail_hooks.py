@@ -174,3 +174,46 @@ class ActionRequiredPanel(Component):
 @hooks.register("construct_homepage_panels")
 def add_action_required_panel(request, panels):
     panels.insert(0, ActionRequiredPanel())
+
+
+# ──────────────────────────────────────────────────────────
+# Global admin notification banner (all pages)
+# ──────────────────────────────────────────────────────────
+
+@hooks.register("insert_global_admin_js")
+def deposit_notification_banner():
+    from django.utils.html import format_html
+
+    review_count = Deposit.objects.filter(status="awaiting_review").count()
+    confirm_count = Deposit.objects.filter(
+        status="received", deposit_confirmed_sent=False
+    ).count()
+    total = review_count + confirm_count
+
+    if total == 0:
+        return ""
+
+    parts = []
+    if review_count:
+        parts.append(f"{review_count} new booking{'s' if review_count != 1 else ''} to review")
+    if confirm_count:
+        parts.append(f"{confirm_count} confirmation{'s' if confirm_count != 1 else ''} to send")
+    message = " &middot; ".join(parts)
+
+    return format_html(
+        '<script>'
+        '(function(){{'
+        '  if(document.getElementById("deposit-notify"))return;'
+        '  var b=document.createElement("div");'
+        '  b.id="deposit-notify";'
+        '  b.innerHTML=\'<a href="/admin/snippets/clients/deposit/?status=awaiting_review" '
+        '    style="display:flex;align-items:center;justify-content:center;gap:.5rem;'
+        '    background:#fef3c7;border-bottom:2px solid #f59e0b;padding:.6rem 1rem;'
+        '    font-size:.85rem;font-weight:600;color:#92400e;text-decoration:none;">'
+        '    ⚠️ Action Required: {} — Click here to view</a>\';'
+        '  var main=document.querySelector("main")||document.body;'
+        '  main.parentNode.insertBefore(b,main);'
+        '}})();'
+        '</script>',
+        message,
+    )
