@@ -177,7 +177,75 @@ class SiteSettings(BaseSiteSetting):
     etransfer_email = models.EmailField(
         blank=True,
         default="",
-        help_text="e-Transfer email address included in deposit confirmation emails sent to clients. Never displayed publicly on the website.",
+        help_text="e-Transfer email address included in deposit request emails sent to clients. Never displayed publicly on the website.",
+    )
+
+    # ── Editable email templates ─────────────────────────
+    # The owner can edit these at any time. Placeholders like {client_name}
+    # are automatically replaced when the email is sent.
+
+    email_deposit_request = models.TextField(
+        "Deposit request email body",
+        default=(
+            "Hi {client_name},\n\n"
+            "Thank you for booking your thermography appointment{appointment_line}!\n\n"
+            "To confirm your booking, a non-refundable ${amount} deposit is required.\n\n"
+            "HOW TO PAY:\n"
+            "  - e-Transfer: Send ${amount} to {etransfer_email}\n"
+            "  - Cash: Pay at your appointment\n"
+            "  - Cheque: Mail or bring in person\n\n"
+            "Please note: only send e-Transfers to the address above. "
+            "We will never ask you to send money to a different address.\n\n"
+            "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
+            "If you have any questions, please reply to this email.\n\n"
+            "Best regards,\n"
+            "Your Thermography Team"
+        ),
+        help_text=(
+            "Sent automatically when a client books. Available placeholders: "
+            "{client_name}, {amount}, {appointment_line} (\" on March 15, 2026\" or blank), "
+            "{etransfer_email}. Edit freely — placeholders are replaced when the email sends."
+        ),
+    )
+
+    email_deposit_confirmation = models.TextField(
+        "Deposit confirmation email body",
+        default=(
+            "Hi {client_name},\n\n"
+            "Thank you! We've received your ${amount} booking deposit "
+            "and your appointment is confirmed.\n\n"
+            "{details_line}"
+            "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
+            "If you need to reschedule or have any questions, please reply to this email.\n\n"
+            "We look forward to seeing you!\n\n"
+            "Best regards,\n"
+            "Your Thermography Team"
+        ),
+        help_text=(
+            "Sent when the owner marks a deposit as received and clicks 'Send confirmation'. "
+            "Placeholders: {client_name}, {amount}, {details_line} (appointment date + payment method or blank)."
+        ),
+    )
+
+    email_deposit_cancelled = models.TextField(
+        "Cancellation email body (48h rule)",
+        default=(
+            "Hi {client_name},\n\n"
+            "We're writing to let you know that your thermography appointment"
+            "{appointment_line}{service_line} has been cancelled.\n\n"
+            "The required ${amount} booking deposit was not received "
+            "within 48 hours of booking, and the appointment has been automatically released.\n\n"
+            "If you'd like to rebook, you're welcome to visit our website and "
+            "schedule a new appointment at any time.\n\n"
+            "If you believe this was an error or you've already sent payment, "
+            "please reply to this email and we'll sort it out right away.\n\n"
+            "Best regards,\n"
+            "Your Thermography Team"
+        ),
+        help_text=(
+            "Sent automatically when a deposit expires after 48 hours. "
+            "Placeholders: {client_name}, {amount}, {appointment_line}, {service_line}."
+        ),
     )
 
     panels = [
@@ -204,6 +272,19 @@ class SiteSettings(BaseSiteSetting):
             ],
             heading="Deposit Settings",
             help_text="Configure the booking deposit amount and payment details.",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("email_deposit_request"),
+                FieldPanel("email_deposit_confirmation"),
+                FieldPanel("email_deposit_cancelled"),
+            ],
+            heading="Email Templates",
+            help_text=(
+                "Edit the wording of automated emails. Words in {curly braces} are "
+                "placeholders — they get replaced with real values when the email sends. "
+                "You can change everything else freely."
+            ),
         ),
     ]
 

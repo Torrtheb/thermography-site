@@ -135,68 +135,52 @@ def send_custom_email(client, subject, body):
 
 
 
-def _get_etransfer_email():
-    """Fetch the e-Transfer email from SiteSettings (returns '' if not set)."""
+def _get_site_settings():
+    """Fetch SiteSettings for the default site, or None on failure."""
     try:
         from wagtail.models import Site
         from home.models import SiteSettings
         site = Site.objects.get(is_default_site=True)
-        return SiteSettings.for_site(site).etransfer_email or ""
+        return SiteSettings.for_site(site)
     except Exception:
-        return ""
+        return None
 
 
 def send_deposit_request(client, amount, appointment_date=""):
     """
     Send deposit payment instructions to a client after they book.
 
-    The e-Transfer email is pulled from SiteSettings and included only in
-    this private email — never on the public website.
+    Uses the owner-editable template from SiteSettings → Email Templates.
     """
     if not client.email:
         return False
 
-    etransfer_email = _get_etransfer_email()
+    ss = _get_site_settings()
+    etransfer_email = (ss.etransfer_email or "") if ss else ""
+    appointment_line = f" on {appointment_date}" if appointment_date else ""
+
+    template = (ss.email_deposit_request if ss and ss.email_deposit_request else "")
+    if not template:
+        template = (
+            "Hi {client_name},\n\n"
+            "A ${amount} non-refundable deposit is required to confirm your booking{appointment_line}.\n\n"
+            "Best regards,\nYour Thermography Team"
+        )
+
+    plain_message = template.format(
+        client_name=client.name or "there",
+        amount=str(amount),
+        appointment_line=appointment_line,
+        etransfer_email=etransfer_email,
+    )
 
     subject = "Booking Deposit Required — Payment Instructions"
-    context = {
-        "client_name": client.name,
-        "amount": str(amount),
-        "appointment_date": appointment_date,
-        "etransfer_email": etransfer_email,
-    }
-
-    plain_message = (
-        f"Hi {context['client_name']},\n\n"
-        f"Thank you for booking your thermography appointment"
-        f"{f' on {appointment_date}' if appointment_date else ''}!\n\n"
-        f"To confirm your booking, a ${context['amount']} non-refundable deposit is required.\n\n"
-        f"HOW TO PAY:\n"
-    )
-    if etransfer_email:
-        plain_message += f"  • e-Transfer: Send ${context['amount']} to {etransfer_email}\n"
-    plain_message += (
-        "  • Cash: Pay at your appointment\n"
-        "  • Cheque: Mail or bring in person\n\n"
-        "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
-        "If you have any questions, please reply to this email.\n\n"
-        "Best regards,\n"
-        "Your Thermography Team"
-    )
-
-    try:
-        html_message = render_to_string(
-            "clients/emails/deposit_request.html", context
-        )
-    except Exception:
-        html_message = None
 
     send_mail(
         subject=subject,
         message=plain_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[client.email],
-        html_message=html_message,
         fail_silently=False,
     )
     return True
@@ -206,52 +190,42 @@ def send_deposit_confirmation(client, amount, appointment_date="", payment_metho
     """
     Send a deposit-received confirmation email to a client.
 
-    Args:
-        client: A Client model instance.
-        amount: Deposit amount as a string or Decimal.
-        appointment_date: Human-readable date string (optional).
-        payment_method: How they paid, e.g. "e-Transfer" (optional).
+    Uses the owner-editable template from SiteSettings → Email Templates.
     """
     if not client.email:
         return False
 
-    subject = "Deposit Received — Your Booking Is Confirmed"
-    context = {
-        "client_name": client.name,
-        "amount": str(amount),
-        "appointment_date": appointment_date,
-        "payment_method": payment_method,
-    }
+    ss = _get_site_settings()
 
-    plain_message = (
-        f"Hi {context['client_name']},\n\n"
-        f"Thank you! We've received your ${context['amount']} booking deposit "
-        f"and your appointment is confirmed.\n\n"
-    )
+    details_parts = []
     if appointment_date:
-        plain_message += f"Appointment date: {appointment_date}\n"
+        details_parts.append(f"Appointment date: {appointment_date}")
     if payment_method:
-        plain_message += f"Paid via: {payment_method}\n"
-    plain_message += (
-        "\nYour deposit will be applied toward your service fee on the day of your visit.\n\n"
-        "If you need to reschedule or have any questions, please reply to this email.\n\n"
-        "Best regards,\n"
-        "Your Thermography Team"
+        details_parts.append(f"Paid via: {payment_method}")
+    details_line = "\n".join(details_parts) + "\n\n" if details_parts else ""
+
+    template = (ss.email_deposit_confirmation if ss and ss.email_deposit_confirmation else "")
+    if not template:
+        template = (
+            "Hi {client_name},\n\n"
+            "We've received your ${amount} deposit. Your appointment is confirmed.\n\n"
+            "{details_line}"
+            "Best regards,\nYour Thermography Team"
+        )
+
+    plain_message = template.format(
+        client_name=client.name or "there",
+        amount=str(amount),
+        details_line=details_line,
     )
 
-    try:
-        html_message = render_to_string(
-            "clients/emails/deposit_confirmation.html", context
-        )
-    except Exception:
-        html_message = None
+    subject = "Deposit Received — Your Booking Is Confirmed"
 
     send_mail(
         subject=subject,
         message=plain_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[client.email],
-        html_message=html_message,
         fail_silently=False,
     )
     return True
@@ -261,47 +235,39 @@ def send_deposit_expired_cancellation(client, amount, appointment_date="", servi
     """
     Notify a client that their appointment was cancelled because
     the booking deposit was not received within 48 hours.
+
+    Uses the owner-editable template from SiteSettings → Email Templates.
     """
     if not client.email:
         return False
 
-    subject = "Appointment Cancelled — Booking Deposit Not Received"
-    context = {
-        "client_name": client.name,
-        "amount": str(amount),
-        "appointment_date": appointment_date,
-        "service_name": service_name,
-    }
+    ss = _get_site_settings()
+    appointment_line = f" on {appointment_date}" if appointment_date else ""
+    service_line = f" ({service_name})" if service_name else ""
 
-    plain_message = (
-        f"Hi {context['client_name']},\n\n"
-        f"We're writing to let you know that your thermography appointment"
-        f"{f' on {appointment_date}' if appointment_date else ''}"
-        f"{f' ({service_name})' if service_name else ''}"
-        f" has been cancelled.\n\n"
-        f"The required ${context['amount']} booking deposit was not received "
-        f"within 48 hours of booking, and the appointment has been automatically released.\n\n"
-        f"If you'd like to rebook, you're welcome to visit our website and "
-        f"schedule a new appointment at any time.\n\n"
-        f"If you believe this was an error or you've already sent payment, "
-        f"please reply to this email and we'll sort it out right away.\n\n"
-        f"Best regards,\n"
-        f"Your Thermography Team"
+    template = (ss.email_deposit_cancelled if ss and ss.email_deposit_cancelled else "")
+    if not template:
+        template = (
+            "Hi {client_name},\n\n"
+            "Your appointment{appointment_line}{service_line} has been cancelled. "
+            "The ${amount} deposit was not received within 48 hours.\n\n"
+            "Best regards,\nYour Thermography Team"
+        )
+
+    plain_message = template.format(
+        client_name=client.name or "there",
+        amount=str(amount),
+        appointment_line=appointment_line,
+        service_line=service_line,
     )
 
-    try:
-        html_message = render_to_string(
-            "clients/emails/deposit_expired.html", context
-        )
-    except Exception:
-        html_message = None
+    subject = "Appointment Cancelled — Booking Deposit Not Received"
 
     send_mail(
         subject=subject,
         message=plain_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[client.email],
-        html_message=html_message,
         fail_silently=False,
     )
     return True
@@ -331,7 +297,7 @@ def send_owner_deposit_expiry_notice(expired_deposits):
         client_name = dep.client.name if dep.client_id else "Unknown"
         date_str = dep.appointment_date.strftime("%B %d, %Y") if dep.appointment_date else "no date"
         svc = dep.service_name or "Unknown service"
-        lines.append(f"  • {client_name} — {svc} — {date_str} — ${dep.amount}")
+        lines.append(f"  - {client_name} — {svc} — {date_str} — ${dep.amount}")
 
     lines.append(
         "\nThe Cal.com bookings have been cancelled and the clients have been notified.\n"
