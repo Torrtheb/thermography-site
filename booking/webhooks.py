@@ -143,11 +143,18 @@ def confirm_calcom_booking(booking_uid):
 
 def expire_pending_deposits(hours=48):
     """
-    Forfeit deposits pending for more than `hours`, cancel Cal.com bookings,
-    and notify both the client and the owner.
+    Forfeit deposits pending for more than `hours` since the owner approved
+    them, cancel Cal.com bookings, and notify both the client and the owner.
+
+    The 48-hour clock starts from `approved_at` (when the owner clicked
+    "Approve & Send Deposit Request"), not from `created_at` (when the
+    Cal.com booking was made). Deposits without an `approved_at` timestamp
+    fall back to `created_at` for safety.
 
     Returns the number of deposits forfeited.
     """
+    from django.db.models import F
+    from django.db.models.functions import Coalesce
     from django.utils import timezone as tz
     from clients.models import Deposit
     from clients.email import send_deposit_expired_cancellation, send_owner_deposit_expiry_notice
@@ -155,7 +162,10 @@ def expire_pending_deposits(hours=48):
     cutoff = tz.now() - tz.timedelta(hours=hours)
     expired_qs = Deposit.objects.filter(
         status="pending",
-        created_at__lt=cutoff,
+    ).annotate(
+        timer_start=Coalesce(F("approved_at"), F("created_at")),
+    ).filter(
+        timer_start__lt=cutoff,
     ).select_related("client")
 
     expired_list = list(expired_qs)
@@ -302,6 +312,13 @@ def _handle_booking_created(payload):
         deposit.pk, client.pk, booking_uid,
     )
 
+    # Notify the owner so they know to review and approve
+    from clients.email import send_owner_new_booking_notice
+    try:
+        send_owner_new_booking_notice(client, deposit)
+    except Exception:
+        logger.exception("Failed to send owner new-booking notice for deposit pk=%s", deposit.pk)
+
 
 def _handle_booking_cancelled(payload):
     """Auto-forfeit the deposit when a Cal.com booking is cancelled."""
@@ -318,16 +335,17 @@ def _handle_booking_cancelled(payload):
         logger.info("BOOKING_CANCELLED webhook: no deposit found for uid=%s", booking_uid)
         return
 
-    if deposit.status == "received":
+    reason_map = {
+        "awaiting_review": "client cancelled before owner reviewed",
+        "pending": "client cancelled before paying deposit",
+        "received": "client cancelled after paying deposit",
+    }
+    reason = reason_map.get(deposit.status)
+    if reason:
         deposit.status = "forfeited"
-        deposit.notes = (deposit.notes or "") + "\nAuto-forfeited: client cancelled via Cal.com."
+        deposit.notes = (deposit.notes or "") + f"\nAuto-forfeited: {reason}."
         deposit.save(update_fields=["status", "notes", "updated_at"])
-        logger.info("Deposit pk=%s forfeited (client cancelled, had paid)", deposit.pk)
-    elif deposit.status == "pending":
-        deposit.status = "forfeited"
-        deposit.notes = (deposit.notes or "") + "\nAuto-forfeited: client cancelled before paying deposit."
-        deposit.save(update_fields=["status", "notes", "updated_at"])
-        logger.info("Deposit pk=%s forfeited (client cancelled, never paid)", deposit.pk)
+        logger.info("Deposit pk=%s forfeited (%s)", deposit.pk, reason)
 
 
 @csrf_exempt

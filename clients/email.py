@@ -283,6 +283,47 @@ def send_deposit_expired_cancellation(client, amount, appointment_date="", servi
     return True
 
 
+def send_owner_new_booking_notice(client, deposit):
+    """
+    Notify the owner that a new booking arrived and needs review.
+
+    Sent immediately when the Cal.com webhook creates a deposit in
+    'awaiting_review' status so the owner knows to check Wagtail admin.
+    """
+    owner_email = settings.DEFAULT_FROM_EMAIL
+    if not owner_email:
+        return False
+
+    client_name = client.name or "Unknown"
+    client_email_addr = client.email or "no email"
+    date_str = deposit.appointment_date.strftime("%B %d, %Y") if deposit.appointment_date else "no date set"
+    service = deposit.service_name or "Unknown service"
+
+    subject = f"[Action Required] New booking from {client_name}"
+    body = (
+        f"A new booking has arrived and needs your review:\n\n"
+        f"  Client:  {client_name}\n"
+        f"  Email:   {client_email_addr}\n"
+        f"  Service: {service}\n"
+        f"  Date:    {date_str}\n"
+        f"  Amount:  ${deposit.amount}\n\n"
+        f"Please log in to Wagtail admin → Deposits to review this "
+        f"booking and click 'Approve & Send Deposit Request' if everything "
+        f"looks good.\n\n"
+        f"The deposit request email will NOT be sent to the client until "
+        f"you approve it.\n"
+    )
+
+    send_mail(
+        subject=subject,
+        message=body,
+        from_email=owner_email,
+        recipient_list=[owner_email],
+        fail_silently=False,
+    )
+    return True
+
+
 def send_owner_deposit_expiry_notice(expired_deposits):
     """
     Notify the owner (DEFAULT_FROM_EMAIL) about deposits that were

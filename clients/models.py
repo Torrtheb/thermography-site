@@ -302,6 +302,13 @@ class Deposit(index.Indexed, models.Model):
         help_text="Whether the deposit confirmation email has been sent.",
     )
 
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="When the owner approved the booking and sent the deposit request. The 48-hour clock starts here.",
+    )
+
     cal_booking_uid = models.CharField(
         max_length=200,
         blank=True,

@@ -544,11 +544,14 @@ def _approve_deposit_action(request, deposit_id):
     if deposit.appointment_date:
         date_str = deposit.appointment_date.strftime("%B %d, %Y")
 
+    from django.utils import timezone
+
     try:
         send_deposit_request(client, deposit.amount, appointment_date=date_str)
         deposit.status = "pending"
         deposit.deposit_request_sent = True
-        deposit.save(update_fields=["status", "deposit_request_sent", "updated_at"])
+        deposit.approved_at = timezone.now()
+        deposit.save(update_fields=["status", "deposit_request_sent", "approved_at", "updated_at"])
         messages.success(request, f"Approved! Deposit request email sent to {client.name}.")
     except Exception as e:
         logger.exception("Failed to send deposit request for deposit pk=%s", deposit.pk)
