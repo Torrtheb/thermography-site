@@ -109,6 +109,12 @@ class HomePage(Page):
         },
     )
 
+    show_policies = models.BooleanField(
+        "Show payment & cancellation policies",
+        default=True,
+        help_text="Pulls content from Settings → Site Settings → Policies.",
+    )
+
     show_newsletter = models.BooleanField(
         "Show newsletter signup",
         default=True,
@@ -117,7 +123,7 @@ class HomePage(Page):
     content_panels = Page.content_panels + [
         FieldPanel("body"),
         MultiFieldPanel(
-            [FieldPanel("show_newsletter")],
+            [FieldPanel("show_policies"), FieldPanel("show_newsletter")],
             heading="Page Sections",
             help_text="Toggle which repeating sections appear on this page.",
         ),

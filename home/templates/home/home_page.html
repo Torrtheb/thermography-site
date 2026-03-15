@@ -5,4 +5,8 @@
 {% for block in page.body %}
     {% include_block block %}
 {% endfor %}
+
+{% if page.show_policies %}
+{% include "includes/policies.html" %}
+{% endif %}
 {% endblock %}
