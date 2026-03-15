@@ -8,11 +8,13 @@ Provides:
 - "Send Email" menu item for composing emails to clients
 - "Import CSV" / "Export CSV" for bulk client management
 - Autocomplete suggestions endpoint for filter fields
+- Dashboard panel showing deposits that need attention
 """
 
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
+from wagtail.admin.ui.components import Component
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
@@ -140,3 +142,35 @@ def register_contact_menu():
         icon_name="mail",
         order=250,
     )
+
+
+# ──────────────────────────────────────────────────────────
+# Dashboard panel — deposits needing attention
+# ──────────────────────────────────────────────────────────
+
+class ActionRequiredPanel(Component):
+    name = "action_required"
+    template_name = "clients/admin/action_required_panel.html"
+    order = 50
+
+    def get_context_data(self, parent_context):
+        context = super().get_context_data(parent_context)
+        needs_review = list(
+            Deposit.objects.filter(status="awaiting_review")
+            .select_related("client")
+            .order_by("-created_at")[:20]
+        )
+        needs_confirmation = list(
+            Deposit.objects.filter(status="received", deposit_confirmed_sent=False)
+            .select_related("client")
+            .order_by("-created_at")[:20]
+        )
+        context["needs_review"] = needs_review
+        context["needs_confirmation"] = needs_confirmation
+        context["total_count"] = len(needs_review) + len(needs_confirmation)
+        return context
+
+
+@hooks.register("construct_homepage_panels")
+def add_action_required_panel(request, panels):
+    panels.insert(0, ActionRequiredPanel())

@@ -1,0 +1,91 @@
+{% load wagtailadmin_tags %}
+
+{% if needs_review or needs_confirmation %}
+<section class="w-full" style="grid-column: 1 / -1;">
+    <div style="background:#fef3c7; border:2px solid #f59e0b; border-radius:0.75rem; padding:1.25rem 1.5rem; margin-bottom:1.5rem;">
+        <h2 style="margin:0 0 1rem 0; font-size:1.1rem; font-weight:700; color:#92400e; display:flex; align-items:center; gap:0.5rem;">
+            <svg style="width:1.25rem;height:1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            Action Required — {{ total_count }} deposit{{ total_count|pluralize }} need{{ total_count|pluralize:"s," }} attention
+        </h2>
+
+        {% if needs_review %}
+        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:0.5rem; padding:1rem; margin-bottom:{% if needs_confirmation %}0.75rem{% else %}0{% endif %};">
+            <h3 style="margin:0 0 0.75rem 0; font-size:0.9rem; font-weight:600; color:#6d28d9;">
+                🔍 Awaiting Review ({{ needs_review|length }})
+            </h3>
+            <p style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#6b7280;">
+                New bookings — review the client info and click "Approve" to send the deposit request email.
+            </p>
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead>
+                    <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Amount</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dep in needs_review %}
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
+                        <td style="padding:0.4rem 0.5rem;">
+                            <a href="/admin/deposits/{{ dep.pk }}/approve/"
+                               style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
+                                      border-radius:0.25rem; font-size:0.75rem; font-weight:600; text-decoration:none;">
+                                ✅ Approve &amp; Send
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if needs_confirmation %}
+        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:0.5rem; padding:1rem;">
+            <h3 style="margin:0 0 0.75rem 0; font-size:0.9rem; font-weight:600; color:#059669;">
+                ✅ Deposit Received — Send Confirmation ({{ needs_confirmation|length }})
+            </h3>
+            <p style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#6b7280;">
+                These clients have paid. Click "Send Confirmation" to confirm the booking and notify the client.
+            </p>
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead>
+                    <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
+                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dep in needs_confirmation %}
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
+                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
+                        <td style="padding:0.4rem 0.5rem;">
+                            <a href="/admin/deposits/{{ dep.pk }}/send-confirmation/"
+                               style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
+                                      border-radius:0.25rem; font-size:0.75rem; font-weight:600; text-decoration:none;">
+                                ✅ Send Confirmation
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}

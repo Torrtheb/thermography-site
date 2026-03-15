@@ -225,7 +225,10 @@ def _verify_signature(request):
         hashlib.sha256,
     ).hexdigest()
 
-    return hmac.compare_digest(signature, expected)
+    if not hmac.compare_digest(signature, expected):
+        logger.warning("Cal.com webhook signature mismatch — check CAL_WEBHOOK_SECRET")
+        return False
+    return True
 
 
 def _get_deposit_amount():
@@ -272,7 +275,7 @@ def _handle_booking_created(payload):
     appointment_date = _parse_appointment_date(start_time)
 
     if not client_email:
-        logger.info("BOOKING_CREATED webhook: no attendee email — skipping")
+        logger.warning("BOOKING_CREATED webhook: no attendee email — skipping")
         return
 
     if booking_uid and Deposit.objects.filter(cal_booking_uid=booking_uid).exists():
@@ -307,7 +310,7 @@ def _handle_booking_created(payload):
         cal_booking_uid=booking_uid,
         status="awaiting_review",
     )
-    logger.info(
+    logger.warning(
         "Created deposit pk=%s (awaiting_review) for client pk=%s (cal uid=%s)",
         deposit.pk, client.pk, booking_uid,
     )
@@ -352,16 +355,20 @@ def _handle_booking_cancelled(payload):
 @require_POST
 def calcom_webhook_view(request):
     """Receive and process Cal.com webhook events."""
+    logger.warning("Cal.com webhook received (%d bytes)", len(request.body))
+
     if not _verify_signature(request):
         return JsonResponse({"error": "invalid signature"}, status=403)
 
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
+        logger.warning("Cal.com webhook: invalid JSON body")
         return JsonResponse({"error": "invalid json"}, status=400)
 
     trigger = data.get("triggerEvent", "")
     payload = data.get("payload", {})
+    logger.warning("Cal.com webhook trigger=%s", trigger)
 
     if trigger == "BOOKING_CREATED":
         try:
@@ -374,7 +381,7 @@ def calcom_webhook_view(request):
         except Exception:
             logger.exception("Error handling BOOKING_CANCELLED webhook")
     else:
-        logger.info("Ignoring Cal.com webhook trigger: %s", trigger)
+        logger.warning("Ignoring Cal.com webhook trigger: %s", trigger)
 
     return JsonResponse({"ok": True})
 
