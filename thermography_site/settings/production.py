@@ -261,6 +261,16 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "booking": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "clients": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
 
