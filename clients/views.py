@@ -513,3 +513,48 @@ def _send_deposit_confirmation_action(request, deposit_id):
 
 
 send_deposit_confirmation_view = require_admin_access(_send_deposit_confirmation_action)
+
+
+# ──────────────────────────────────────────────────────────
+# Approve booking & send deposit request (owner review gate)
+# ──────────────────────────────────────────────────────────
+
+def _approve_deposit_action(request, deposit_id):
+    """Owner reviews the client, approves, and sends the deposit request email.
+
+    Transitions the deposit from 'awaiting_review' → 'pending' and sends
+    the deposit request email in one click.
+    """
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    if deposit.status != "awaiting_review":
+        messages.warning(request, "This deposit has already been reviewed.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    client = deposit.client
+    if not client.email:
+        messages.error(request, "Client has no email on file — cannot send deposit request.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    date_str = ""
+    if deposit.appointment_date:
+        date_str = deposit.appointment_date.strftime("%B %d, %Y")
+
+    try:
+        send_deposit_request(client, deposit.amount, appointment_date=date_str)
+        deposit.status = "pending"
+        deposit.deposit_request_sent = True
+        deposit.save(update_fields=["status", "deposit_request_sent", "updated_at"])
+        messages.success(request, f"Approved! Deposit request email sent to {client.name}.")
+    except Exception as e:
+        logger.exception("Failed to send deposit request for deposit pk=%s", deposit.pk)
+        messages.error(request, f"Failed to send email: {e}")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+approve_deposit_view = require_admin_access(_approve_deposit_action)

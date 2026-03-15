@@ -18,6 +18,7 @@ from wagtail.snippets.views.snippets import SnippetViewSet
 
 from .models import Client, Deposit
 from .views import (
+    approve_deposit_view,
     autocomplete_view,
     compose_email_view,
     csv_export_view,
@@ -94,6 +95,7 @@ def register_client_admin_urls():
         path("clients/export-csv/", csv_export_view, name="clients_csv_export"),
         path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
         path("deposits/export-csv/", deposit_export_view, name="deposits_csv_export"),
+        path("deposits/<int:deposit_id>/approve/", approve_deposit_view, name="deposit_approve"),
         path("deposits/<int:deposit_id>/send-request/", send_deposit_request_view, name="deposit_send_request"),
         path("deposits/<int:deposit_id>/send-confirmation/", send_deposit_confirmation_view, name="deposit_send_confirmation"),
     ]

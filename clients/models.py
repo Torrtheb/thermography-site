@@ -212,7 +212,8 @@ class ClientReport(models.Model):
 # ──────────────────────────────────────────────────────────
 
 DEPOSIT_STATUS_CHOICES = [
-    ("pending", "Pending — awaiting payment"),
+    ("awaiting_review", "Awaiting Review — owner must approve"),
+    ("pending", "Pending — deposit request sent, awaiting payment"),
     ("received", "Received"),
     ("forfeited", "Forfeited — client cancelled / no-show"),
     ("applied", "Applied to service fee"),
@@ -267,7 +268,7 @@ class Deposit(index.Indexed, models.Model):
     status = models.CharField(
         max_length=20,
         choices=DEPOSIT_STATUS_CHOICES,
-        default="pending",
+        default="awaiting_review",
     )
 
     payment_method = models.CharField(
@@ -372,7 +373,8 @@ class Deposit(index.Indexed, models.Model):
         """HTML status badge for the admin listing."""
         from django.utils.html import format_html
         colours = {
-            "pending": ("⏳ Pending", "#856404", "#fff3cd"),
+            "awaiting_review": ("🔍 Needs Review", "#6d28d9", "#ede9fe"),
+            "pending": ("⏳ Deposit Requested", "#856404", "#fff3cd"),
             "received": ("✅ Received", "#155724", "#d4edda"),
             "forfeited": ("🚫 Forfeited", "#721c24", "#f8d7da"),
             "applied": ("💰 Applied", "#004085", "#cce5ff"),
@@ -387,12 +389,19 @@ class Deposit(index.Indexed, models.Model):
     status_badge.short_description = "Status"
 
     def email_status_display(self):
-        """Show email send buttons / status in the admin listing."""
+        """Show contextual action buttons in the admin listing."""
         from django.utils.html import format_html
 
         parts = []
 
-        if self.deposit_request_sent:
+        if self.status == "awaiting_review":
+            parts.append(
+                f'<a href="/admin/deposits/{self.pk}/approve/" '
+                f'style="color:#fff; background:#6d28d9; padding:3px 8px; '
+                f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
+                f'✅ Approve &amp; Send Deposit Request</a>'
+            )
+        elif self.deposit_request_sent:
             parts.append(
                 '<span style="color:#155724; background:#d4edda; padding:2px 6px; '
                 'border-radius:4px; font-size:0.75rem;">📧 Request sent</span>'
@@ -420,6 +429,6 @@ class Deposit(index.Indexed, models.Model):
                 )
 
         return format_html(" ".join(parts))
-    email_status_display.short_description = "Emails"
+    email_status_display.short_description = "Actions"
 
 

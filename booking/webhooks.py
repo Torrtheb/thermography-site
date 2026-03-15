@@ -240,9 +240,13 @@ def _parse_appointment_date(start_time_str):
 
 
 def _handle_booking_created(payload):
-    """Auto-create a Client (or find existing) and Deposit, then send deposit request email."""
+    """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
+
+    The deposit request email is NOT sent automatically — the owner must
+    review the client info in Wagtail admin and click "Approve & Send
+    Deposit Request" to validate the client and trigger the email.
+    """
     from clients.models import Client, Deposit
-    from clients.email import send_deposit_request
 
     attendees = payload.get("attendees", [])
     if not attendees:
@@ -285,27 +289,18 @@ def _handle_booking_created(payload):
 
     deposit_amount = _get_deposit_amount()
 
-    date_str = ""
-    if appointment_date:
-        date_str = appointment_date.strftime("%B %d, %Y")
-
     deposit = Deposit.objects.create(
         client=client,
         amount=deposit_amount,
         appointment_date=appointment_date,
         service_name=event_title,
         cal_booking_uid=booking_uid,
-        status="pending",
+        status="awaiting_review",
     )
-    logger.info("Created deposit pk=%s for client pk=%s (cal uid=%s)", deposit.pk, client.pk, booking_uid)
-
-    try:
-        send_deposit_request(client, deposit_amount, appointment_date=date_str)
-        deposit.deposit_request_sent = True
-        deposit.save(update_fields=["deposit_request_sent", "updated_at"])
-        logger.info("Deposit request email sent for deposit pk=%s", deposit.pk)
-    except Exception:
-        logger.exception("Failed to send deposit request email for deposit pk=%s", deposit.pk)
+    logger.info(
+        "Created deposit pk=%s (awaiting_review) for client pk=%s (cal uid=%s)",
+        deposit.pk, client.pk, booking_uid,
+    )
 
 
 def _handle_booking_cancelled(payload):
