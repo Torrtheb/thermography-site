@@ -12,7 +12,7 @@ Provides:
 
 from django.urls import path, reverse
 from wagtail import hooks
-from wagtail.admin.menu import MenuItem
+from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
@@ -102,44 +102,23 @@ def register_client_admin_urls():
 
 
 # ──────────────────────────────────────────────────────────
-# Sidebar menu items
+# Sidebar menu — grouped "Tools" submenu
 # ──────────────────────────────────────────────────────────
 
 @hooks.register("register_admin_menu_item")
-def register_email_menu_item():
-    return MenuItem(
-        "Send Email",
-        reverse("clients_compose_email"),
-        icon_name="mail",
+def register_tools_menu():
+    return SubmenuMenuItem(
+        "Tools",
+        Menu(
+            register_hook_name="",
+            construct_hook_name="",
+            items=[
+                MenuItem("Send Email", reverse("clients_compose_email"), icon_name="mail", order=100),
+                MenuItem("Import Clients CSV", reverse("clients_csv_import"), icon_name="upload", order=200),
+                MenuItem("Export Clients CSV", reverse("clients_csv_export"), icon_name="download", order=300),
+                MenuItem("Export Deposits CSV", reverse("deposits_csv_export"), icon_name="download", order=400),
+            ],
+        ),
+        icon_name="cog",
         order=201,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_import_menu_item():
-    return MenuItem(
-        "Import Clients CSV",
-        reverse("clients_csv_import"),
-        icon_name="upload",
-        order=202,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_export_menu_item():
-    return MenuItem(
-        "Export Clients CSV",
-        reverse("clients_csv_export"),
-        icon_name="download",
-        order=203,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_deposit_export_menu_item():
-    return MenuItem(
-        "Export Deposits CSV",
-        reverse("deposits_csv_export"),
-        icon_name="download",
-        order=204,
     )
