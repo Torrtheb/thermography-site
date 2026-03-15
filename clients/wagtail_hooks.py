@@ -27,6 +27,7 @@ from .views import (
     csv_import_view,
     deposit_export_view,
     mark_received_view,
+    reject_deposit_view,
     send_deposit_request_view,
     send_deposit_confirmation_view,
 )
@@ -99,6 +100,7 @@ def register_client_admin_urls():
         path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
         path("deposits/export-csv/", deposit_export_view, name="deposits_csv_export"),
         path("deposits/<int:deposit_id>/approve/", approve_deposit_view, name="deposit_approve"),
+        path("deposits/<int:deposit_id>/reject/", reject_deposit_view, name="deposit_reject"),
         path("deposits/<int:deposit_id>/mark-received/", mark_received_view, name="deposit_mark_received"),
         path("deposits/<int:deposit_id>/send-request/", send_deposit_request_view, name="deposit_send_request"),
         path("deposits/<int:deposit_id>/send-confirmation/", send_deposit_confirmation_view, name="deposit_send_confirmation"),

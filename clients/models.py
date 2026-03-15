@@ -414,6 +414,12 @@ class Deposit(index.Indexed, models.Model):
             'font-size:0.75rem; text-decoration:none; font-weight:600;'
         )
         tag = 'color:#155724; background:#d4edda; padding:2px 6px; border-radius:4px; font-size:0.75rem;'
+        reject_btn = (
+            f'<a href="/admin/deposits/{self.pk}/reject/" '
+            f'style="color:#fff; background:#dc2626; {btn}" '
+            f'onclick="return confirm(\'Reject this booking and cancel in Cal.com?\');">'
+            f'❌ Reject</a>'
+        )
 
         if self.status == "awaiting_review":
             parts.append(
@@ -421,6 +427,7 @@ class Deposit(index.Indexed, models.Model):
                 f'style="color:#fff; background:#6d28d9; {btn}">'
                 f'✅ Approve &amp; Send Deposit Request</a>'
             )
+            parts.append(reject_btn)
         elif self.status == "pending":
             parts.append(f'<span style="{tag}">📧 Request sent</span>')
             parts.append(
@@ -428,6 +435,7 @@ class Deposit(index.Indexed, models.Model):
                 f'style="color:#fff; background:#2563eb; {btn}">'
                 f'💰 Mark Received &amp; Confirm</a>'
             )
+            parts.append(reject_btn)
         elif self.status == "received":
             if self.deposit_confirmed_sent:
                 parts.append(f'<span style="{tag}">✅ Confirmed</span>')

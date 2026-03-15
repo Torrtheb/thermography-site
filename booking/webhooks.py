@@ -1,19 +1,31 @@
 """
-Cal.com webhook handler — auto-creates Client + Deposit records on new bookings.
-Cal.com API integration — auto-cancels bookings when deposits expire.
+Cal.com webhook handler — bidirectional sync between Cal.com and Wagtail.
+Cal.com API integration — confirm, decline, and cancel bookings.
+
+Handled webhook events:
+  BOOKING_CREATED / BOOKING_REQUESTED → creates Client + Deposit (awaiting_review)
+  BOOKING_CANCELLED → forfeits the deposit
+  BOOKING_REJECTED  → forfeits the deposit (owner declined in Cal.com)
+  BOOKING_RESCHEDULED → updates deposit date and booking UID
+
+Wagtail → Cal.com actions:
+  "Approve & Send" → sends deposit request email (no Cal.com API call needed)
+  "Mark Received & Confirm" → confirms booking via Cal.com API
+  "Reject & Cancel" → declines booking via Cal.com API
+  48-hour expiry cron → cancels booking via Cal.com API
 
 Setup (one-time):
   1. In Cal.com → Settings → Developer → Webhooks, create a new webhook:
      - Subscriber URL: https://your-domain.com/api/webhooks/calcom/
-     - Event triggers: Booking Created, Booking Requested, Booking Cancelled
+     - Event triggers: Booking Created, Booking Requested, Booking Cancelled,
+       Booking Rejected, Booking Rescheduled
      - Secret: paste the value of CAL_WEBHOOK_SECRET from your env vars
   2. In Cal.com → Settings → Developer → API Keys, create a new key.
   3. Set CAL_WEBHOOK_SECRET, CAL_API_KEY, and CRON_SECRET in your env vars.
 
 Note: When "Requires confirmation" is enabled on a Cal.com event type,
 new bookings trigger BOOKING_REQUESTED (not BOOKING_CREATED).
-BOOKING_CREATED fires only after the booking is confirmed.
-We handle both events identically to support both modes.
+We handle both events identically.
 
 Security:
   - HMAC-SHA256 signature verification (x-cal-signature-256 header)
@@ -139,6 +151,36 @@ def confirm_calcom_booking(booking_uid):
         return True
 
     logger.warning("Cal.com confirm failed for uid=%s: %s", booking_uid, resp)
+    return False
+
+
+def decline_calcom_booking(booking_uid, reason=""):
+    """
+    Decline (reject) a Cal.com booking that is awaiting confirmation.
+
+    Called when the owner rejects a booking from Wagtail admin. This removes
+    the booking from Cal.com and notifies the client via Cal.com's own email.
+
+    Returns True if successful, False otherwise.
+    """
+    if not booking_uid or not _SAFE_UID_RE.match(booking_uid):
+        return False
+
+    ok, resp = _calcom_api_post(
+        f"/v2/bookings/{booking_uid}/decline",
+        {"reason": reason or "Booking declined by organizer."},
+    )
+
+    if ok:
+        logger.info("Cal.com booking %s declined", booking_uid)
+        return True
+
+    resp_lower = resp.lower()
+    if "already" in resp_lower or "rejected" in resp_lower or "cancelled" in resp_lower:
+        logger.info("Cal.com booking %s was already declined/cancelled", booking_uid)
+        return True
+
+    logger.warning("Cal.com decline failed for uid=%s: %s", booking_uid, resp)
     return False
 
 
@@ -356,6 +398,84 @@ def _handle_booking_cancelled(payload):
         logger.info("Deposit pk=%s forfeited (%s)", deposit.pk, reason)
 
 
+def _handle_booking_rejected(payload):
+    """Auto-forfeit the deposit when the owner rejects a booking in Cal.com."""
+    from clients.models import Deposit
+
+    booking_uid = payload.get("uid", "")
+    if not booking_uid:
+        logger.info("BOOKING_REJECTED webhook: no booking uid — skipping")
+        return
+
+    try:
+        deposit = Deposit.objects.get(cal_booking_uid=booking_uid)
+    except Deposit.DoesNotExist:
+        logger.info("BOOKING_REJECTED webhook: no deposit found for uid=%s", booking_uid)
+        return
+
+    if deposit.status in ("awaiting_review", "pending"):
+        deposit.status = "forfeited"
+        deposit.notes = (deposit.notes or "") + "\nAuto-forfeited: booking rejected by owner in Cal.com."
+        deposit.save(update_fields=["status", "notes", "updated_at"])
+        logger.info("Deposit pk=%s forfeited (rejected in Cal.com)", deposit.pk)
+
+
+def _handle_booking_rescheduled(payload):
+    """Update the deposit when a Cal.com booking is rescheduled."""
+    from clients.models import Deposit
+
+    booking_uid = payload.get("uid", "")
+    reschedule_uid = payload.get("rescheduleUid", "")
+    if not booking_uid:
+        logger.info("BOOKING_RESCHEDULED webhook: no booking uid — skipping")
+        return
+
+    new_start = payload.get("startTime", "")
+    new_date = _parse_appointment_date(new_start)
+    new_title = payload.get("eventTitle", "") or payload.get("title", "")
+
+    # The rescheduled booking gets a new UID; find the deposit by the old UID
+    # Cal.com sends the *new* booking's uid in "uid" and sometimes the old one
+    # in "rescheduleUid". Try the reschedule UID first (old booking), then new.
+    deposit = None
+    for uid in (reschedule_uid, booking_uid):
+        if uid:
+            try:
+                deposit = Deposit.objects.get(cal_booking_uid=uid)
+                break
+            except Deposit.DoesNotExist:
+                continue
+
+    if deposit is None:
+        logger.info("BOOKING_RESCHEDULED webhook: no deposit found for uid=%s / rescheduleUid=%s",
+                     booking_uid, reschedule_uid)
+        return
+
+    update_fields = ["updated_at"]
+
+    # Update the UID to the new booking's UID so future webhooks match
+    if booking_uid and deposit.cal_booking_uid != booking_uid:
+        deposit.cal_booking_uid = booking_uid
+        update_fields.append("cal_booking_uid")
+
+    if new_date and deposit.appointment_date != new_date:
+        old_date = deposit.appointment_date
+        deposit.appointment_date = new_date
+        update_fields.append("appointment_date")
+        deposit.notes = (deposit.notes or "") + (
+            f"\nRescheduled: {old_date} → {new_date}."
+        )
+        update_fields.append("notes")
+
+    if new_title and new_title != deposit.service_name:
+        deposit.service_name = new_title
+        update_fields.append("service_name")
+
+    deposit.save(update_fields=update_fields)
+    logger.info("Deposit pk=%s updated from BOOKING_RESCHEDULED (new uid=%s, date=%s)",
+                deposit.pk, booking_uid, new_date)
+
+
 @csrf_exempt
 @require_POST
 def calcom_webhook_view(request):
@@ -375,16 +495,20 @@ def calcom_webhook_view(request):
     payload = data.get("payload", {})
     logger.warning("Cal.com webhook trigger=%s", trigger)
 
-    if trigger in ("BOOKING_CREATED", "BOOKING_REQUESTED"):
+    handlers = {
+        "BOOKING_CREATED": _handle_booking_created,
+        "BOOKING_REQUESTED": _handle_booking_created,
+        "BOOKING_CANCELLED": _handle_booking_cancelled,
+        "BOOKING_REJECTED": _handle_booking_rejected,
+        "BOOKING_RESCHEDULED": _handle_booking_rescheduled,
+    }
+
+    handler = handlers.get(trigger)
+    if handler:
         try:
-            _handle_booking_created(payload)
+            handler(payload)
         except Exception:
             logger.exception("Error handling %s webhook", trigger)
-    elif trigger == "BOOKING_CANCELLED":
-        try:
-            _handle_booking_cancelled(payload)
-        except Exception:
-            logger.exception("Error handling BOOKING_CANCELLED webhook")
     else:
         logger.warning("Ignoring Cal.com webhook trigger: %s", trigger)
 

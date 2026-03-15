@@ -626,3 +626,52 @@ def _mark_received_action(request, deposit_id):
 
 
 mark_received_view = require_admin_access(_mark_received_action)
+
+
+# ──────────────────────────────────────────────────────────
+# Reject booking — decline in Cal.com + forfeit deposit
+# ──────────────────────────────────────────────────────────
+
+def _reject_deposit_action(request, deposit_id):
+    """Owner rejects a booking: forfeit the deposit and decline/cancel in Cal.com.
+
+    Works for deposits in 'awaiting_review' (decline) or 'pending' (cancel).
+    """
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    if deposit.status not in ("awaiting_review", "pending"):
+        messages.warning(request, "This deposit cannot be rejected (already processed).")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    old_status = deposit.status
+    deposit.status = "forfeited"
+    deposit.notes = (deposit.notes or "") + f"\nRejected by owner from Wagtail (was {old_status})."
+    deposit.save(update_fields=["status", "notes", "updated_at"])
+
+    client_name = deposit.client.name if deposit.client_id else "Unknown"
+
+    if deposit.cal_booking_uid:
+        from booking.webhooks import decline_calcom_booking, cancel_calcom_booking
+        try:
+            if old_status == "awaiting_review":
+                ok = decline_calcom_booking(deposit.cal_booking_uid, reason="Booking declined by organizer.")
+            else:
+                ok = cancel_calcom_booking(deposit.cal_booking_uid, reason="Booking cancelled by organizer.")
+            if ok:
+                messages.success(request, f"Rejected! Booking for {client_name} has been cancelled in Cal.com.")
+            else:
+                messages.warning(request, f"Deposit forfeited, but could not update Cal.com — please cancel/decline manually.")
+        except Exception:
+            logger.exception("Failed to decline/cancel Cal.com booking for deposit pk=%s", deposit.pk)
+            messages.warning(request, f"Deposit forfeited, but could not update Cal.com — please cancel/decline manually.")
+    else:
+        messages.success(request, f"Deposit for {client_name} has been forfeited.")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+reject_deposit_view = require_admin_access(_reject_deposit_action)
