@@ -46,9 +46,10 @@ _SAFE_UID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 # ──────────────────────────────────────────────────────────
 
 CAL_API_VERSION = "2024-08-13"
+CAL_API_VERSION_CONFIRM = "2026-02-25"
 
 
-def _calcom_api_post(path, body_dict=None):
+def _calcom_api_post(path, body_dict=None, api_version=None):
     """
     Make an authenticated POST to the Cal.com v2 API.
 
@@ -73,7 +74,7 @@ def _calcom_api_post(path, body_dict=None):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "cal-api-version": CAL_API_VERSION,
+            "cal-api-version": api_version or CAL_API_VERSION,
         },
     )
 
@@ -128,7 +129,10 @@ def confirm_calcom_booking(booking_uid):
     if not booking_uid or not _SAFE_UID_RE.match(booking_uid):
         return False
 
-    ok, resp = _calcom_api_post(f"/v2/bookings/{booking_uid}/confirm")
+    ok, resp = _calcom_api_post(
+        f"/v2/bookings/{booking_uid}/confirm",
+        api_version=CAL_API_VERSION_CONFIRM,
+    )
 
     if ok:
         logger.info("Cal.com booking %s confirmed", booking_uid)
@@ -138,7 +142,7 @@ def confirm_calcom_booking(booking_uid):
         logger.info("Cal.com booking %s was already confirmed", booking_uid)
         return True
 
-    logger.error("Cal.com confirm failed for %s: %s", booking_uid, resp)
+    logger.warning("Cal.com confirm failed for uid=%s: %s", booking_uid, resp)
     return False
 
 
