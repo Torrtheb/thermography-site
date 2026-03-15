@@ -80,6 +80,8 @@ def _calcom_api_post(path, body_dict=None):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "cal-api-version": CAL_API_VERSION,
+        "User-Agent": "ThermographyClinic/1.0",
+        "Accept": "application/json",
     }
 
     if body_dict is not None:
