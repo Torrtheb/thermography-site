@@ -470,7 +470,7 @@ send_deposit_request_view = require_admin_access(_send_deposit_request_action)
 
 
 def _send_deposit_confirmation_action(request, deposit_id):
-    """One-click: send deposit confirmation email for a specific deposit."""
+    """One-click: send deposit confirmation email and confirm the Cal.com booking."""
     try:
         deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
     except Deposit.DoesNotExist:
@@ -496,6 +496,18 @@ def _send_deposit_confirmation_action(request, deposit_id):
     except Exception as e:
         logger.exception("Failed to send deposit confirmation for deposit pk=%s", deposit.pk)
         messages.error(request, f"Failed to send email: {e}")
+
+    if deposit.cal_booking_uid:
+        from booking.webhooks import confirm_calcom_booking
+        try:
+            confirmed = confirm_calcom_booking(deposit.cal_booking_uid)
+            if confirmed:
+                messages.success(request, "Cal.com booking confirmed automatically.")
+            else:
+                messages.warning(request, "Could not auto-confirm in Cal.com — please confirm manually.")
+        except Exception:
+            logger.exception("Failed to auto-confirm Cal.com booking for deposit pk=%s", deposit.pk)
+            messages.warning(request, "Could not auto-confirm in Cal.com — please confirm manually.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 

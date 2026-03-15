@@ -34,26 +34,25 @@ logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────────────────
-# Cal.com API — cancel a booking
+# Cal.com API helpers
 # ──────────────────────────────────────────────────────────
 
-def cancel_calcom_booking(booking_uid, reason=""):
-    """
-    Cancel a Cal.com booking via the API.
+CAL_API_VERSION = "2024-08-13"
 
-    Returns True if successful (or booking was already cancelled),
-    False if the API call failed or CAL_API_KEY is not set.
+
+def _calcom_api_post(path, body_dict=None):
+    """
+    Make an authenticated POST to the Cal.com v2 API.
+
+    Returns (success: bool, response_body: str).
     """
     api_key = getattr(settings, "CAL_API_KEY", "")
     if not api_key:
-        logger.warning("CAL_API_KEY not configured — cannot cancel Cal.com booking %s", booking_uid)
-        return False
+        logger.warning("CAL_API_KEY not configured — cannot call %s", path)
+        return False, ""
 
-    if not booking_uid:
-        return False
-
-    url = f"https://api.cal.com/v2/bookings/{booking_uid}/cancel"
-    body = json.dumps({"cancellationReason": reason or "Booking deposit not received within 48 hours."}).encode()
+    url = f"https://api.cal.com{path}"
+    body = json.dumps(body_dict or {}).encode()
 
     req = urllib.request.Request(
         url,
@@ -62,24 +61,73 @@ def cancel_calcom_booking(booking_uid, reason=""):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "cal-api-version": "2024-08-13",
+            "cal-api-version": CAL_API_VERSION,
         },
     )
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            logger.info("Cal.com booking %s cancelled (HTTP %s)", booking_uid, resp.status)
-            return True
+            resp_body = resp.read().decode("utf-8", errors="replace")[:500]
+            return True, resp_body
     except urllib.error.HTTPError as e:
-        body_text = e.read().decode("utf-8", errors="replace")[:500]
-        if e.code == 400 and "already cancelled" in body_text.lower():
-            logger.info("Cal.com booking %s was already cancelled", booking_uid)
-            return True
-        logger.error("Cal.com cancel failed for %s: HTTP %s — %s", booking_uid, e.code, body_text)
+        resp_body = e.read().decode("utf-8", errors="replace")[:500]
+        return False, f"HTTP {e.code}: {resp_body}"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def cancel_calcom_booking(booking_uid, reason=""):
+    """
+    Cancel a Cal.com booking via the API.
+
+    Returns True if successful (or booking was already cancelled),
+    False if the API call failed or CAL_API_KEY is not set.
+    """
+    if not booking_uid:
         return False
-    except Exception:
-        logger.exception("Cal.com cancel failed for %s", booking_uid)
+
+    ok, resp = _calcom_api_post(
+        f"/v2/bookings/{booking_uid}/cancel",
+        {"cancellationReason": reason or "Booking deposit not received within 48 hours."},
+    )
+
+    if ok:
+        logger.info("Cal.com booking %s cancelled", booking_uid)
+        return True
+
+    if "already cancelled" in resp.lower():
+        logger.info("Cal.com booking %s was already cancelled", booking_uid)
+        return True
+
+    logger.error("Cal.com cancel failed for %s: %s", booking_uid, resp)
+    return False
+
+
+def confirm_calcom_booking(booking_uid):
+    """
+    Confirm a Cal.com booking that requires manual confirmation.
+
+    Called when the owner marks a deposit as received, so the booking
+    moves from "awaiting confirmation" to "confirmed" in Cal.com
+    (which sends Cal.com's own confirmation email to the client).
+
+    Returns True if successful, False otherwise.
+    """
+    if not booking_uid:
         return False
+
+    ok, resp = _calcom_api_post(f"/v2/bookings/{booking_uid}/confirm")
+
+    if ok:
+        logger.info("Cal.com booking %s confirmed", booking_uid)
+        return True
+
+    if "already confirmed" in resp.lower() or "accepted" in resp.lower():
+        logger.info("Cal.com booking %s was already confirmed", booking_uid)
+        return True
+
+    logger.error("Cal.com confirm failed for %s: %s", booking_uid, resp)
+    return False
 
 
 # ──────────────────────────────────────────────────────────
