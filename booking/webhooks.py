@@ -1,12 +1,14 @@
 """
 Cal.com webhook handler — auto-creates Client + Deposit records on new bookings.
+Cal.com API integration — auto-cancels bookings when deposits expire.
 
 Setup (one-time):
   1. In Cal.com → Settings → Developer → Webhooks, create a new webhook:
      - Subscriber URL: https://your-domain.com/api/webhooks/calcom/
      - Event triggers: Booking Created, Booking Cancelled
      - Secret: paste the value of CAL_WEBHOOK_SECRET from your env vars
-  2. Set CAL_WEBHOOK_SECRET in your Railway env vars (or .env for local dev).
+  2. In Cal.com → Settings → Developer → API Keys, create a new key.
+  3. Set CAL_WEBHOOK_SECRET, CAL_API_KEY, and CRON_SECRET in your env vars.
 
 Security:
   - HMAC-SHA256 signature verification (x-cal-signature-256 header)
@@ -18,6 +20,8 @@ import hashlib
 import hmac
 import json
 import logging
+import urllib.request
+import urllib.error
 from datetime import date
 from decimal import Decimal
 
@@ -27,6 +31,115 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 logger = logging.getLogger(__name__)
+
+
+# ──────────────────────────────────────────────────────────
+# Cal.com API — cancel a booking
+# ──────────────────────────────────────────────────────────
+
+def cancel_calcom_booking(booking_uid, reason=""):
+    """
+    Cancel a Cal.com booking via the API.
+
+    Returns True if successful (or booking was already cancelled),
+    False if the API call failed or CAL_API_KEY is not set.
+    """
+    api_key = getattr(settings, "CAL_API_KEY", "")
+    if not api_key:
+        logger.warning("CAL_API_KEY not configured — cannot cancel Cal.com booking %s", booking_uid)
+        return False
+
+    if not booking_uid:
+        return False
+
+    url = f"https://api.cal.com/v2/bookings/{booking_uid}/cancel"
+    body = json.dumps({"cancellationReason": reason or "Booking deposit not received within 48 hours."}).encode()
+
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "cal-api-version": "2024-08-13",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            logger.info("Cal.com booking %s cancelled (HTTP %s)", booking_uid, resp.status)
+            return True
+    except urllib.error.HTTPError as e:
+        body_text = e.read().decode("utf-8", errors="replace")[:500]
+        if e.code == 400 and "already cancelled" in body_text.lower():
+            logger.info("Cal.com booking %s was already cancelled", booking_uid)
+            return True
+        logger.error("Cal.com cancel failed for %s: HTTP %s — %s", booking_uid, e.code, body_text)
+        return False
+    except Exception:
+        logger.exception("Cal.com cancel failed for %s", booking_uid)
+        return False
+
+
+# ──────────────────────────────────────────────────────────
+# Shared expiry logic — used by both cron endpoint and management command
+# ──────────────────────────────────────────────────────────
+
+def expire_pending_deposits(hours=48):
+    """
+    Forfeit deposits pending for more than `hours`, cancel Cal.com bookings,
+    and notify both the client and the owner.
+
+    Returns the number of deposits forfeited.
+    """
+    from django.utils import timezone as tz
+    from clients.models import Deposit
+    from clients.email import send_deposit_expired_cancellation, send_owner_deposit_expiry_notice
+
+    cutoff = tz.now() - tz.timedelta(hours=hours)
+    expired_qs = Deposit.objects.filter(
+        status="pending",
+        created_at__lt=cutoff,
+    ).select_related("client")
+
+    expired_list = list(expired_qs)
+    if not expired_list:
+        return 0
+
+    for deposit in expired_list:
+        # 1. Cancel the Cal.com booking
+        if deposit.cal_booking_uid:
+            cancel_calcom_booking(deposit.cal_booking_uid)
+
+        # 2. Update deposit status
+        deposit.status = "forfeited"
+        deposit.notes = (
+            (deposit.notes or "") +
+            f"\nAuto-forfeited: deposit not received within {hours} hours of booking."
+        )
+        deposit.save(update_fields=["status", "notes", "updated_at"])
+
+        # 3. Email the client
+        date_str = deposit.appointment_date.strftime("%B %d, %Y") if deposit.appointment_date else ""
+        try:
+            send_deposit_expired_cancellation(
+                deposit.client,
+                deposit.amount,
+                appointment_date=date_str,
+                service_name=deposit.service_name,
+            )
+        except Exception:
+            logger.exception("Failed to send cancellation email for deposit pk=%s", deposit.pk)
+
+    # 4. Email the owner a summary
+    try:
+        send_owner_deposit_expiry_notice(expired_list)
+    except Exception:
+        logger.exception("Failed to send owner expiry notice")
+
+    logger.info("Expired %d deposit(s) older than %d hours", len(expired_list), hours)
+    return len(expired_list)
 
 
 def _verify_signature(request):
@@ -211,6 +324,13 @@ def cron_expire_deposits_view(request):
     Protected by CRON_SECRET — an external cron service (e.g. cron-job.org)
     POSTs to this URL every hour with the secret in the Authorization header.
 
+    What happens when this runs:
+      1. Finds all deposits still "pending" after 48 hours.
+      2. Cancels their Cal.com bookings (frees the slot).
+      3. Emails each client about the cancellation.
+      4. Emails the owner a summary.
+      5. Marks the deposits as "forfeited".
+
     Header format:  Authorization: Bearer <CRON_SECRET>
     """
     expected_secret = getattr(settings, "CRON_SECRET", "")
@@ -225,24 +345,6 @@ def cron_expire_deposits_view(request):
     if not hmac.compare_digest(token, expected_secret):
         return JsonResponse({"error": "unauthorized"}, status=403)
 
-    from django.utils import timezone as tz
-    from clients.models import Deposit
-
-    cutoff = tz.now() - tz.timedelta(hours=48)
-    expired = Deposit.objects.filter(status="pending", created_at__lt=cutoff)
-    count = expired.count()
-
-    if count > 0:
-        pks = list(expired.values_list("pk", flat=True))
-        expired.update(status="forfeited", updated_at=tz.now())
-
-        for deposit in Deposit.objects.filter(pk__in=pks):
-            deposit.notes = (
-                (deposit.notes or "") +
-                "\nAuto-forfeited: deposit not received within 48 hours of booking."
-            )
-            deposit.save(update_fields=["notes", "updated_at"])
-
-        logger.info("Cron: forfeited %d expired deposit(s)", count)
+    count = expire_pending_deposits(hours=48)
 
     return JsonResponse({"ok": True, "forfeited": count})

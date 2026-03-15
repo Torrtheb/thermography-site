@@ -257,6 +257,94 @@ def send_deposit_confirmation(client, amount, appointment_date="", payment_metho
     return True
 
 
-# NOTE: send_report_email was removed — private client reports are no longer
-# stored on or sent from this website. Reports are delivered via a separate
-# secure channel outside the application.
+def send_deposit_expired_cancellation(client, amount, appointment_date="", service_name=""):
+    """
+    Notify a client that their appointment was cancelled because
+    the booking deposit was not received within 48 hours.
+    """
+    if not client.email:
+        return False
+
+    subject = "Appointment Cancelled — Booking Deposit Not Received"
+    context = {
+        "client_name": client.name,
+        "amount": str(amount),
+        "appointment_date": appointment_date,
+        "service_name": service_name,
+    }
+
+    plain_message = (
+        f"Hi {context['client_name']},\n\n"
+        f"We're writing to let you know that your thermography appointment"
+        f"{f' on {appointment_date}' if appointment_date else ''}"
+        f"{f' ({service_name})' if service_name else ''}"
+        f" has been cancelled.\n\n"
+        f"The required ${context['amount']} booking deposit was not received "
+        f"within 48 hours of booking, and the appointment has been automatically released.\n\n"
+        f"If you'd like to rebook, you're welcome to visit our website and "
+        f"schedule a new appointment at any time.\n\n"
+        f"If you believe this was an error or you've already sent payment, "
+        f"please reply to this email and we'll sort it out right away.\n\n"
+        f"Best regards,\n"
+        f"Your Thermography Team"
+    )
+
+    try:
+        html_message = render_to_string(
+            "clients/emails/deposit_expired.html", context
+        )
+    except Exception:
+        html_message = None
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[client.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+    return True
+
+
+def send_owner_deposit_expiry_notice(expired_deposits):
+    """
+    Notify the owner (DEFAULT_FROM_EMAIL) about deposits that were
+    auto-forfeited and Cal.com bookings that were cancelled.
+    """
+    if not expired_deposits:
+        return False
+
+    owner_email = settings.DEFAULT_FROM_EMAIL
+    if not owner_email:
+        return False
+
+    count = len(expired_deposits)
+    subject = f"[Auto] {count} appointment(s) cancelled — deposit not received"
+
+    lines = [
+        f"{count} booking(s) were automatically cancelled because the deposit "
+        f"was not received within 48 hours:\n"
+    ]
+
+    for dep in expired_deposits:
+        client_name = dep.client.name if dep.client_id else "Unknown"
+        date_str = dep.appointment_date.strftime("%B %d, %Y") if dep.appointment_date else "no date"
+        svc = dep.service_name or "Unknown service"
+        lines.append(f"  • {client_name} — {svc} — {date_str} — ${dep.amount}")
+
+    lines.append(
+        "\nThe Cal.com bookings have been cancelled and the clients have been notified.\n"
+        "You can review these in Wagtail admin → Deposits (filter by 'Forfeited').\n"
+    )
+
+    body = "\n".join(lines)
+
+    send_mail(
+        subject=subject,
+        message=body,
+        from_email=owner_email,
+        recipient_list=[owner_email],
+        fail_silently=False,
+    )
+    return True

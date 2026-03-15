@@ -107,6 +107,10 @@ BREVO_LIST_ID = ""
 # Set this to the same value you configure in Cal.com → Settings → Developer → Webhooks → Secret
 CAL_WEBHOOK_SECRET = os.environ.get("CAL_WEBHOOK_SECRET", "")
 
+# Cal.com API key — used to cancel bookings when deposits expire (48-hour rule)
+# Get from Cal.com → Settings → Developer → API Keys
+CAL_API_KEY = os.environ.get("CAL_API_KEY", "")
+
 # Cron secret — protects the /api/cron/expire-deposits/ endpoint
 # An external cron service (e.g. cron-job.org) calls this URL every hour
 # with this secret in the Authorization: Bearer header.

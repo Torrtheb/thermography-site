@@ -5,11 +5,11 @@ Usage:
   python manage.py expire_unpaid_deposits          # dry-run by default
   python manage.py expire_unpaid_deposits --apply   # actually expire them
 
-Schedule this on Railway via a cron job (every hour is fine):
-  railway run python manage.py expire_unpaid_deposits --apply
-
-Or use Railway's built-in cron service / an external cron (e.g. cron-job.org)
-to hit a URL, or add to start.sh as a one-shot before gunicorn starts.
+When --apply is used, this command:
+  1. Cancels the Cal.com booking (frees the slot)
+  2. Emails each client about the cancellation
+  3. Emails the owner a summary
+  4. Marks deposits as "forfeited"
 """
 
 import logging
@@ -69,28 +69,17 @@ class Command(BaseCommand):
 
         if not apply:
             self.stdout.write(self.style.WARNING(
-                f"\nDry run — {count} deposit(s) would be forfeited. "
-                "Run with --apply to actually update them."
+                f"\nDry run — {count} deposit(s) would be forfeited "
+                f"and their Cal.com bookings cancelled. "
+                "Run with --apply to actually do it."
             ))
             return
 
-        updated = expired_deposits.update(
-            status="forfeited",
-            updated_at=timezone.now(),
-        )
-
-        # Add note to each one explaining why
-        for deposit in Deposit.objects.filter(
-            pk__in=list(expired_deposits.values_list("pk", flat=True))
-        ):
-            deposit.notes = (
-                (deposit.notes or "") +
-                f"\nAuto-forfeited: deposit not received within {hours} hours of booking."
-            )
-            deposit.save(update_fields=["notes", "updated_at"])
+        from booking.webhooks import expire_pending_deposits
+        forfeited = expire_pending_deposits(hours=hours)
 
         self.stdout.write(self.style.SUCCESS(
-            f"\nForfeited {updated} deposit(s). "
-            "The owner can see these in Wagtail admin → Deposits (filter by 'Forfeited')."
+            f"\nForfeited {forfeited} deposit(s), cancelled their Cal.com bookings, "
+            "and notified clients + owner."
         ))
-        logger.info("expire_unpaid_deposits: forfeited %d deposit(s) older than %d hours", updated, hours)
+        logger.info("expire_unpaid_deposits: forfeited %d deposit(s) older than %d hours", forfeited, hours)
