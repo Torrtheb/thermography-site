@@ -3,13 +3,15 @@ First Visit app -- "Your First Visit" step-by-step guide.
 
 A single page that walks new clients through what to expect:
   1. Book -- select a clinic, date & appointment
-  2. Instructions -- preparation tips before the appointment
-  3. Appointment -- what happens during the session
-  4. Wait -- processing / waiting period
-  5. Sample Report -- what the report looks like
-  6. Follow-Up -- next steps after receiving results
+  2. Booking Deposit -- auto-pulled from Site Settings (deposit_policy)
+  3. Instructions -- preparation tips before the appointment
+  4. Appointment -- what happens during the session
+  5. Wait -- processing / waiting period
+  6. Sample Report -- what the report looks like
+  7. Follow-Up -- next steps after receiving results
 
 The owner edits each step's content from Wagtail admin.
+Step 2 is automatic — its content comes from Settings → Site Settings.
 The page uses a visual numbered timeline on the public site.
 
 Page hierarchy:
@@ -22,7 +24,7 @@ from django.db import models
 
 from wagtail.models import Page
 from wagtail.fields import RichTextField
-from wagtail.admin.panels import FieldPanel, MultiFieldPanel
+from wagtail.admin.panels import FieldPanel, HelpPanel, MultiFieldPanel
 from wagtail.images import get_image_model_string
 from wagtail.search import index
 
@@ -31,8 +33,9 @@ class FirstVisitPage(Page):
     """
     The 'Your First Visit' page at /your-first-visit/.
 
-    Six steps displayed as a visual timeline.
-    Each step has a heading, rich-text body, and optional image.
+    Seven steps displayed as a visual timeline.
+    Step 2 (Booking Deposit) is auto-pulled from SiteSettings.
+    The remaining six steps have a heading, rich-text body, and optional image.
     max_count = 1: only one of these pages.
     """
 
@@ -195,24 +198,32 @@ class FirstVisitPage(Page):
             heading="Step 1 -- Book",
         ),
         MultiFieldPanel(
+            [HelpPanel(content=(
+                "<p><strong>This step is automatic.</strong> The booking deposit info is pulled "
+                "from <em>Settings → Site Settings → Policies</em> (deposit amount + deposit policy). "
+                "To change the deposit amount or policy text, edit it there.</p>"
+            ))],
+            heading="Step 2 -- Booking Deposit (from Site Settings)",
+        ),
+        MultiFieldPanel(
             [FieldPanel("step2_heading"), FieldPanel("step2_body"), FieldPanel("step2_image")],
-            heading="Step 2 -- Instructions",
+            heading="Step 3 -- Instructions",
         ),
         MultiFieldPanel(
             [FieldPanel("step3_heading"), FieldPanel("step3_body"), FieldPanel("step3_image")],
-            heading="Step 3 -- Appointment",
+            heading="Step 4 -- Appointment",
         ),
         MultiFieldPanel(
             [FieldPanel("step4_heading"), FieldPanel("step4_body"), FieldPanel("step4_image")],
-            heading="Step 4 -- Wait",
+            heading="Step 5 -- Wait",
         ),
         MultiFieldPanel(
             [FieldPanel("step5_heading"), FieldPanel("step5_body"), FieldPanel("step5_image")],
-            heading="Step 5 -- Sample Report",
+            heading="Step 6 -- Sample Report",
         ),
         MultiFieldPanel(
             [FieldPanel("step6_heading"), FieldPanel("step6_body"), FieldPanel("step6_image")],
-            heading="Step 6 -- Follow-Up",
+            heading="Step 7 -- Follow-Up",
         ),
         MultiFieldPanel(
             [FieldPanel("cta_text"), FieldPanel("cta_button_text"), FieldPanel("cta_button_url")],
