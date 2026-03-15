@@ -76,27 +76,36 @@ def _calcom_api_post(path, body_dict=None):
         return False, "invalid path"
 
     url = f"https://api.cal.com{path}"
-    body = json.dumps(body_dict or {}).encode()
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "cal-api-version": CAL_API_VERSION,
+    }
+
+    if body_dict is not None:
+        body = json.dumps(body_dict).encode()
+        headers["Content-Type"] = "application/json"
+    else:
+        body = None
 
     req = urllib.request.Request(
         url,
         data=body,
         method="POST",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "cal-api-version": CAL_API_VERSION,
-        },
+        headers=headers,
     )
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             resp_body = resp.read().decode("utf-8", errors="replace")[:500]
+            logger.info("Cal.com API %s → %d: %s", path, resp.status, resp_body[:200])
             return True, resp_body
     except urllib.error.HTTPError as e:
         resp_body = e.read().decode("utf-8", errors="replace")[:500]
+        logger.warning("Cal.com API %s → HTTP %d: %s", path, e.code, resp_body)
         return False, f"HTTP {e.code}: {resp_body}"
     except Exception as exc:
+        logger.warning("Cal.com API %s → exception: %s", path, exc)
         return False, str(exc)
 
 
@@ -138,19 +147,23 @@ def confirm_calcom_booking(booking_uid):
     Returns True if successful, False otherwise.
     """
     if not booking_uid or not _SAFE_UID_RE.match(booking_uid):
+        logger.warning("confirm_calcom_booking: invalid or empty uid=%r", booking_uid)
         return False
+
+    logger.warning("Attempting to confirm Cal.com booking uid=%s", booking_uid)
 
     ok, resp = _calcom_api_post(f"/v2/bookings/{booking_uid}/confirm")
 
     if ok:
-        logger.info("Cal.com booking %s confirmed", booking_uid)
+        logger.warning("Cal.com booking %s confirmed successfully: %s", booking_uid, resp[:200])
         return True
 
-    if "already confirmed" in resp.lower() or "accepted" in resp.lower():
-        logger.info("Cal.com booking %s was already confirmed", booking_uid)
+    resp_lower = resp.lower()
+    if "already confirmed" in resp_lower or "accepted" in resp_lower:
+        logger.warning("Cal.com booking %s was already confirmed", booking_uid)
         return True
 
-    logger.warning("Cal.com confirm failed for uid=%s: %s", booking_uid, resp)
+    logger.warning("Cal.com confirm FAILED for uid=%s — response: %s", booking_uid, resp)
     return False
 
 
