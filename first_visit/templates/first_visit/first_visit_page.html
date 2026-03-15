@@ -35,12 +35,42 @@
             </div>
             {% if page.step1_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step1_image width-700 class="w-full h-auto" %}
+                {% image page.step1_image width-700 class="w-full h-auto" alt=page.step1_heading %}
             </div>
             {% endif %}
         </div>
     </div>
     {% endif %}
+
+    {# --- Booking Deposit Info (auto-pulled from Site Settings) --- #}
+    {% with site_settings=settings.home.SiteSettings %}
+    {% if site_settings.deposit_amount %}
+    <div class="relative pl-12 pb-16 border-l-2 border-brand-200 ml-4" data-aos="fade-up">
+        <div class="absolute -left-5 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-500 text-white shadow-md">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-6">
+            <h2 class="text-xl font-bold text-amber-900 mb-2 flex items-center gap-2">
+                Booking Deposit
+            </h2>
+            <p class="text-amber-800 font-semibold mb-2">
+                A ${{ site_settings.deposit_amount|floatformat:"0" }} non-refundable deposit is required to confirm your appointment.
+            </p>
+            <p class="text-amber-700 text-sm mb-3">
+                After booking, you'll receive an email with payment instructions. Your deposit will be applied toward your service fee on the day of your visit.
+            </p>
+            {% if site_settings.deposit_policy %}
+            <div class="prose prose-sm max-w-none text-amber-700">
+                {{ site_settings.deposit_policy|richtext }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
 
     {# --- Step 2 --- #}
     {% if page.step2_body %}
@@ -58,7 +88,7 @@
             </div>
             {% if page.step2_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step2_image width-700 class="w-full h-auto" %}
+                {% image page.step2_image width-700 class="w-full h-auto" alt=page.step2_heading %}
             </div>
             {% endif %}
         </div>
@@ -81,7 +111,7 @@
             </div>
             {% if page.step3_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step3_image width-700 class="w-full h-auto" %}
+                {% image page.step3_image width-700 class="w-full h-auto" alt=page.step3_heading %}
             </div>
             {% endif %}
         </div>
@@ -104,7 +134,7 @@
             </div>
             {% if page.step4_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step4_image width-700 class="w-full h-auto" %}
+                {% image page.step4_image width-700 class="w-full h-auto" alt=page.step4_heading %}
             </div>
             {% endif %}
         </div>
@@ -127,7 +157,7 @@
             </div>
             {% if page.step5_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step5_image width-700 class="w-full h-auto" %}
+                {% image page.step5_image width-700 class="w-full h-auto" alt=page.step5_heading %}
             </div>
             {% endif %}
         </div>
@@ -150,7 +180,7 @@
             </div>
             {% if page.step6_image %}
             <div class="mt-4 rounded-lg overflow-hidden">
-                {% image page.step6_image width-700 class="w-full h-auto" %}
+                {% image page.step6_image width-700 class="w-full h-auto" alt=page.step6_heading %}
             </div>
             {% endif %}
         </div>

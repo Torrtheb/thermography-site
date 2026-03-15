@@ -34,6 +34,7 @@ from .blocks import (
     BigCTABlock,
     ProcessStepsBlock,
     UpcomingClinicsBlock,
+    PoliciesBlock,
 )
 
 # We also use Wagtail's built-in RichTextBlock for free-form text sections
@@ -96,6 +97,7 @@ class HomePage(Page):
             ("big_cta", BigCTABlock()),
             ("process_steps", ProcessStepsBlock()),
             ("upcoming_clinics", UpcomingClinicsBlock()),
+            ("policies", PoliciesBlock()),
         ],
         use_json_field=True,  # required by Wagtail for new StreamFields
         blank=True,           # allows the page to be saved with no blocks

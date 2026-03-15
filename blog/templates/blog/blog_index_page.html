@@ -116,7 +116,7 @@
                 <div class="relative">
                     {% if expert.photo %}
                     <div class="w-full h-64 bg-gray-100 flex items-center justify-center">
-                        {% image expert.photo max-400x400 class="max-w-full max-h-full object-contain" %}
+                        {% image expert.photo max-400x400 class="max-w-full max-h-full object-contain" alt=expert.name %}
                     </div>
                     {% else %}
                     <div class="w-full h-64 bg-brand-100 flex items-center justify-center">

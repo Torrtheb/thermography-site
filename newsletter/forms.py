@@ -17,6 +17,7 @@ class NewsletterForm(forms.ModelForm):
                 attrs={
                     "placeholder": "Your email address",
                     "autocomplete": "email",
+                    "aria-label": "Email address for newsletter signup",
                     "class": (
                         "w-full px-4 py-3 rounded-l-lg text-gray-900 "
                         "placeholder-gray-500 focus:outline-none focus:ring-2 "

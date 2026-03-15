@@ -35,7 +35,7 @@
         {% if page.service_image %}
         <figure class="md:w-1/2">
             <div class="rounded-xl overflow-hidden shadow-lg">
-                {% image page.service_image fill-480x320 class="w-full h-auto" %}
+                {% image page.service_image fill-480x320 class="w-full h-auto" alt=page.title %}
             </div>
             {% if page.image_caption %}
             <figcaption class="text-sm text-gray-500 mt-2 text-center italic">

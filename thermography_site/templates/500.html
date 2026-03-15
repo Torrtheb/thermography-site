@@ -1,13 +1,42 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-    <head>
-        <meta charset="utf-8" />
-        <title>Internal server error</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-    </head>
-    <body>
-        <h1>Internal server error</h1>
-
-        <h2>Sorry, there seems to be an error. Please try again soon.</h2>
-    </body>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Server Error | Thermography Clinic</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f9fafb; color: #374151;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 1.5rem;
+        }
+        .card {
+            max-width: 28rem; text-align: center;
+            background: #fff; border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+            padding: 3rem 2rem;
+        }
+        .code { font-size: 4rem; font-weight: 800; color: #2d6a4f; margin-bottom: .5rem; }
+        h1 { font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: .75rem; }
+        p { color: #6b7280; line-height: 1.6; margin-bottom: 2rem; }
+        a {
+            display: inline-block; background: #2d6a4f; color: #fff;
+            font-weight: 600; padding: .75rem 1.5rem; border-radius: .5rem;
+            text-decoration: none;
+        }
+        a:hover { background: #245a42; }
+        .brand { margin-top: 2rem; font-size: .75rem; color: #9ca3af; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="code">500</div>
+        <h1>Something went wrong</h1>
+        <p>We're sorry — an unexpected error occurred. Our team has been notified. Please try again in a few minutes.</p>
+        <a href="/">Go to Homepage</a>
+        <div class="brand">Thermography Clinic Vancouver Island</div>
+    </div>
+</body>
 </html>

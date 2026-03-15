@@ -9,7 +9,7 @@
        {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
        aria-label="{{ post.title }}"
        class="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-brand-50 flex items-center justify-center">
-        {% image post.cover_image fill-96x96 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" %}
+        {% image post.cover_image fill-96x96 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt=post.title %}
     </a>
     {% endif %}
 

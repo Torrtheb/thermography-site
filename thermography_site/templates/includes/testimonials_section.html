@@ -48,7 +48,7 @@
                     <div class="flex items-center gap-3">
                         {% if t.photo %}
                         <div class="flex-shrink-0">
-                            {% image t.photo fill-48x48 class="w-12 h-12 rounded-full object-cover" %}
+                            {% image t.photo fill-48x48 class="w-12 h-12 rounded-full object-cover" alt=t.author_name %}
                         </div>
                         {% else %}
                         <div class="flex-shrink-0 w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">

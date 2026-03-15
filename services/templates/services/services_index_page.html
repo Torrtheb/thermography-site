@@ -72,7 +72,7 @@
                     {% if page.intro_image %}
                     <div class="md:w-2/5 flex-shrink-0">
                         <div class="rounded-lg overflow-hidden shadow-sm">
-                            {% image page.intro_image fill-400x300 class="w-full h-auto" %}
+                            {% image page.intro_image fill-400x300 class="w-full h-auto" alt=page.title %}
                         </div>
                     </div>
                     {% endif %}
@@ -97,7 +97,7 @@
             {# --- Service Image --- #}
             {% if service.service_image %}
             <div class="h-48 overflow-hidden">
-                {% image service.service_image fill-400x200 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" %}
+                {% image service.service_image fill-400x200 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt=service.title %}
             </div>
             {% else %}
             <div class="h-48 bg-brand-50 flex items-center justify-center">

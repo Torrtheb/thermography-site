@@ -45,7 +45,7 @@
         {# --- Image Side (only if image chosen) --- #}
         {% if value.image %}
         <div class="w-full md:w-1/2" data-aos="fade-up" data-aos-delay="100">
-            {% image value.image fill-600x500 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% image value.image fill-600x500 class="rounded-xl shadow-lg w-full h-auto" alt=value.heading %}
         </div>
         {% endif %}
 

@@ -32,7 +32,7 @@
     {# --- Cover Image --- #}
     {% if page.cover_image %}
     <div class="mb-8 rounded-xl overflow-hidden shadow-lg" data-aos="fade-up">
-        {% image page.cover_image width-800 class="w-full h-auto" %}
+        {% image page.cover_image width-800 class="w-full h-auto" alt=page.title %}
     </div>
     {% endif %}
 

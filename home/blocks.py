@@ -552,3 +552,35 @@ class UpcomingClinicsBlock(StructBlock):
         icon = "site"
         label = "Clinic Locations"
         description = "Shows your permanent home clinic and upcoming pop-up clinics. Managed from Snippets → Locations."
+
+
+# ---------------------------------------------------------------------------
+# PoliciesBlock — auto-pulls from SiteSettings
+# ---------------------------------------------------------------------------
+
+class PoliciesBlock(StructBlock):
+    """
+    Auto-pulls deposit, payment, and cancellation policies from
+    Settings → Site Settings. No manual text entry — always in sync.
+    """
+    heading = CharBlock(
+        max_length=200,
+        default="Payment & Cancellation Policy",
+        required=False,
+        help_text="Section heading (leave blank to hide).",
+    )
+
+    def get_context(self, value, parent_context=None):
+        context = super().get_context(value, parent_context=parent_context)
+        from home.models import SiteSettings
+        from wagtail.models import Site
+        site = Site.objects.filter(is_default_site=True).first()
+        if site:
+            context["site_settings"] = SiteSettings.for_site(site)
+        return context
+
+    class Meta:
+        template = "home/blocks/policies_block.html"
+        icon = "doc-full-inverse"
+        label = "Policies"
+        description = "Auto-pulls your deposit, payment, and cancellation policies from Site Settings — always up to date."

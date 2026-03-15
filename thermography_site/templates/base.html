@@ -1,4 +1,4 @@
-{% load static wagtailcore_tags wagtailuserbar %}
+{% load static wagtailcore_tags wagtailimages_tags wagtailuserbar %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -6,17 +6,37 @@
     <meta charset="utf-8" />
     <title>
         {% block title %}
-        {% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}
+        {% if page %}{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}{% else %}Thermography Clinic{% endif %}
         {% endblock %}
         {% block title_suffix %}
         {% wagtail_site as current_site %}
         {% if current_site and current_site.site_name %} | {{ current_site.site_name }}{% endif %}
         {% endblock %}
     </title>
+
+    {# --- Meta description (with fallback) --- #}
     {% if page.search_description %}
     <meta name="description" content="{{ page.search_description }}" />
+    {% elif page %}
+    <meta name="description" content="{{ page.title }} — Thermography Clinic Vancouver Island" />
     {% endif %}
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    {# --- Open Graph --- #}
+    {% block og_tags %}
+    {% wagtail_site as current_site %}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="{{ current_site.site_name|default:'Thermography Clinic' }}" />
+    {% if page %}<meta property="og:title" content="{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}" />{% endif %}
+    {% if page.search_description %}<meta property="og:description" content="{{ page.search_description }}" />{% elif page %}<meta property="og:description" content="{{ page.title }} — Thermography Clinic Vancouver Island" />{% endif %}
+    {% if page %}<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ page.url }}" />{% endif %}
+    {% block og_image %}{% endblock %}
+
+    {# --- Twitter Card --- #}
+    <meta name="twitter:card" content="summary" />
+    {% if page %}<meta name="twitter:title" content="{% if page.seo_title %}{{ page.seo_title }}{% else %}{{ page.title }}{% endif %}" />{% endif %}
+    {% if page.search_description %}<meta name="twitter:description" content="{{ page.search_description }}" />{% elif page %}<meta name="twitter:description" content="{{ page.title }} — Thermography Clinic Vancouver Island" />{% endif %}
+    {% endblock %}
 
     {% if request.in_preview_panel %}
     <base target="_blank">
@@ -37,11 +57,19 @@
 </head>
 
 <body class="flex flex-col min-h-screen bg-white text-gray-800 {% block body_class %}{% endblock %}">
+    {# --- Skip to content (accessibility) --- #}
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100]
+              focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-white">
+        Skip to main content
+    </a>
+
     {# --- NAVBAR --- #}
     {% include "includes/navbar.html" %}
 
     {# --- MAIN CONTENT --- #}
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">
         {% block content %}{% endblock %}
     </main>
 

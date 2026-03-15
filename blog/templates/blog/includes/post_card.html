@@ -9,7 +9,7 @@
        {% if post.is_external %}target="_blank" rel="noopener noreferrer"{% endif %}
        aria-label="{{ post.title }}"
        class="block h-48 overflow-hidden relative">
-        {% image post.cover_image fill-400x200 class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" %}
+        {% image post.cover_image fill-400x200 class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" alt=post.title %}
         {% if post.is_external %}
         <span class="absolute top-3 right-3 bg-gray-900 bg-opacity-75 text-white text-xs font-medium px-2 py-1 rounded">External ↗</span>
         {% endif %}

@@ -17,7 +17,7 @@
             </div>
             <div class="md:w-1/2">
                 <div class="rounded-xl overflow-hidden shadow-lg">
-                    {% image page.hero_image fill-600x400 class="w-full h-auto" %}
+                    {% image page.hero_image fill-600x400 class="w-full h-auto" alt=page.title %}
                 </div>
             </div>
         </div>
@@ -48,10 +48,10 @@
         {# --- Photo column --- #}
         {% if page.headshot %}
         <div class="w-full md:w-2/5 flex-shrink-0" data-aos="fade-up">
-            {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" alt=page.full_name %}
             {% if page.owner_story_image %}
             <div class="mt-6">
-                {% image page.owner_story_image fill-400x280 class="rounded-xl shadow w-full h-auto" %}
+                {% image page.owner_story_image fill-400x280 class="rounded-xl shadow w-full h-auto" alt=page.owner_story_heading %}
             </div>
             {% endif %}
         </div>
@@ -108,10 +108,10 @@
         </div>
         <div class="w-full md:w-1/2 flex-shrink-0 space-y-6">
             {% if page.clinic_image %}
-            {% image page.clinic_image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" %}
+            {% image page.clinic_image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" alt=page.clinic_story_heading %}
             {% endif %}
             {% if page.clinic_story_image %}
-            {% image page.clinic_story_image fill-600x400 class="rounded-xl shadow w-full h-auto" %}
+            {% image page.clinic_story_image fill-600x400 class="rounded-xl shadow w-full h-auto" alt=page.clinic_story_heading %}
             {% endif %}
         </div>
     </div>
@@ -141,7 +141,7 @@
         <div class="flex flex-col sm:flex-row items-start gap-6 bg-white border border-gray-200 rounded-xl shadow-sm p-6" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:0 }}00">
             {% if person.photo %}
             <div class="w-28 h-28 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                {% image person.photo max-224x224 class="max-w-full max-h-full object-contain rounded-lg shadow" %}
+                {% image person.photo max-224x224 class="max-w-full max-h-full object-contain rounded-lg shadow" alt=person.name %}
             </div>
             {% endif %}
             <div class="flex-1">
