@@ -3,6 +3,8 @@ Wagtail hooks for the clients app.
 
 Provides:
 - A searchable, filterable Client snippet in the Wagtail admin sidebar
+- A Deposit snippet for tracking booking deposit payments
+- One-click "Send Deposit Request" / "Send Deposit Confirmation" email buttons
 - "Send Email" menu item for composing emails to clients
 - "Import CSV" / "Export CSV" for bulk client management
 - Autocomplete suggestions endpoint for filter fields
@@ -14,12 +16,15 @@ from wagtail.admin.menu import MenuItem
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
-from .models import Client
+from .models import Client, Deposit
 from .views import (
     autocomplete_view,
     compose_email_view,
     csv_export_view,
     csv_import_view,
+    deposit_export_view,
+    send_deposit_request_view,
+    send_deposit_confirmation_view,
 )
 
 
@@ -51,6 +56,33 @@ register_snippet(Client, viewset=ClientViewSet)
 
 
 # ──────────────────────────────────────────────────────────
+# Snippet viewset — Deposit tracking in the admin
+# ──────────────────────────────────────────────────────────
+
+class DepositViewSet(SnippetViewSet):
+    model = Deposit
+    icon = "doc-full-inverse"
+    menu_label = "Deposits"
+    menu_name = "deposits"
+    menu_order = 199
+    add_to_admin_menu = True
+    list_display = [
+        "__str__", "status_badge", "email_status_display",
+        "payment_method", "appointment_date", "created_at",
+    ]
+    list_filter = [
+        "status",
+        "payment_method",
+        "appointment_date",
+        "deposit_request_sent",
+    ]
+    ordering = ["-created_at"]
+
+
+register_snippet(Deposit, viewset=DepositViewSet)
+
+
+# ──────────────────────────────────────────────────────────
 # Custom admin URLs
 # ──────────────────────────────────────────────────────────
 
@@ -61,6 +93,9 @@ def register_client_admin_urls():
         path("clients/import-csv/", csv_import_view, name="clients_csv_import"),
         path("clients/export-csv/", csv_export_view, name="clients_csv_export"),
         path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
+        path("deposits/export-csv/", deposit_export_view, name="deposits_csv_export"),
+        path("deposits/<int:deposit_id>/send-request/", send_deposit_request_view, name="deposit_send_request"),
+        path("deposits/<int:deposit_id>/send-confirmation/", send_deposit_confirmation_view, name="deposit_send_confirmation"),
     ]
 
 
@@ -95,4 +130,14 @@ def register_export_menu_item():
         reverse("clients_csv_export"),
         icon_name="download",
         order=203,
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_deposit_export_menu_item():
+    return MenuItem(
+        "Export Deposits CSV",
+        reverse("deposits_csv_export"),
+        icon_name="download",
+        order=204,
     )

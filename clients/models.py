@@ -6,10 +6,12 @@ Fernet symmetric encryption.  The encryption key is stored in the
 FIELD_ENCRYPTION_KEY environment variable, not in the codebase.
 """
 
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 
-from wagtail.admin.panels import FieldPanel, MultiFieldPanel
+from wagtail.admin.panels import FieldPanel, FieldRowPanel, MultiFieldPanel
 from wagtail.search import index
 from .fields import EncryptedCharField, EncryptedTextField
 
@@ -203,5 +205,221 @@ class ClientReport(models.Model):
             fg, bg, label,
         )
     status_badge.short_description = "Status"
+
+
+# ──────────────────────────────────────────────────────────
+# Booking Deposit tracking
+# ──────────────────────────────────────────────────────────
+
+DEPOSIT_STATUS_CHOICES = [
+    ("pending", "Pending — awaiting payment"),
+    ("received", "Received"),
+    ("forfeited", "Forfeited — client cancelled / no-show"),
+    ("applied", "Applied to service fee"),
+    ("refunded", "Refunded (exception)"),
+]
+
+DEPOSIT_METHOD_CHOICES = [
+    ("etransfer", "e-Transfer"),
+    ("cash", "Cash"),
+    ("cheque", "Cheque"),
+]
+
+
+class Deposit(index.Indexed, models.Model):
+    """
+    Tracks a non-refundable booking deposit payment.
+
+    The owner creates a deposit record when a client books, then marks it
+    as received once payment arrives. On the day of the appointment the
+    deposit is applied toward the service fee.
+
+    Managed from Wagtail admin → sidebar → Deposits.
+    """
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="deposits",
+        help_text="The client this deposit belongs to.",
+    )
+
+    amount = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal("25.00"),
+        help_text="Deposit amount ($).",
+    )
+
+    appointment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the booked appointment this deposit is for.",
+    )
+
+    service_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Service booked (auto-filled from Cal.com webhook).",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=DEPOSIT_STATUS_CHOICES,
+        default="pending",
+    )
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=DEPOSIT_METHOD_CHOICES,
+        blank=True,
+        default="",
+        help_text="How the client paid (fill in when deposit is received).",
+    )
+
+    received_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date the deposit payment was actually received.",
+    )
+
+    reference = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="e-Transfer confirmation number, cheque number, or other reference.",
+    )
+
+    deposit_request_sent = models.BooleanField(
+        default=False,
+        help_text="Whether the deposit request email has been sent to the client.",
+    )
+
+    deposit_confirmed_sent = models.BooleanField(
+        default=False,
+        help_text="Whether the deposit confirmation email has been sent.",
+    )
+
+    cal_booking_uid = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Cal.com booking UID (auto-filled by webhook). Used to link cancellations.",
+    )
+
+    notes = EncryptedTextField(
+        blank=True,
+        default="",
+        help_text="Internal notes (encrypted at rest).",
+    )
+
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    panels = [
+        MultiFieldPanel(
+            [
+                FieldPanel("client"),
+                FieldPanel("appointment_date"),
+                FieldPanel("service_name"),
+                FieldPanel("amount"),
+            ],
+            heading="Booking Details",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("status"),
+                FieldRowPanel([
+                    FieldPanel("payment_method"),
+                    FieldPanel("received_date"),
+                ]),
+                FieldPanel("reference"),
+            ],
+            heading="Payment Status",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("deposit_request_sent"),
+                FieldPanel("deposit_confirmed_sent"),
+            ],
+            heading="Email Status",
+        ),
+        FieldPanel("cal_booking_uid"),
+        FieldPanel("notes"),
+    ]
+
+    search_fields = [
+        index.FilterField("status"),
+        index.FilterField("appointment_date"),
+        index.FilterField("payment_method"),
+        index.FilterField("received_date"),
+        index.FilterField("deposit_request_sent"),
+    ]
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Deposit"
+        verbose_name_plural = "Deposits"
+
+    def __str__(self):
+        client_name = self.client.name if self.client_id else "Unknown"
+        date_str = self.appointment_date.isoformat() if self.appointment_date else "no date"
+        return f"${self.amount} deposit — {client_name} ({date_str})"
+
+    def status_badge(self):
+        """HTML status badge for the admin listing."""
+        from django.utils.html import format_html
+        colours = {
+            "pending": ("⏳ Pending", "#856404", "#fff3cd"),
+            "received": ("✅ Received", "#155724", "#d4edda"),
+            "forfeited": ("🚫 Forfeited", "#721c24", "#f8d7da"),
+            "applied": ("💰 Applied", "#004085", "#cce5ff"),
+            "refunded": ("↩️ Refunded", "#6c757d", "#e2e3e5"),
+        }
+        label, fg, bg = colours.get(self.status, ("Unknown", "#333", "#eee"))
+        return format_html(
+            '<span style="color:{}; background:{}; padding:2px 8px; '
+            'border-radius:4px; font-size:0.8rem; font-weight:600;">{}</span>',
+            fg, bg, label,
+        )
+    status_badge.short_description = "Status"
+
+    def email_status_display(self):
+        """Show email send buttons / status in the admin listing."""
+        from django.utils.html import format_html
+
+        parts = []
+
+        if self.deposit_request_sent:
+            parts.append(
+                '<span style="color:#155724; background:#d4edda; padding:2px 6px; '
+                'border-radius:4px; font-size:0.75rem;">📧 Request sent</span>'
+            )
+        else:
+            parts.append(
+                f'<a href="/admin/deposits/{self.pk}/send-request/" '
+                f'style="color:#fff; background:#d97706; padding:3px 8px; '
+                f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
+                f'📧 Send deposit request</a>'
+            )
+
+        if self.status == "received":
+            if self.deposit_confirmed_sent:
+                parts.append(
+                    '<span style="color:#155724; background:#d4edda; padding:2px 6px; '
+                    'border-radius:4px; font-size:0.75rem;">✅ Confirmation sent</span>'
+                )
+            else:
+                parts.append(
+                    f'<a href="/admin/deposits/{self.pk}/send-confirmation/" '
+                    f'style="color:#fff; background:#059669; padding:3px 8px; '
+                    f'border-radius:4px; font-size:0.75rem; text-decoration:none; font-weight:600;">'
+                    f'✅ Send confirmation</a>'
+                )
+
+        return format_html(" ".join(parts))
+    email_status_display.short_description = "Emails"
 
 

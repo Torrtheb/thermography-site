@@ -6,6 +6,7 @@ from wagtail.admin import urls as wagtailadmin_urls
 from wagtail import urls as wagtail_urls
 from wagtail.documents import urls as wagtaildocs_urls
 
+from booking.webhooks import calcom_webhook_view, cron_expire_deposits_view
 from search import views as search_views
 
 urlpatterns = [
@@ -14,6 +15,8 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("search/", search_views.search, name="search"),
     path("newsletter/", include("newsletter.urls")),
+    path("api/webhooks/calcom/", calcom_webhook_view, name="calcom_webhook"),
+    path("api/cron/expire-deposits/", cron_expire_deposits_view, name="cron_expire_deposits"),
 ]
 
 

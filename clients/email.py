@@ -135,6 +135,128 @@ def send_custom_email(client, subject, body):
 
 
 
+def _get_etransfer_email():
+    """Fetch the e-Transfer email from SiteSettings (returns '' if not set)."""
+    try:
+        from wagtail.models import Site
+        from home.models import SiteSettings
+        site = Site.objects.get(is_default_site=True)
+        return SiteSettings.for_site(site).etransfer_email or ""
+    except Exception:
+        return ""
+
+
+def send_deposit_request(client, amount, appointment_date=""):
+    """
+    Send deposit payment instructions to a client after they book.
+
+    The e-Transfer email is pulled from SiteSettings and included only in
+    this private email — never on the public website.
+    """
+    if not client.email:
+        return False
+
+    etransfer_email = _get_etransfer_email()
+
+    subject = "Booking Deposit Required — Payment Instructions"
+    context = {
+        "client_name": client.name,
+        "amount": str(amount),
+        "appointment_date": appointment_date,
+        "etransfer_email": etransfer_email,
+    }
+
+    plain_message = (
+        f"Hi {context['client_name']},\n\n"
+        f"Thank you for booking your thermography appointment"
+        f"{f' on {appointment_date}' if appointment_date else ''}!\n\n"
+        f"To confirm your booking, a ${context['amount']} non-refundable deposit is required.\n\n"
+        f"HOW TO PAY:\n"
+    )
+    if etransfer_email:
+        plain_message += f"  • e-Transfer: Send ${context['amount']} to {etransfer_email}\n"
+    plain_message += (
+        "  • Cash: Pay at your appointment\n"
+        "  • Cheque: Mail or bring in person\n\n"
+        "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
+        "If you have any questions, please reply to this email.\n\n"
+        "Best regards,\n"
+        "Your Thermography Team"
+    )
+
+    try:
+        html_message = render_to_string(
+            "clients/emails/deposit_request.html", context
+        )
+    except Exception:
+        html_message = None
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[client.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+    return True
+
+
+def send_deposit_confirmation(client, amount, appointment_date="", payment_method=""):
+    """
+    Send a deposit-received confirmation email to a client.
+
+    Args:
+        client: A Client model instance.
+        amount: Deposit amount as a string or Decimal.
+        appointment_date: Human-readable date string (optional).
+        payment_method: How they paid, e.g. "e-Transfer" (optional).
+    """
+    if not client.email:
+        return False
+
+    subject = "Deposit Received — Your Booking Is Confirmed"
+    context = {
+        "client_name": client.name,
+        "amount": str(amount),
+        "appointment_date": appointment_date,
+        "payment_method": payment_method,
+    }
+
+    plain_message = (
+        f"Hi {context['client_name']},\n\n"
+        f"Thank you! We've received your ${context['amount']} booking deposit "
+        f"and your appointment is confirmed.\n\n"
+    )
+    if appointment_date:
+        plain_message += f"Appointment date: {appointment_date}\n"
+    if payment_method:
+        plain_message += f"Paid via: {payment_method}\n"
+    plain_message += (
+        "\nYour deposit will be applied toward your service fee on the day of your visit.\n\n"
+        "If you need to reschedule or have any questions, please reply to this email.\n\n"
+        "Best regards,\n"
+        "Your Thermography Team"
+    )
+
+    try:
+        html_message = render_to_string(
+            "clients/emails/deposit_confirmation.html", context
+        )
+    except Exception:
+        html_message = None
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[client.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+    return True
+
+
 # NOTE: send_report_email was removed — private client reports are no longer
 # stored on or sent from this website. Reports are delivered via a separate
 # secure channel outside the application.

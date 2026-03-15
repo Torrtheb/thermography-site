@@ -103,6 +103,15 @@ WSGI_APPLICATION = "thermography_site.wsgi.application"
 BREVO_API_KEY = ""
 BREVO_LIST_ID = ""
 
+# Cal.com webhook signature verification secret
+# Set this to the same value you configure in Cal.com → Settings → Developer → Webhooks → Secret
+CAL_WEBHOOK_SECRET = os.environ.get("CAL_WEBHOOK_SECRET", "")
+
+# Cron secret — protects the /api/cron/expire-deposits/ endpoint
+# An external cron service (e.g. cron-job.org) calls this URL every hour
+# with this secret in the Authorization: Bearer header.
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
+
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases

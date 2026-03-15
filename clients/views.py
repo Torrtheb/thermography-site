@@ -28,8 +28,8 @@ from django.views import View
 from wagtail.admin.auth import require_admin_access
 
 from .forms import ClientFilterForm, ComposeEmailForm, CSVImportForm
-from .models import Client, VISIT_REASON_CHOICES
-from .email import send_custom_email
+from .models import Client, Deposit, VISIT_REASON_CHOICES
+from .email import send_custom_email, send_deposit_request, send_deposit_confirmation
 
 logger = logging.getLogger(__name__)
 
@@ -392,3 +392,112 @@ def _autocomplete(request):
 
 
 autocomplete_view = require_admin_access(_autocomplete)
+
+
+# ──────────────────────────────────────────────────────────
+# Deposit CSV Export
+# ──────────────────────────────────────────────────────────
+
+def _deposit_export(request):
+    """Download all deposit records as a CSV file."""
+    deposits = Deposit.objects.select_related("client").order_by("-created_at")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="deposits_export_{date.today().isoformat()}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow([
+        "client_name", "client_email", "amount", "appointment_date",
+        "status", "payment_method", "received_date", "reference",
+        "notes", "created_at",
+    ])
+    for d in deposits:
+        writer.writerow([
+            d.client.name if d.client_id else "",
+            d.client.email if d.client_id else "",
+            str(d.amount),
+            d.appointment_date.isoformat() if d.appointment_date else "",
+            d.get_status_display(),
+            d.get_payment_method_display() if d.payment_method else "",
+            d.received_date.isoformat() if d.received_date else "",
+            d.reference,
+            d.notes,
+            d.created_at.isoformat() if d.created_at else "",
+        ])
+
+    return response
+
+
+deposit_export_view = require_admin_access(_deposit_export)
+
+
+# ──────────────────────────────────────────────────────────
+# One-click deposit email actions
+# ──────────────────────────────────────────────────────────
+
+def _send_deposit_request_action(request, deposit_id):
+    """One-click: send deposit request email for a specific deposit."""
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    client = deposit.client
+    if not client.email:
+        messages.error(request, f"Client has no email on file — cannot send deposit request.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    date_str = ""
+    if deposit.appointment_date:
+        date_str = deposit.appointment_date.strftime("%B %d, %Y")
+
+    try:
+        send_deposit_request(client, deposit.amount, appointment_date=date_str)
+        deposit.deposit_request_sent = True
+        deposit.save(update_fields=["deposit_request_sent", "updated_at"])
+        messages.success(request, f"Deposit request email sent to {client.name}.")
+    except Exception as e:
+        logger.exception("Failed to send deposit request for deposit pk=%s", deposit.pk)
+        messages.error(request, f"Failed to send email: {e}")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+send_deposit_request_view = require_admin_access(_send_deposit_request_action)
+
+
+def _send_deposit_confirmation_action(request, deposit_id):
+    """One-click: send deposit confirmation email for a specific deposit."""
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    client = deposit.client
+    if not client.email:
+        messages.error(request, f"Client has no email on file — cannot send confirmation.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    date_str = ""
+    if deposit.appointment_date:
+        date_str = deposit.appointment_date.strftime("%B %d, %Y")
+
+    payment_method = deposit.get_payment_method_display() if deposit.payment_method else ""
+
+    try:
+        send_deposit_confirmation(client, deposit.amount, appointment_date=date_str, payment_method=payment_method)
+        deposit.deposit_confirmed_sent = True
+        deposit.save(update_fields=["deposit_confirmed_sent", "updated_at"])
+        messages.success(request, f"Deposit confirmation email sent to {client.name}.")
+    except Exception as e:
+        logger.exception("Failed to send deposit confirmation for deposit pk=%s", deposit.pk)
+        messages.error(request, f"Failed to send email: {e}")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+send_deposit_confirmation_view = require_admin_access(_send_deposit_confirmation_action)

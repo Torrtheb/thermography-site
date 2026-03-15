@@ -167,6 +167,19 @@ class SiteSettings(BaseSiteSetting):
         help_text="Accepted payment methods (e.g. e-Transfer, credit card, cash). Shown on the booking page.",
     )
 
+    deposit_amount = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=25.00,
+        help_text="Non-refundable booking deposit amount ($). Displayed on the booking page and used as the default when creating deposit records.",
+    )
+
+    etransfer_email = models.EmailField(
+        blank=True,
+        default="",
+        help_text="e-Transfer email address included in deposit confirmation emails sent to clients. Never displayed publicly on the website.",
+    )
+
     panels = [
         MultiFieldPanel(
             [
@@ -183,6 +196,14 @@ class SiteSettings(BaseSiteSetting):
                 FieldPanel("payment_methods"),
             ],
             heading="Policies",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("deposit_amount"),
+                FieldPanel("etransfer_email"),
+            ],
+            heading="Deposit Settings",
+            help_text="Configure the booking deposit amount and payment details.",
         ),
     ]
 
