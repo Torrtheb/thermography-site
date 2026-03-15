@@ -146,6 +146,16 @@ def _get_site_settings():
         return None
 
 
+class _SafeDict(dict):
+    """Dict subclass that returns '{key}' for missing keys instead of raising KeyError.
+
+    Prevents the owner from accidentally crashing email sends by typing
+    an unrecognized placeholder like {name} instead of {client_name}.
+    """
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
 def send_deposit_request(client, amount, appointment_date=""):
     """
     Send deposit payment instructions to a client after they book.
@@ -167,12 +177,12 @@ def send_deposit_request(client, amount, appointment_date=""):
             "Best regards,\nYour Thermography Team"
         )
 
-    plain_message = template.format(
+    plain_message = template.format_map(_SafeDict(
         client_name=client.name or "there",
         amount=str(amount),
         appointment_line=appointment_line,
         etransfer_email=etransfer_email,
-    )
+    ))
 
     subject = "Booking Deposit Required — Payment Instructions"
 
@@ -213,11 +223,11 @@ def send_deposit_confirmation(client, amount, appointment_date="", payment_metho
             "Best regards,\nYour Thermography Team"
         )
 
-    plain_message = template.format(
+    plain_message = template.format_map(_SafeDict(
         client_name=client.name or "there",
         amount=str(amount),
         details_line=details_line,
-    )
+    ))
 
     subject = "Deposit Received — Your Booking Is Confirmed"
 
@@ -254,12 +264,12 @@ def send_deposit_expired_cancellation(client, amount, appointment_date="", servi
             "Best regards,\nYour Thermography Team"
         )
 
-    plain_message = template.format(
+    plain_message = template.format_map(_SafeDict(
         client_name=client.name or "there",
         amount=str(amount),
         appointment_line=appointment_line,
         service_line=service_line,
-    )
+    ))
 
     subject = "Appointment Cancelled — Booking Deposit Not Received"
 

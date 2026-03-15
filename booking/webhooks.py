@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import urllib.request
 import urllib.error
 from datetime import date
@@ -31,6 +32,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 logger = logging.getLogger(__name__)
+
+_SAFE_UID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 # ──────────────────────────────────────────────────────────
@@ -50,6 +53,10 @@ def _calcom_api_post(path, body_dict=None):
     if not api_key:
         logger.warning("CAL_API_KEY not configured — cannot call %s", path)
         return False, ""
+
+    if not path.startswith("/v2/"):
+        logger.error("Rejecting Cal.com API call to unexpected path: %s", path)
+        return False, "invalid path"
 
     url = f"https://api.cal.com{path}"
     body = json.dumps(body_dict or {}).encode()
@@ -83,7 +90,7 @@ def cancel_calcom_booking(booking_uid, reason=""):
     Returns True if successful (or booking was already cancelled),
     False if the API call failed or CAL_API_KEY is not set.
     """
-    if not booking_uid:
+    if not booking_uid or not _SAFE_UID_RE.match(booking_uid):
         return False
 
     ok, resp = _calcom_api_post(
@@ -113,7 +120,7 @@ def confirm_calcom_booking(booking_uid):
 
     Returns True if successful, False otherwise.
     """
-    if not booking_uid:
+    if not booking_uid or not _SAFE_UID_RE.match(booking_uid):
         return False
 
     ok, resp = _calcom_api_post(f"/v2/bookings/{booking_uid}/confirm")
