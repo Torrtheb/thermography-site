@@ -5,10 +5,15 @@ Cal.com API integration — auto-cancels bookings when deposits expire.
 Setup (one-time):
   1. In Cal.com → Settings → Developer → Webhooks, create a new webhook:
      - Subscriber URL: https://your-domain.com/api/webhooks/calcom/
-     - Event triggers: Booking Created, Booking Cancelled
+     - Event triggers: Booking Created, Booking Requested, Booking Cancelled
      - Secret: paste the value of CAL_WEBHOOK_SECRET from your env vars
   2. In Cal.com → Settings → Developer → API Keys, create a new key.
   3. Set CAL_WEBHOOK_SECRET, CAL_API_KEY, and CRON_SECRET in your env vars.
+
+Note: When "Requires confirmation" is enabled on a Cal.com event type,
+new bookings trigger BOOKING_REQUESTED (not BOOKING_CREATED).
+BOOKING_CREATED fires only after the booking is confirmed.
+We handle both events identically to support both modes.
 
 Security:
   - HMAC-SHA256 signature verification (x-cal-signature-256 header)
@@ -370,11 +375,11 @@ def calcom_webhook_view(request):
     payload = data.get("payload", {})
     logger.warning("Cal.com webhook trigger=%s", trigger)
 
-    if trigger == "BOOKING_CREATED":
+    if trigger in ("BOOKING_CREATED", "BOOKING_REQUESTED"):
         try:
             _handle_booking_created(payload)
         except Exception:
-            logger.exception("Error handling BOOKING_CREATED webhook")
+            logger.exception("Error handling %s webhook", trigger)
     elif trigger == "BOOKING_CANCELLED":
         try:
             _handle_booking_cancelled(payload)
