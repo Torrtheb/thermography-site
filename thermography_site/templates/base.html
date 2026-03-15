@@ -57,11 +57,11 @@
 </head>
 
 <body class="flex flex-col min-h-screen bg-white text-gray-800 {% block body_class %}{% endblock %}">
-    {# --- Skip to content (accessibility) --- #}
+    {# --- Skip to content (accessibility, hidden until Tab keypress) --- #}
     <a href="#main-content"
-       class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100]
-              focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-white">
+       style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;"
+       onfocus="this.style.cssText='position:fixed;top:.5rem;left:.5rem;z-index:100;background:#2d6a4f;color:#fff;padding:.5rem 1rem;border-radius:.5rem;outline:2px solid #fff;font-weight:600;text-decoration:none;'"
+       onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'">
         Skip to main content
     </a>
 
