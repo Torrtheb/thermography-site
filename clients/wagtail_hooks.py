@@ -102,7 +102,7 @@ def register_client_admin_urls():
 
 
 # ──────────────────────────────────────────────────────────
-# Sidebar menu — grouped "Tools" submenu
+# Sidebar menu — grouped submenus
 # ──────────────────────────────────────────────────────────
 
 @hooks.register("register_admin_menu_item")
@@ -113,12 +113,30 @@ def register_tools_menu():
             register_hook_name="",
             construct_hook_name="",
             items=[
-                MenuItem("Send Email", reverse("clients_compose_email"), icon_name="mail", order=100),
-                MenuItem("Import Clients CSV", reverse("clients_csv_import"), icon_name="upload", order=200),
-                MenuItem("Export Clients CSV", reverse("clients_csv_export"), icon_name="download", order=300),
-                MenuItem("Export Deposits CSV", reverse("deposits_csv_export"), icon_name="download", order=400),
+                MenuItem("Import Clients CSV", reverse("clients_csv_import"), icon_name="upload", order=100),
+                MenuItem("Export Clients CSV", reverse("clients_csv_export"), icon_name="download", order=200),
+                MenuItem("Export Deposits CSV", reverse("deposits_csv_export"), icon_name="download", order=300),
             ],
         ),
         icon_name="cog",
-        order=201,
+        order=300,
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_contact_menu():
+    return SubmenuMenuItem(
+        "Contact",
+        Menu(
+            register_hook_name="",
+            construct_hook_name="",
+            items=[
+                MenuItem("Send Email", reverse("clients_compose_email"), icon_name="mail", order=100),
+                MenuItem("Send Newsletter", reverse("newsletter_compose"), icon_name="mail", order=200),
+                MenuItem("Contact Submissions", reverse("wagtailsnippets_contact_contactsubmission:list"), icon_name="form", order=300),
+                MenuItem("Subscribers", reverse("wagtailsnippets_newsletter_newslettersubscriber:list"), icon_name="group", order=400),
+            ],
+        ),
+        icon_name="mail",
+        order=250,
     )

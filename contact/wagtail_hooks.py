@@ -14,7 +14,7 @@ class ContactSubmissionViewSet(SnippetViewSet):
     menu_label = "Contact submissions"
     menu_name = "contact-submissions"
     menu_order = 300
-    add_to_admin_menu = True
+    add_to_admin_menu = False
     list_display = ["name", "email", "phone", "submitted_at", "email_sent"]
     list_filter = ["email_sent", "submitted_at"]
     ordering = ["-submitted_at"]
