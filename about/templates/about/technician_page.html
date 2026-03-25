@@ -44,10 +44,10 @@
     </h2>
     {% endif %}
 
-    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-16">
-        {# --- Photo column --- #}
+    <div data-aos="fade-up">
+        {# --- Floated photo(s) --- #}
         {% if page.headshot %}
-        <div class="w-full md:w-2/5 flex-shrink-0" data-aos="fade-up">
+        <div class="float-none md:float-left md:w-2/5 md:mr-12 mb-8">
             {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" alt=page.full_name %}
             {% if page.owner_story_image %}
             <div class="mt-6">
@@ -57,8 +57,8 @@
         </div>
         {% endif %}
 
-        {# --- Bio column --- #}
-        <div class="w-full {% if page.headshot %}md:w-3/5{% endif %}" data-aos="fade-up" data-aos-delay="100">
+        {# --- Bio (wraps around photos) --- #}
+        <div>
             <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet the Owner</p>
             <h3 class="text-2xl font-bold text-gray-900 mb-2">
                 {{ page.full_name }}
@@ -83,6 +83,7 @@
             </div>
             {% endif %}
         </div>
+        <div class="clear-both"></div>
     </div>
 </section>
 
@@ -99,14 +100,9 @@
     </h2>
     {% endif %}
 
-    {% if page.clinic_image or page.clinic_story_image %}
-    <div class="flex flex-col md:flex-row items-start gap-10 md:gap-14" data-aos="fade-up">
-        <div class="w-full {% if page.clinic_image %}md:w-1/2{% endif %}">
-            <div class="prose prose-lg prose-teal max-w-none">
-                {{ page.clinic_description|richtext }}
-            </div>
-        </div>
-        <div class="w-full md:w-1/2 flex-shrink-0 space-y-6">
+    <div data-aos="fade-up">
+        {% if page.clinic_image or page.clinic_story_image %}
+        <div class="float-none md:float-right md:w-1/2 md:ml-12 mb-8 space-y-6">
             {% if page.clinic_image %}
             {% image page.clinic_image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" alt=page.clinic_story_heading %}
             {% endif %}
@@ -114,14 +110,12 @@
             {% image page.clinic_story_image fill-600x400 class="rounded-xl shadow w-full h-auto" alt=page.clinic_story_heading %}
             {% endif %}
         </div>
-    </div>
-    {% else %}
-    <div data-aos="fade-up">
+        {% endif %}
         <div class="prose prose-lg prose-teal max-w-none">
             {{ page.clinic_description|richtext }}
         </div>
+        <div class="clear-both"></div>
     </div>
-    {% endif %}
 </section>
 {% endif %}
 
