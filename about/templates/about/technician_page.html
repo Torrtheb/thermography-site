@@ -47,7 +47,7 @@
     <div data-aos="fade-up">
         {# --- Floated photo(s) --- #}
         {% if page.headshot %}
-        <div class="float-none md:float-left md:w-2/5 md:mr-12 mb-8">
+        <div style="float:left;width:40%;margin-right:3rem;margin-bottom:2rem" class="max-md:!float-none max-md:!w-full max-md:!mr-0">
             {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" alt=page.full_name %}
             {% if page.owner_story_image %}
             <div class="mt-6">
@@ -57,7 +57,7 @@
         </div>
         {% endif %}
 
-        {# --- Bio (wraps around photos) --- #}
+        {# --- Bio (wraps beside then under photos) --- #}
         <div>
             <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet the Owner</p>
             <h3 class="text-2xl font-bold text-gray-900 mb-2">
@@ -75,15 +75,17 @@
             </div>
 
             {% if page.credentials %}
-            <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl">
-                <h4 class="text-lg font-bold text-gray-900 mb-3">Credentials &amp; Certifications</h4>
-                <div class="prose prose-teal max-w-none">
-                    {{ page.credentials|richtext }}
+            <div style="clear:both">
+                <div class="bg-brand-50 border-l-4 border-brand-500 p-6 rounded-r-xl">
+                    <h4 class="text-lg font-bold text-gray-900 mb-3">Credentials &amp; Certifications</h4>
+                    <div class="prose prose-teal max-w-none">
+                        {{ page.credentials|richtext }}
+                    </div>
                 </div>
             </div>
             {% endif %}
         </div>
-        <div class="clear-both"></div>
+        <div style="clear:both"></div>
     </div>
 </section>
 
@@ -102,7 +104,7 @@
 
     <div data-aos="fade-up">
         {% if page.clinic_image or page.clinic_story_image %}
-        <div class="float-none md:float-right md:w-1/2 md:ml-12 mb-8 space-y-6">
+        <div style="float:right;width:50%;margin-left:3rem;margin-bottom:2rem" class="max-md:!float-none max-md:!w-full max-md:!ml-0 space-y-6">
             {% if page.clinic_image %}
             {% image page.clinic_image fill-600x400 class="rounded-xl shadow-lg w-full h-auto" alt=page.clinic_story_heading %}
             {% endif %}
@@ -114,7 +116,7 @@
         <div class="prose prose-lg prose-teal max-w-none">
             {{ page.clinic_description|richtext }}
         </div>
-        <div class="clear-both"></div>
+        <div style="clear:both"></div>
     </div>
 </section>
 {% endif %}
