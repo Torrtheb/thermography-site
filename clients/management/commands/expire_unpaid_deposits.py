@@ -45,11 +45,11 @@ class Command(BaseCommand):
         hours = options["hours"]
         cutoff = timezone.now() - timezone.timedelta(hours=hours)
 
-        from django.db.models import F
+        from django.db.models import F, Q
         from django.db.models.functions import Coalesce
 
         expired_deposits = Deposit.objects.filter(
-            status="pending",
+            Q(status="pending") | Q(status="awaiting_review"),
         ).annotate(
             timer_start=Coalesce(F("approved_at"), F("created_at")),
         ).filter(

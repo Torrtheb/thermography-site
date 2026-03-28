@@ -205,25 +205,28 @@ def decline_calcom_booking(booking_uid, reason=""):
 
 def expire_pending_deposits(hours=48):
     """
-    Forfeit deposits pending for more than `hours` since the owner approved
-    them, cancel Cal.com bookings, and notify both the client and the owner.
+    Forfeit deposits that have been pending or awaiting review for too long,
+    cancel/decline their Cal.com bookings, and notify the client and owner.
 
-    The 48-hour clock starts from `approved_at` (when the owner clicked
-    "Approve & Send Deposit Request"), not from `created_at` (when the
-    Cal.com booking was made). Deposits without an `approved_at` timestamp
-    fall back to `created_at` for safety.
+    Two categories are expired:
+      1. "pending" deposits — the owner approved and sent the deposit request,
+         but the client didn't pay within `hours` of `approved_at`.
+      2. "awaiting_review" deposits — the owner never reviewed the booking
+         within `hours` of `created_at`. The client never received a deposit
+         email, so only a simple cancellation email is sent.
 
     Returns the number of deposits forfeited.
     """
-    from django.db.models import F
+    from django.db.models import F, Q
     from django.db.models.functions import Coalesce
     from django.utils import timezone as tz
     from clients.models import Deposit
     from clients.email import send_deposit_expired_cancellation, send_owner_deposit_expiry_notice
 
     cutoff = tz.now() - tz.timedelta(hours=hours)
+
     expired_qs = Deposit.objects.filter(
-        status="pending",
+        Q(status="pending") | Q(status="awaiting_review"),
     ).annotate(
         timer_start=Coalesce(F("approved_at"), F("created_at")),
     ).filter(
@@ -235,16 +238,25 @@ def expire_pending_deposits(hours=48):
         return 0
 
     for deposit in expired_list:
-        # 1. Cancel the Cal.com booking
+        was_awaiting = deposit.status == "awaiting_review"
+
+        # 1. Cancel/decline the Cal.com booking
         if deposit.cal_booking_uid:
-            cancel_calcom_booking(deposit.cal_booking_uid)
+            if was_awaiting:
+                decline_calcom_booking(
+                    deposit.cal_booking_uid,
+                    reason="Booking expired — not reviewed within 48 hours.",
+                )
+            else:
+                cancel_calcom_booking(deposit.cal_booking_uid)
 
         # 2. Update deposit status
+        if was_awaiting:
+            reason_note = f"Auto-forfeited: owner did not review within {hours} hours."
+        else:
+            reason_note = f"Auto-forfeited: deposit not received within {hours} hours."
         deposit.status = "forfeited"
-        deposit.notes = (
-            (deposit.notes or "") +
-            f"\nAuto-forfeited: deposit not received within {hours} hours of booking."
-        )
+        deposit.notes = (deposit.notes or "") + f"\n{reason_note}"
         deposit.save(update_fields=["status", "notes", "updated_at"])
 
         # 3. Email the client

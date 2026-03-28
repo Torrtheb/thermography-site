@@ -216,25 +216,6 @@ class SiteSettings(BaseSiteSetting):
         ),
     )
 
-    email_deposit_confirmation = models.TextField(
-        "Deposit confirmation email body",
-        default=(
-            "Hi {client_name},\n\n"
-            "Thank you! We've received your ${amount} booking deposit "
-            "and your appointment is confirmed.\n\n"
-            "{details_line}"
-            "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
-            "If you need to reschedule or have any questions, please reply to this email.\n\n"
-            "We look forward to seeing you!\n\n"
-            "Best regards,\n"
-            "Your Thermography Team"
-        ),
-        help_text=(
-            "Sent when the owner marks a deposit as received and clicks 'Send confirmation'. "
-            "Placeholders: {client_name}, {amount}, {details_line} (appointment date + payment method or blank)."
-        ),
-    )
-
     email_deposit_cancelled = models.TextField(
         "Cancellation email body (48h rule)",
         default=(
@@ -284,7 +265,6 @@ class SiteSettings(BaseSiteSetting):
         MultiFieldPanel(
             [
                 FieldPanel("email_deposit_request"),
-                FieldPanel("email_deposit_confirmation"),
                 FieldPanel("email_deposit_cancelled"),
             ],
             heading="Email Templates",

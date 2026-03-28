@@ -196,51 +196,6 @@ def send_deposit_request(client, amount, appointment_date=""):
     return True
 
 
-def send_deposit_confirmation(client, amount, appointment_date="", payment_method=""):
-    """
-    Send a deposit-received confirmation email to a client.
-
-    Uses the owner-editable template from SiteSettings → Email Templates.
-    """
-    if not client.email:
-        return False
-
-    ss = _get_site_settings()
-
-    details_parts = []
-    if appointment_date:
-        details_parts.append(f"Appointment date: {appointment_date}")
-    if payment_method:
-        details_parts.append(f"Paid via: {payment_method}")
-    details_line = "\n".join(details_parts) + "\n\n" if details_parts else ""
-
-    template = (ss.email_deposit_confirmation if ss and ss.email_deposit_confirmation else "")
-    if not template:
-        template = (
-            "Hi {client_name},\n\n"
-            "We've received your ${amount} deposit. Your appointment is confirmed.\n\n"
-            "{details_line}"
-            "Best regards,\nYour Thermography Team"
-        )
-
-    plain_message = template.format_map(_SafeDict(
-        client_name=client.name or "there",
-        amount=str(amount),
-        details_line=details_line,
-    ))
-
-    subject = "Deposit Received — Your Booking Is Confirmed"
-
-    send_mail(
-        subject=subject,
-        message=plain_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[client.email],
-        fail_silently=False,
-    )
-    return True
-
-
 def send_deposit_expired_cancellation(client, amount, appointment_date="", service_name=""):
     """
     Notify a client that their appointment was cancelled because
