@@ -443,7 +443,7 @@ class Deposit(index.Indexed, models.Model):
                 parts.append(
                     f'<a href="/admin/deposits/{self.pk}/send-confirmation/" '
                     f'style="color:#fff; background:#059669; {btn}">'
-                    f'✅ Send confirmation</a>'
+                    f'✅ Confirm in Cal.com</a>'
                 )
         elif self.deposit_request_sent:
             parts.append(f'<span style="{tag}">📧 Request sent</span>')
