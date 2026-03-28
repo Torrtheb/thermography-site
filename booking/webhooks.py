@@ -334,12 +334,77 @@ def _parse_appointment_date(start_time_str):
         return None
 
 
+def _infer_location_from_event(event_title):
+    """Try to match a Cal.com event title to a Location name.
+
+    Cal.com event types are typically named like "Full Body Scan — Nanaimo"
+    or "Breast Screening — Victoria Pop-Up".  We compare against all
+    Location names (case-insensitive substring match).
+
+    Returns the Location.name string if matched, or "" if no match.
+    """
+    if not event_title:
+        return ""
+    try:
+        from booking.models import Location
+        title_lower = event_title.lower()
+        for loc in Location.objects.all():
+            # Match if the location name (or its first word for multi-word names)
+            # appears in the Cal.com event title
+            if loc.name.lower() in title_lower:
+                return loc.name
+            # Also try individual significant words (>3 chars) from the location name
+            for word in loc.name.split():
+                if len(word) > 3 and word.lower() in title_lower:
+                    return loc.name
+    except Exception:
+        logger.debug("Could not look up location from event title", exc_info=True)
+    return ""
+
+
+def _infer_visit_reason(event_title):
+    """Map a Cal.com event title to a VISIT_REASON_CHOICES key.
+
+    Uses case-insensitive keyword matching against the event title.
+    Returns "" if no confident match (never guesses).
+    """
+    if not event_title:
+        return ""
+    title_lower = event_title.lower()
+
+    keyword_map = [
+        ("breast", "breast_health"),
+        ("full body", "full_body"),
+        ("full-body", "full_body"),
+        ("upper body", "full_body"),
+        ("upper-body", "full_body"),
+        ("pain", "pain_inflammation"),
+        ("inflammation", "pain_inflammation"),
+        ("injury", "pain_inflammation"),
+        ("sport", "pain_inflammation"),
+        ("follow up", "follow_up"),
+        ("follow-up", "follow_up"),
+        ("followup", "follow_up"),
+        ("initial", "initial_screening"),
+        ("screening", "initial_screening"),
+    ]
+    for keyword, reason in keyword_map:
+        if keyword in title_lower:
+            return reason
+    return ""
+
+
 def _handle_booking_created(payload):
     """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
 
     The deposit request email is NOT sent automatically — the owner must
     review the client info in Wagtail admin and click "Approve & Send
     Deposit Request" to validate the client and trigger the email.
+
+    Auto-populates on the Client record (only when real data is available):
+      - last_appointment_date  (from startTime)
+      - clinic_location        (inferred from eventTitle ↔ Location names)
+      - previous_visit_reason  (inferred from eventTitle keywords)
     """
     from clients.models import Client, Deposit
 
@@ -364,19 +429,38 @@ def _handle_booking_created(payload):
         logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s", booking_uid)
         return
 
+    # Infer visit details from the event title (blank if no match)
+    inferred_location = _infer_location_from_event(event_title)
+    inferred_reason = _infer_visit_reason(event_title)
+
     # Find existing client by email hash (O(1) indexed lookup)
     client = Client.find_by_email(client_email)
 
     if client is None:
-        client = Client.objects.create(
-            name=client_name,
-            email=client_email,
-        )
+        create_kwargs = {"name": client_name, "email": client_email}
+        if appointment_date:
+            create_kwargs["last_appointment_date"] = appointment_date
+        if inferred_location:
+            create_kwargs["clinic_location"] = inferred_location
+        if inferred_reason:
+            create_kwargs["previous_visit_reason"] = inferred_reason
+
+        client = Client.objects.create(**create_kwargs)
         logger.info("Created new client pk=%s from Cal.com booking", client.pk)
     else:
+        update_fields = ["updated_at"]
         if appointment_date:
             client.last_appointment_date = appointment_date
-            client.save(update_fields=["last_appointment_date", "updated_at"])
+            update_fields.append("last_appointment_date")
+        if inferred_location:
+            client.clinic_location = inferred_location
+            update_fields.append("clinic_location")
+        if inferred_reason:
+            client.previous_visit_reason = inferred_reason
+            update_fields.append("previous_visit_reason")
+
+        if len(update_fields) > 1:
+            client.save(update_fields=update_fields)
 
     deposit_amount = _get_deposit_amount()
 
