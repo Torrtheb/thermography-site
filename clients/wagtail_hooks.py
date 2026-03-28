@@ -191,15 +191,15 @@ def deposit_action_csrf_fill():
     The model method can't access the request, so it renders placeholder tokens.
     This script reads the csrftoken cookie and fills them in client-side.
     """
-    from django.utils.html import format_html
-    return format_html(
+    from django.utils.safestring import mark_safe
+    return mark_safe(
         '<script>'
-        '(function(){{'
+        '(function(){'
         '  var c=document.cookie.match(/csrftoken=([^;]+)/);'
         '  if(!c)return;'
         '  document.querySelectorAll(".js-csrf-token-placeholder")'
-        '    .forEach(function(el){{el.value=c[1];}});'
-        '}})();'
+        '    .forEach(function(el){el.value=c[1];});'
+        '})();'
         '</script>'
     )
 
