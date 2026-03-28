@@ -171,9 +171,12 @@ class ContactSubmission(models.Model):
 
 class Location(Orderable):
     """
-    A location the business operates from.
-    Linked to ContactPage via InlinePanel.
-    The owner can toggle visibility on/off as their travel schedule changes.
+    DEPRECATED — replaced by booking.models.Location.
+
+    This model is no longer used in any template, view, or admin panel.
+    ContactPage.visible_locations now pulls from booking.Location instead.
+    Kept to avoid a migration that would drop the table with potential data.
+    Safe to remove via migration in a future cleanup pass.
     """
 
     page = ParentalKey(

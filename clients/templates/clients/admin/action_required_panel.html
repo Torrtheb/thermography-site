@@ -39,11 +39,14 @@
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
                         <td style="padding:0.4rem 0.5rem;">
-                            <a href="/admin/deposits/{{ dep.pk }}/approve/"
-                               style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
-                                      border-radius:0.25rem; font-size:0.75rem; font-weight:600; text-decoration:none;">
-                                ✅ Approve &amp; Send
-                            </a>
+                            <form method="post" action="/admin/deposits/{{ dep.pk }}/approve/" style="display:inline;">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="" class="js-csrf-token-placeholder">
+                                <button type="submit"
+                                   style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
+                                          border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
+                                    ✅ Approve &amp; Send
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -78,11 +81,14 @@
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem;">
-                            <a href="/admin/deposits/{{ dep.pk }}/send-confirmation/"
-                               style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
-                                      border-radius:0.25rem; font-size:0.75rem; font-weight:600; text-decoration:none;">
-                                ✅ Confirm in Cal.com
-                            </a>
+                            <form method="post" action="/admin/deposits/{{ dep.pk }}/send-confirmation/" style="display:inline;">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="" class="js-csrf-token-placeholder">
+                                <button type="submit"
+                                   style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
+                                          border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
+                                    ✅ Confirm in Cal.com
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}

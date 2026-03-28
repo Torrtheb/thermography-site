@@ -4,8 +4,13 @@ Client database — encrypted PII managed from Wagtail admin.
 All personal fields (name, phone, email) are encrypted at rest using
 Fernet symmetric encryption.  The encryption key is stored in the
 FIELD_ENCRYPTION_KEY environment variable, not in the codebase.
+
+An SHA-256 hash of the lowercase email is stored alongside the encrypted
+email so that client lookups by email (e.g. from Cal.com webhooks) can
+be done in O(1) via a DB query instead of decrypting every row.
 """
 
+import hashlib
 from decimal import Decimal
 
 from django.db import models
@@ -14,6 +19,11 @@ from django.utils import timezone
 from wagtail.admin.panels import FieldPanel, FieldRowPanel, MultiFieldPanel
 from wagtail.search import index
 from .fields import EncryptedCharField, EncryptedTextField
+
+
+def _hash_email(email: str) -> str:
+    """Return a stable SHA-256 hex digest for a lowercased email."""
+    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
 
 
 VISIT_REASON_CHOICES = [
@@ -52,6 +62,15 @@ class Client(index.Indexed, models.Model):
         blank=True,
         default="",
         help_text="Email address (encrypted at rest).",
+    )
+
+    email_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        editable=False,
+        help_text="SHA-256 hash of lowercased email for O(1) lookups.",
     )
 
     # ── Non-encrypted fields ──────────────────────────────
@@ -118,6 +137,20 @@ class Client(index.Indexed, models.Model):
         ordering = ["-created_at"]
         verbose_name = "Client"
         verbose_name_plural = "Clients"
+
+    def save(self, **kwargs):
+        new_hash = _hash_email(self.email) if self.email else ""
+        if self.email_hash != new_hash:
+            self.email_hash = new_hash
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = list(kwargs["update_fields"]) + ["email_hash"]
+        super().save(**kwargs)
+
+    @classmethod
+    def find_by_email(cls, email: str):
+        """Look up a client by email using the indexed hash (O(1))."""
+        h = _hash_email(email)
+        return cls.objects.filter(email_hash=h).first()
 
     def __str__(self):
         return self.name or f"Client #{self.pk}"
@@ -404,55 +437,66 @@ class Deposit(index.Indexed, models.Model):
     status_badge.short_description = "Status"
 
     def email_status_display(self):
-        """Show contextual action buttons in the admin listing."""
+        """Show contextual action buttons in the admin listing.
+
+        Uses inline POST forms with CSRF tokens so state-changing actions
+        cannot be triggered by GET requests or cross-site link injection.
+        """
         from django.utils.safestring import mark_safe
 
         parts = []
 
-        btn = (
+        btn_style = (
             'display:inline-block; padding:3px 8px; border-radius:4px; '
-            'font-size:0.75rem; text-decoration:none; font-weight:600;'
+            'font-size:0.75rem; font-weight:600; border:none; cursor:pointer;'
         )
         tag = 'color:#155724; background:#d4edda; padding:2px 6px; border-radius:4px; font-size:0.75rem;'
-        reject_btn = (
-            f'<a href="/admin/deposits/{self.pk}/reject/" '
-            f'style="color:#fff; background:#dc2626; {btn}" '
-            f'onclick="return confirm(\'Reject this booking and cancel in Cal.com?\');">'
-            f'❌ Reject</a>'
+
+        def _post_button(url, label, bg_color, confirm_msg=""):
+            onclick = f"return confirm('{confirm_msg}');" if confirm_msg else ""
+            return (
+                f'<form method="post" action="{url}" style="display:inline;">'
+                f'<input type="hidden" name="csrfmiddlewaretoken" '
+                f'value="" class="js-csrf-token-placeholder">'
+                f'<button type="submit" style="color:#fff; background:{bg_color}; {btn_style}" '
+                f'{f"onclick={chr(34)}{onclick}{chr(34)}" if onclick else ""}>'
+                f'{label}</button></form>'
+            )
+
+        reject_btn = _post_button(
+            f"/admin/deposits/{self.pk}/reject/",
+            "❌ Reject", "#dc2626",
+            confirm_msg="Reject this booking and cancel in Cal.com?",
         )
 
         if self.status == "awaiting_review":
-            parts.append(
-                f'<a href="/admin/deposits/{self.pk}/approve/" '
-                f'style="color:#fff; background:#6d28d9; {btn}">'
-                f'✅ Approve &amp; Send Deposit Request</a>'
-            )
+            parts.append(_post_button(
+                f"/admin/deposits/{self.pk}/approve/",
+                "✅ Approve &amp; Send Deposit Request", "#6d28d9",
+            ))
             parts.append(reject_btn)
         elif self.status == "pending":
             parts.append(f'<span style="{tag}">📧 Request sent</span>')
-            parts.append(
-                f'<a href="/admin/deposits/{self.pk}/mark-received/" '
-                f'style="color:#fff; background:#2563eb; {btn}">'
-                f'💰 Mark Received &amp; Confirm</a>'
-            )
+            parts.append(_post_button(
+                f"/admin/deposits/{self.pk}/mark-received/",
+                "💰 Mark Received &amp; Confirm", "#2563eb",
+            ))
             parts.append(reject_btn)
         elif self.status == "received":
             if self.deposit_confirmed_sent:
                 parts.append(f'<span style="{tag}">✅ Confirmed</span>')
             else:
-                parts.append(
-                    f'<a href="/admin/deposits/{self.pk}/send-confirmation/" '
-                    f'style="color:#fff; background:#059669; {btn}">'
-                    f'✅ Confirm in Cal.com</a>'
-                )
+                parts.append(_post_button(
+                    f"/admin/deposits/{self.pk}/send-confirmation/",
+                    "✅ Confirm in Cal.com", "#059669",
+                ))
         elif self.deposit_request_sent:
             parts.append(f'<span style="{tag}">📧 Request sent</span>')
         else:
-            parts.append(
-                f'<a href="/admin/deposits/{self.pk}/send-request/" '
-                f'style="color:#fff; background:#d97706; {btn}">'
-                f'📧 Send deposit request</a>'
-            )
+            parts.append(_post_button(
+                f"/admin/deposits/{self.pk}/send-request/",
+                "📧 Send deposit request", "#d97706",
+            ))
 
         return mark_safe(" ".join(parts))
     email_status_display.short_description = "Actions"

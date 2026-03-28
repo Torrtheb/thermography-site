@@ -185,6 +185,26 @@ def add_action_required_panel(request, panels):
 # ──────────────────────────────────────────────────────────
 
 @hooks.register("insert_global_admin_js")
+def deposit_action_csrf_fill():
+    """Fill CSRF tokens into deposit action POST forms rendered by Deposit.email_status_display().
+
+    The model method can't access the request, so it renders placeholder tokens.
+    This script reads the csrftoken cookie and fills them in client-side.
+    """
+    from django.utils.html import format_html
+    return format_html(
+        '<script>'
+        '(function(){{'
+        '  var c=document.cookie.match(/csrftoken=([^;]+)/);'
+        '  if(!c)return;'
+        '  document.querySelectorAll(".js-csrf-token-placeholder")'
+        '    .forEach(function(el){{el.value=c[1];}});'
+        '}})();'
+        '</script>'
+    )
+
+
+@hooks.register("insert_global_admin_js")
 def deposit_notification_banner():
     from django.utils.html import format_html
 

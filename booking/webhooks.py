@@ -282,11 +282,19 @@ def expire_pending_deposits(hours=48):
 
 
 def _verify_signature(request):
-    """Verify Cal.com webhook HMAC-SHA256 signature."""
+    """Verify Cal.com webhook HMAC-SHA256 signature.
+
+    Fail-closed: if CAL_WEBHOOK_SECRET is not set and DEBUG is off,
+    reject the request. In development (DEBUG=True) the secret is
+    optional so local testing works without Cal.com.
+    """
     secret = getattr(settings, "CAL_WEBHOOK_SECRET", "")
     if not secret:
-        logger.warning("CAL_WEBHOOK_SECRET not configured — skipping signature verification")
-        return True
+        if getattr(settings, "DEBUG", False):
+            logger.warning("CAL_WEBHOOK_SECRET not configured — skipping verification (DEBUG mode)")
+            return True
+        logger.error("CAL_WEBHOOK_SECRET not configured in production — rejecting webhook")
+        return False
 
     signature = request.headers.get("x-cal-signature-256", "")
     if not signature:
@@ -356,12 +364,8 @@ def _handle_booking_created(payload):
         logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s", booking_uid)
         return
 
-    # Find or create client (match by email — iterate because email is encrypted)
-    client = None
-    for c in Client.objects.all().iterator():
-        if c.email and c.email.lower() == client_email.lower():
-            client = c
-            break
+    # Find existing client by email hash (O(1) indexed lookup)
+    client = Client.find_by_email(client_email)
 
     if client is None:
         client = Client.objects.create(

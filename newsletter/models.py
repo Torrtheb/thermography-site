@@ -115,23 +115,26 @@ class SubscribeRateLimit(models.Model):
 
     @classmethod
     def check_and_increment(cls, ip_address, max_attempts=5, window_minutes=60):
-        """Atomically record an attempt and return (is_limited, ip_hash).
+        """Atomically check the rate limit, then record the attempt.
 
-        Combines the check and record into one call to avoid a TOCTOU race
-        where concurrent requests could all pass the check before any records.
+        Returns (is_limited, ip_hash).  The attempt is always recorded so
+        that even blocked requests count toward the window (prevents a
+        client from retrying at exactly the boundary).
         """
         from datetime import timedelta
         import random
 
         ip_hash = hashlib.sha256(ip_address.encode()).hexdigest()
-        cls.objects.create(ip_hash=ip_hash)
-
         cutoff = timezone.now() - timedelta(minutes=window_minutes)
+
         recent = cls.objects.filter(ip_hash=ip_hash, attempted_at__gte=cutoff).count()
+        is_limited = recent >= max_attempts
+
+        cls.objects.create(ip_hash=ip_hash)
 
         # Probabilistic cleanup (~1 in 50 requests) to avoid DELETE on every call
         if random.randint(1, 50) == 1:
             cleanup_cutoff = timezone.now() - timedelta(hours=24)
             cls.objects.filter(attempted_at__lt=cleanup_cutoff).delete()
 
-        return recent >= max_attempts, ip_hash
+        return is_limited, ip_hash

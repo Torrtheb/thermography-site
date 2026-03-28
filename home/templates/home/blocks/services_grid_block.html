@@ -1,16 +1,29 @@
 {% load wagtailimages_tags wagtailcore_tags services_tags %}
 
-{# --- Services List: clean links to each service page --- #}
+{# --- Services List: clean links to each service page, optional background image --- #}
 
-<section class="py-16">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+{% if value.background_image %}
+    {% image value.background_image fill-1920x800 as bg_img %}
+{% endif %}
+
+<section class="relative py-16 overflow-hidden
+    {% if value.background_image %}text-white{% endif %}"
+    {% if value.background_image %}
+    style="background-image: url('{{ bg_img.url }}'); background-size: cover; background-position: center;"
+    {% endif %}
+>
+    {% if value.background_image %}
+    <div class="absolute inset-0 bg-brand-900/70"></div>
+    {% endif %}
+
+    <div class="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <div class="text-center mb-10" data-aos="fade-up">
-            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 class="text-3xl md:text-4xl font-bold {% if value.background_image %}text-white{% else %}text-gray-900{% endif %} mb-4">
                 {{ value.heading }}
             </h2>
             {% if value.subheading %}
-            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p class="text-lg {% if value.background_image %}text-white/80{% else %}text-gray-600{% endif %} max-w-2xl mx-auto">
                 {{ value.subheading }}
             </p>
             {% endif %}
@@ -23,7 +36,9 @@
             {% for service in services %}
             <li>
                 <a href="{% pageurl service %}"
-                   class="flex items-center justify-between group bg-white border border-gray-100 rounded-lg px-5 py-4 hover:border-brand-300 hover:shadow-sm transition">
+                   class="flex items-center justify-between group
+                          {% if value.background_image %}bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white{% else %}bg-white border-gray-100 hover:border-brand-300{% endif %}
+                          border rounded-lg px-5 py-4 hover:shadow-sm transition">
                     <div>
                         <span class="text-lg font-semibold text-gray-900 group-hover:text-brand-600 transition">
                             {{ service.title }}
@@ -40,11 +55,11 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="text-gray-500 text-center">Services coming soon.</p>
+        <p class="{% if value.background_image %}text-white/70{% else %}text-gray-500{% endif %} text-center">Services coming soon.</p>
         {% endif %}
 
         <div class="text-center mt-8" data-aos="fade-up">
-            <a href="/services/" class="text-brand-600 hover:text-brand-700 font-medium transition">
+            <a href="/services/" class="{% if value.background_image %}text-white hover:text-white/80 underline{% else %}text-brand-600 hover:text-brand-700{% endif %} font-medium transition">
                 View all services &rarr;
             </a>
         </div>

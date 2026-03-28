@@ -24,6 +24,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.contrib import messages
 from django.views import View
+from django.views.decorators.http import require_POST
 
 from wagtail.admin.auth import require_admin_access
 
@@ -376,7 +377,9 @@ def _autocomplete(request):
     if field in ("name", "email", "phone"):
         seen = set()
         results = []
-        for client in Client.objects.all().iterator():
+        for client in Client.objects.all().only(
+            "pk", "name", "email", "email_hash", "phone",
+        ).iterator():
             val = getattr(client, field, "") or ""
             if not val:
                 continue
@@ -466,7 +469,7 @@ def _send_deposit_request_action(request, deposit_id):
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
 
-send_deposit_request_view = require_admin_access(_send_deposit_request_action)
+send_deposit_request_view = require_POST(require_admin_access(_send_deposit_request_action))
 
 
 def _send_deposit_confirmation_action(request, deposit_id):
@@ -503,7 +506,7 @@ def _send_deposit_confirmation_action(request, deposit_id):
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
 
-send_deposit_confirmation_view = require_admin_access(_send_deposit_confirmation_action)
+send_deposit_confirmation_view = require_POST(require_admin_access(_send_deposit_confirmation_action))
 
 
 # ──────────────────────────────────────────────────────────
@@ -551,7 +554,7 @@ def _approve_deposit_action(request, deposit_id):
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
 
-approve_deposit_view = require_admin_access(_approve_deposit_action)
+approve_deposit_view = require_POST(require_admin_access(_approve_deposit_action))
 
 
 # ──────────────────────────────────────────────────────────
@@ -602,7 +605,7 @@ def _mark_received_action(request, deposit_id):
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
 
-mark_received_view = require_admin_access(_mark_received_action)
+mark_received_view = require_POST(require_admin_access(_mark_received_action))
 
 
 # ──────────────────────────────────────────────────────────
@@ -651,4 +654,4 @@ def _reject_deposit_action(request, deposit_id):
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
 
-reject_deposit_view = require_admin_access(_reject_deposit_action)
+reject_deposit_view = require_POST(require_admin_access(_reject_deposit_action))

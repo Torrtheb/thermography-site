@@ -15,6 +15,9 @@ from .base import *  # noqa: F401,F403
 
 DEBUG = False
 
+# PostgreSQL-specific features (search, array fields, etc.)
+INSTALLED_APPS += ["django.contrib.postgres"]  # noqa: F405
+
 # ──────────────────────────────────────────────────────────
 # Secrets & hosts
 # ──────────────────────────────────────────────────────────

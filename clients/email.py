@@ -135,6 +135,14 @@ def send_custom_email(client, subject, body):
 
 
 
+def _get_owner_email():
+    """Return the email address where owner notifications should be sent."""
+    return (
+        getattr(settings, "OWNER_NOTIFICATION_EMAIL", "")
+        or settings.DEFAULT_FROM_EMAIL
+    )
+
+
 def _get_site_settings():
     """Fetch SiteSettings for the default site, or None on failure."""
     try:
@@ -245,7 +253,7 @@ def send_owner_new_booking_notice(client, deposit):
     Sent immediately when the Cal.com webhook creates a deposit in
     'awaiting_review' status so the owner knows to check Wagtail admin.
     """
-    owner_email = settings.DEFAULT_FROM_EMAIL
+    owner_email = _get_owner_email()
     if not owner_email:
         return False
 
@@ -281,13 +289,13 @@ def send_owner_new_booking_notice(client, deposit):
 
 def send_owner_deposit_expiry_notice(expired_deposits):
     """
-    Notify the owner (DEFAULT_FROM_EMAIL) about deposits that were
-    auto-forfeited and Cal.com bookings that were cancelled.
+    Notify the owner about deposits that were auto-forfeited and
+    Cal.com bookings that were cancelled.
     """
     if not expired_deposits:
         return False
 
-    owner_email = settings.DEFAULT_FROM_EMAIL
+    owner_email = _get_owner_email()
     if not owner_email:
         return False
 

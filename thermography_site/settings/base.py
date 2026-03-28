@@ -58,7 +58,6 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
-    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -103,6 +102,11 @@ WSGI_APPLICATION = "thermography_site.wsgi.application"
 # Brevo newsletter sync (overridden in production.py with real values)
 BREVO_API_KEY = ""
 BREVO_LIST_ID = ""
+
+# Owner notification email — receives booking alerts, deposit expiry notices, etc.
+# Defaults to DEFAULT_FROM_EMAIL if not set. Use a different address to avoid
+# sending from and to the same email (which can trigger spam filters).
+OWNER_NOTIFICATION_EMAIL = os.environ.get("OWNER_NOTIFICATION_EMAIL", "")
 
 # Cal.com webhook signature verification secret
 # Set this to the same value you configure in Cal.com → Settings → Developer → Webhooks → Secret

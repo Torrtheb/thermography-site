@@ -233,6 +233,10 @@ class ServicesGridBlock(StructBlock):
         default=False,
         help_text="If checked, only services marked 'Featured' will display.",
     )
+    background_image = ImageChooserBlock(
+        required=False,
+        help_text="Optional background image — a dark overlay is added for readability.",
+    )
 
     class Meta:
         template = "home/blocks/services_grid_block.html"
