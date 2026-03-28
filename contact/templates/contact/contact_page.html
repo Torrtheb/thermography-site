@@ -74,8 +74,8 @@
                     <div>
                         <h3 class="font-semibold text-gray-900">{{ loc.name }}</h3>
                         <p class="text-gray-600 whitespace-pre-line">{{ loc.address }}</p>
-                        {% if loc.description %}
-                        <p class="text-sm text-brand-600 font-medium mt-1">{{ loc.description }}</p>
+                        {% if loc.date_label %}
+                        <p class="text-sm text-brand-600 font-medium mt-1">{{ loc.date_label }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -219,8 +219,8 @@
 
                     <p class="text-gray-600 whitespace-pre-line mb-2">{{ location.address }}</p>
 
-                    {% if location.description %}
-                    <p class="text-sm text-brand-600 font-medium">{{ location.description }}</p>
+                    {% if location.date_label %}
+                    <p class="text-sm text-brand-600 font-medium">{{ location.date_label }}</p>
                     {% endif %}
                 </div>
 

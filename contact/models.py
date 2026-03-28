@@ -323,7 +323,6 @@ class ContactPage(Page):
             ],
             heading="Contact Details",
         ),
-        InlinePanel("locations", label="Location", heading="Locations"),
         FieldPanel("contact_form_enabled"),
         MultiFieldPanel(
             [
@@ -358,18 +357,30 @@ class ContactPage(Page):
 
     @property
     def visible_locations(self):
-        """Return visible locations, primary first, then by sort_order."""
-        return self.locations.filter(is_visible=True).order_by("-is_primary", "sort_order")
+        """Return all active locations from the booking Location snippet."""
+        from booking.models import Location as BookingLocation
+        return BookingLocation.get_active_locations()
 
     @property
     def primary_location(self):
-        """Return the primary location (or None)."""
-        return self.locations.filter(is_visible=True, is_primary=True).first()
+        """Return the permanent/primary location (first permanent one)."""
+        from booking.models import Location as BookingLocation
+        return (
+            BookingLocation.objects
+            .filter(BookingLocation._active_filter(), is_permanent=True)
+            .order_by("sort_order")
+            .first()
+        )
 
     @property
     def travel_locations(self):
-        """Return visible non-primary locations, ordered by sort_order."""
-        return self.locations.filter(is_visible=True, is_primary=False).order_by("sort_order")
+        """Return active non-permanent (pop-up) locations."""
+        from booking.models import Location as BookingLocation
+        return (
+            BookingLocation.objects
+            .filter(BookingLocation._active_filter(), is_permanent=False)
+            .order_by("sort_order", "name")
+        )
 
     def serve(self, request):
         """Handle GET (show form) and POST (send email)."""
