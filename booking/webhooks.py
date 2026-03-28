@@ -341,6 +341,12 @@ def _infer_location_from_event(event_title):
     or "Breast Screening — Victoria Pop-Up".  We compare against all
     Location names (case-insensitive substring match).
 
+    Matching strategy (longest name first to avoid "Victoria" matching
+    before "Victoria Pop-Up"):
+      1. Full location name found as substring in the event title.
+      2. No word-level fallback — too prone to false positives with
+         generic words like "Main" or "Clinic".
+
     Returns the Location.name string if matched, or "" if no match.
     """
     if not event_title:
@@ -348,15 +354,12 @@ def _infer_location_from_event(event_title):
     try:
         from booking.models import Location
         title_lower = event_title.lower()
-        for loc in Location.objects.all():
-            # Match if the location name (or its first word for multi-word names)
-            # appears in the Cal.com event title
+        locations = list(Location.objects.all())
+        # Sort longest name first so "Victoria Pop-Up" matches before "Victoria"
+        locations.sort(key=lambda loc: len(loc.name), reverse=True)
+        for loc in locations:
             if loc.name.lower() in title_lower:
                 return loc.name
-            # Also try individual significant words (>3 chars) from the location name
-            for word in loc.name.split():
-                if len(word) > 3 and word.lower() in title_lower:
-                    return loc.name
     except Exception:
         logger.debug("Could not look up location from event title", exc_info=True)
     return ""
@@ -366,18 +369,19 @@ def _infer_visit_reason(event_title):
     """Map a Cal.com event title to a VISIT_REASON_CHOICES key.
 
     Uses case-insensitive keyword matching against the event title.
+    Order matters — more specific phrases are checked first to avoid
+    "Breast Screening" matching the generic "screening" keyword.
     Returns "" if no confident match (never guesses).
     """
     if not event_title:
         return ""
     title_lower = event_title.lower()
 
+    # Ordered most-specific first. Each keyword maps to a VISIT_REASON_CHOICES key.
     keyword_map = [
         ("breast", "breast_health"),
         ("full body", "full_body"),
         ("full-body", "full_body"),
-        ("upper body", "full_body"),
-        ("upper-body", "full_body"),
         ("pain", "pain_inflammation"),
         ("inflammation", "pain_inflammation"),
         ("injury", "pain_inflammation"),
@@ -385,12 +389,12 @@ def _infer_visit_reason(event_title):
         ("follow up", "follow_up"),
         ("follow-up", "follow_up"),
         ("followup", "follow_up"),
-        ("initial", "initial_screening"),
-        ("screening", "initial_screening"),
     ]
     for keyword, reason in keyword_map:
         if keyword in title_lower:
             return reason
+    # "upper body" and other unrecognised services → leave blank
+    # rather than guessing. The owner can set it manually.
     return ""
 
 
