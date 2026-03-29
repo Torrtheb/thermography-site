@@ -159,17 +159,18 @@ def _get_icon_for_service(slug, index=0):
 
 
 @register.simple_tag
-def service_icon_svg(service, loop_counter=0, white=False):
+def service_icon_svg(service, loop_counter=0, white=False, size="w-12 h-12"):
     """Render an SVG icon for a service based on its slug.
 
     Usage:
         {% service_icon_svg service forloop.counter0 %}
         {% service_icon_svg service forloop.counter0 white=True %}
+        {% service_icon_svg service forloop.counter0 size="w-8 h-8" %}
     """
     icon = _get_icon_for_service(service.slug, loop_counter)
     stroke = "rgba(255,255,255,0.9)" if white else icon["color"]
     return mark_safe(
-        f'<svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" '
+        f'<svg class="{size}" viewBox="0 0 24 24" fill="none" '
         f'stroke="{stroke}" stroke-width="1.5" '
         f'xmlns="http://www.w3.org/2000/svg">'
         f'{icon["svg"]}</svg>'

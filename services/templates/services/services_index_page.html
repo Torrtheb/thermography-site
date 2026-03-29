@@ -96,25 +96,25 @@
            data-aos="fade-up"
            data-aos-delay="{% cycle '0' '100' '200' %}">
 
-            {# --- Service Image or Icon --- #}
+            {# --- Service Image (only if uploaded) --- #}
             {% if service.service_image %}
             <div class="h-48 overflow-hidden">
                 {% image service.service_image fill-400x200 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt=service.title %}
-            </div>
-            {% else %}
-            {% service_icon_bg service forloop.counter0 as icon_bg %}
-            <div class="h-48 flex items-center justify-center transition-colors duration-300" style="background-color: {{ icon_bg }};">
-                <div class="transform group-hover:scale-110 transition-transform duration-300">
-                    {% service_icon_svg service forloop.counter0 %}
-                </div>
             </div>
             {% endif %}
 
             {# --- Card Body --- #}
             <div class="p-6 flex flex-col flex-grow">
-                <h3 class="text-xl font-bold text-gray-900 mb-2 group-hover:text-brand-700 transition-colors">
-                    {{ service.title }}
-                </h3>
+                <div class="flex items-center gap-3 mb-2">
+                    {% if not service.service_image %}
+                    <div class="flex-shrink-0">
+                        {% service_icon_svg service forloop.counter0 size="w-8 h-8" %}
+                    </div>
+                    {% endif %}
+                    <h3 class="text-xl font-bold text-gray-900 group-hover:text-brand-700 transition-colors">
+                        {{ service.title }}
+                    </h3>
+                </div>
                 <p class="text-gray-600 text-sm leading-relaxed mb-6 flex-grow">
                     {{ service.short_summary }}
                 </p>
