@@ -264,6 +264,16 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "wagtail": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "booking": {
             "handlers": ["console"],
             "level": "INFO",
