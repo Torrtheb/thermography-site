@@ -186,19 +186,40 @@ def add_action_required_panel(request, panels):
 
 @hooks.register("insert_global_admin_js")
 def deposit_action_csrf_fill():
-    """Fill CSRF tokens into deposit action POST forms rendered by Deposit.email_status_display().
+    """Fill CSRF tokens into deposit action POST forms.
 
-    The model method can't access the request, so it renders placeholder tokens.
-    This script reads the csrftoken cookie and fills them in client-side.
+    The model method email_status_display() renders forms with empty
+    csrfmiddlewaretoken placeholders (class="js-csrf-token-placeholder")
+    because it has no access to the request.  This script fills them.
+
+    Token sources (tried in order):
+      1. An existing csrfmiddlewaretoken input already on the page
+         (Wagtail renders these in its own forms)
+      2. The csrftoken cookie
+
+    A MutationObserver re-fills tokens when Wagtail dynamically updates
+    the snippet list (e.g. filtering, pagination).
     """
     from django.utils.safestring import mark_safe
     return mark_safe(
         '<script>'
         '(function(){'
-        '  var c=document.cookie.match(/csrftoken=([^;]+)/);'
-        '  if(!c)return;'
-        '  document.querySelectorAll(".js-csrf-token-placeholder")'
-        '    .forEach(function(el){el.value=c[1];});'
+        '  function getToken(){'
+        '    var el=document.querySelector("input[name=csrfmiddlewaretoken][value]");'
+        '    if(el&&el.value)return el.value;'
+        '    var c=document.cookie.match(/csrftoken=([^;]+)/);'
+        '    return c?c[1]:"";'
+        '  }'
+        '  function fill(){'
+        '    var t=getToken();if(!t)return;'
+        '    document.querySelectorAll(".js-csrf-token-placeholder")'
+        '      .forEach(function(el){if(!el.value)el.value=t;});'
+        '  }'
+        '  fill();'
+        '  document.addEventListener("DOMContentLoaded",fill);'
+        '  new MutationObserver(fill)'
+        '    .observe(document.body||document.documentElement,'
+        '      {childList:true,subtree:true});'
         '})();'
         '</script>'
     )

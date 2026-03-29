@@ -40,7 +40,7 @@
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
                         <td style="padding:0.4rem 0.5rem;">
                             <form method="post" action="/admin/deposits/{{ dep.pk }}/approve/" style="display:inline;">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="" class="js-csrf-token-placeholder">
+                                {% csrf_token %}
                                 <button type="submit"
                                    style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
                                           border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
@@ -82,7 +82,7 @@
                         <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
                         <td style="padding:0.4rem 0.5rem;">
                             <form method="post" action="/admin/deposits/{{ dep.pk }}/send-confirmation/" style="display:inline;">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="" class="js-csrf-token-placeholder">
+                                {% csrf_token %}
                                 <button type="submit"
                                    style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
                                           border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
