@@ -89,44 +89,32 @@
     {% if services %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {% for service in services %}
-        {% service_icon_color service forloop.counter0 as accent_color %}
+        {% cycle 'bg-teal-700 hover:bg-teal-600 border-teal-600' 'bg-sky-700 hover:bg-sky-600 border-sky-600' 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600' 'bg-cyan-700 hover:bg-cyan-600 border-cyan-600' 'bg-indigo-700 hover:bg-indigo-600 border-indigo-600' 'bg-slate-700 hover:bg-slate-600 border-slate-600' as card_colors silent %}
         <a href="{% pageurl service %}"
-           class="group bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg hover:border-brand-300 transition-all duration-300 overflow-hidden flex flex-col"
-           style="border-top: 3px solid {{ accent_color }};"
+           class="group rounded-xl p-6 border shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col {{ card_colors }}"
            data-aos="fade-up"
            data-aos-delay="{% cycle '0' '100' '200' %}">
 
             {# --- Service Image (only if uploaded) --- #}
             {% if service.service_image %}
-            <div class="h-48 overflow-hidden">
+            <div class="h-48 -mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl">
                 {% image service.service_image fill-400x200 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt=service.title %}
             </div>
             {% endif %}
 
-            {# --- Card Body --- #}
-            <div class="p-6 flex flex-col flex-grow">
-                <div class="flex items-center gap-3 mb-2">
-                    {% if not service.service_image %}
-                    <div class="flex-shrink-0">
-                        {% service_icon_svg service forloop.counter0 size="w-8 h-8" %}
-                    </div>
-                    {% endif %}
-                    <h3 class="text-xl font-bold text-gray-900 group-hover:text-brand-700 transition-colors">
-                        {{ service.title }}
-                    </h3>
-                </div>
-                <p class="text-gray-600 text-sm leading-relaxed mb-6 flex-grow">
-                    {{ service.short_summary }}
-                </p>
+            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-white/90 transition">
+                {{ service.title }}
+            </h3>
+            <p class="text-white/75 text-sm leading-relaxed mb-6 flex-grow">
+                {{ service.short_summary }}
+            </p>
 
-                {# --- Learn More (no price shown) --- #}
-                <span class="inline-flex items-center justify-center gap-2 text-brand-600 font-medium text-sm group-hover:text-brand-700 transition-colors mt-auto">
-                    Learn more
-                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                    </svg>
-                </span>
-            </div>
+            <span class="inline-flex items-center gap-2 text-white/60 group-hover:text-white/80 text-sm font-medium transition mt-auto">
+                Learn more
+                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+            </span>
         </a>
         {% endfor %}
     </div>
