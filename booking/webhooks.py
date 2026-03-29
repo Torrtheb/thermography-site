@@ -4,17 +4,28 @@ Cal.com API integration — confirm, decline, and cancel bookings.
 
 Handled webhook events:
   BOOKING_REQUESTED → creates Client + Deposit (awaiting_review)
+                      + creates placeholder bookings on sibling event types
+                        to prevent cross-service double-booking
   BOOKING_CREATED   → creates deposit for new bookings, OR confirms existing
                       deposit when owner confirms a requested booking in Cal.com
-  BOOKING_CANCELLED → forfeits the deposit
-  BOOKING_REJECTED  → forfeits the deposit (owner declined in Cal.com)
+                      + cancels placeholder bookings (slot now confirmed)
+  BOOKING_CANCELLED → forfeits the deposit + cancels placeholders
+  BOOKING_REJECTED  → forfeits the deposit + cancels placeholders
   BOOKING_RESCHEDULED → updates deposit date and booking UID
+                        + cancels old placeholders, creates new ones
 
 Wagtail → Cal.com actions:
   "Approve & Send" → sends deposit request email (no Cal.com API call needed)
-  "Mark Received & Confirm" → confirms booking via Cal.com API
-  "Reject & Cancel" → declines booking via Cal.com API
-  48-hour expiry cron → cancels booking via Cal.com API
+  "Mark Received & Confirm" → confirms booking via Cal.com API + cancels placeholders
+  "Reject & Cancel" → declines booking via Cal.com API + cancels placeholders
+  48-hour expiry cron → cancels booking via Cal.com API + cancels placeholders
+
+Cross-event-type slot blocking:
+  Cal.com has a known bug (#23069) where unconfirmed bookings only block
+  slots within the same event type. To work around this, when a
+  BOOKING_REQUESTED webhook arrives, we create placeholder bookings on all
+  sibling event types at the same location for the same time slot. These
+  are automatically cancelled when the original booking is resolved.
 
 Setup (one-time):
   1. In Cal.com → Settings → Developer → Webhooks, create a new webhook:
@@ -40,8 +51,10 @@ import hmac
 import json
 import logging
 import re
-import urllib.request
+import threading
 import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import date
 from decimal import Decimal
 
@@ -101,7 +114,7 @@ def _calcom_api_post(path, body_dict=None):
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            resp_body = resp.read().decode("utf-8", errors="replace")[:500]
+            resp_body = resp.read().decode("utf-8", errors="replace")[:2000]
             logger.info("Cal.com API %s → %d: %s", path, resp.status, resp_body[:200])
             return True, resp_body
     except urllib.error.HTTPError as e:
@@ -111,6 +124,48 @@ def _calcom_api_post(path, body_dict=None):
     except Exception as exc:
         logger.warning("Cal.com API %s → exception: %s", path, exc)
         return False, str(exc)
+
+
+def _calcom_api_get(path, params=None):
+    """
+    Make an authenticated GET to the Cal.com v2 API.
+
+    Returns (success: bool, parsed_json: dict | None).
+    """
+    api_key = getattr(settings, "CAL_API_KEY", "")
+    if not api_key:
+        logger.warning("CAL_API_KEY not configured — cannot call %s", path)
+        return False, None
+
+    if not path.startswith("/v2/"):
+        logger.error("Rejecting Cal.com API call to unexpected path: %s", path)
+        return False, None
+
+    url = f"https://api.cal.com{path}"
+    if params:
+        url += "?" + "&".join(f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in params.items())
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "cal-api-version": "2024-06-14",
+        "User-Agent": "ThermographyClinic/1.0",
+        "Accept": "application/json",
+    }
+
+    req = urllib.request.Request(url, method="GET", headers=headers)
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_body = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(resp_body)
+            return True, data
+    except urllib.error.HTTPError as e:
+        resp_body = e.read().decode("utf-8", errors="replace")[:500]
+        logger.warning("Cal.com API GET %s → HTTP %d: %s", path, e.code, resp_body)
+        return False, None
+    except Exception as exc:
+        logger.warning("Cal.com API GET %s → exception: %s", path, exc)
+        return False, None
 
 
 def cancel_calcom_booking(booking_uid, reason=""):
@@ -202,6 +257,181 @@ def decline_calcom_booking(booking_uid, reason=""):
 
 
 # ──────────────────────────────────────────────────────────
+# Cross-event-type slot blocking via placeholder bookings
+# ──────────────────────────────────────────────────────────
+
+_PLACEHOLDER_ATTENDEE_NAME = "SLOT HOLD"
+_PLACEHOLDER_TIMEZONE = "America/Vancouver"
+
+
+def _parse_cal_url(cal_booking_url):
+    """Extract (username, event_slug) from a Cal.com URL.
+
+    Expects URLs like https://cal.com/username/event-slug
+    Returns (username, event_slug) or (None, None) on failure.
+    """
+    if not cal_booking_url:
+        return None, None
+    try:
+        path = urllib.parse.urlparse(cal_booking_url).path.strip("/")
+        parts = path.split("/")
+        if len(parts) >= 2:
+            return parts[0], parts[1]
+    except Exception:
+        pass
+    return None, None
+
+
+def _get_sibling_event_slugs(event_title, inferred_location):
+    """Find Cal.com event slugs for other services at the same location.
+
+    Uses the LocationServiceLink table — no API call needed.
+    Returns a list of (username, event_slug) tuples, excluding the
+    event type that matches the current booking's event title.
+    """
+    from booking.models import Location, LocationServiceLink
+
+    if not inferred_location:
+        return []
+
+    location = Location.objects.filter(name=inferred_location).first()
+    if not location:
+        return []
+
+    title_lower = (event_title or "").lower()
+    siblings = []
+    for link in LocationServiceLink.objects.filter(location=location).select_related("service"):
+        username, slug = _parse_cal_url(link.cal_booking_url)
+        if not username or not slug:
+            continue
+        if link.service.title.lower() in title_lower or title_lower in link.service.title.lower():
+            continue
+        siblings.append((username, slug))
+
+    return siblings
+
+
+def _create_placeholder_bookings(booking_uid, start_time, event_title, inferred_location):
+    """Create placeholder bookings on sibling event types to block the time slot.
+
+    Called in a background thread from the BOOKING_REQUESTED handler.
+    """
+    from booking.models import PlaceholderBooking
+
+    if not booking_uid or not start_time:
+        return
+
+    siblings = _get_sibling_event_slugs(event_title, inferred_location)
+    if not siblings:
+        logger.info("No sibling event types found for '%s' — no placeholders needed", event_title)
+        return
+
+    placeholder_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost")
+
+    created_count = 0
+    for username, slug in siblings:
+        body = {
+            "start": start_time,
+            "eventTypeSlug": slug,
+            "username": username,
+            "attendee": {
+                "name": _PLACEHOLDER_ATTENDEE_NAME,
+                "email": placeholder_email,
+                "timeZone": _PLACEHOLDER_TIMEZONE,
+                "language": "en",
+            },
+            "metadata": {
+                "placeholder": "true",
+                "originalBookingUid": booking_uid,
+            },
+        }
+
+        ok, resp_body = _calcom_api_post("/v2/bookings", body)
+        if not ok:
+            logger.warning(
+                "Failed to create placeholder on %s/%s for booking %s: %s",
+                username, slug, booking_uid, resp_body,
+            )
+            continue
+
+        try:
+            resp_data = json.loads(resp_body) if isinstance(resp_body, str) else resp_body
+            ph_uid = resp_data.get("data", {}).get("uid", "")
+        except (json.JSONDecodeError, AttributeError):
+            ph_uid = ""
+
+        if ph_uid:
+            PlaceholderBooking.objects.create(
+                original_booking_uid=booking_uid,
+                placeholder_booking_uid=ph_uid,
+            )
+            created_count += 1
+
+            ph_status = resp_data.get("data", {}).get("status", "")
+            if ph_status == "pending":
+                confirm_calcom_booking(ph_uid)
+        else:
+            logger.warning("Placeholder booking on %s/%s returned no UID", username, slug)
+
+    logger.info(
+        "Created %d placeholder booking(s) for original uid=%s at %s",
+        created_count, booking_uid, inferred_location,
+    )
+
+
+def cancel_placeholder_bookings(original_booking_uid):
+    """Cancel all placeholder bookings for the given original booking UID.
+
+    Called when the original booking is confirmed, cancelled, rejected,
+    or expires. Safe to call multiple times.
+    """
+    from booking.models import PlaceholderBooking
+
+    placeholders = list(
+        PlaceholderBooking.objects.filter(original_booking_uid=original_booking_uid)
+    )
+    if not placeholders:
+        return
+
+    for ph in placeholders:
+        cancel_calcom_booking(
+            ph.placeholder_booking_uid,
+            reason="Slot hold released — original booking resolved.",
+        )
+        ph.delete()
+
+    logger.info(
+        "Cancelled %d placeholder booking(s) for original uid=%s",
+        len(placeholders), original_booking_uid,
+    )
+
+
+def cleanup_stale_placeholders(max_age_hours=72):
+    """Cancel placeholder bookings older than max_age_hours.
+
+    Safety net for orphaned placeholders (e.g. webhook delivery failures).
+    Called from the cron endpoint alongside deposit expiry.
+    """
+    from django.utils import timezone as tz
+    from booking.models import PlaceholderBooking
+
+    cutoff = tz.now() - tz.timedelta(hours=max_age_hours)
+    stale = list(PlaceholderBooking.objects.filter(created_at__lt=cutoff))
+    if not stale:
+        return 0
+
+    for ph in stale:
+        cancel_calcom_booking(
+            ph.placeholder_booking_uid,
+            reason="Slot hold expired — automatic cleanup.",
+        )
+        ph.delete()
+
+    logger.info("Cleaned up %d stale placeholder booking(s)", len(stale))
+    return len(stale)
+
+
+# ──────────────────────────────────────────────────────────
 # Shared expiry logic — used by both cron endpoint and management command
 # ──────────────────────────────────────────────────────────
 
@@ -242,7 +472,7 @@ def expire_pending_deposits(hours=48):
     for deposit in expired_list:
         was_awaiting = deposit.status == "awaiting_review"
 
-        # 1. Cancel/decline the Cal.com booking
+        # 1. Cancel/decline the Cal.com booking and release placeholder holds
         if deposit.cal_booking_uid:
             if was_awaiting:
                 decline_calcom_booking(
@@ -251,6 +481,7 @@ def expire_pending_deposits(hours=48):
                 )
             else:
                 cancel_calcom_booking(deposit.cal_booking_uid)
+            cancel_placeholder_bookings(deposit.cal_booking_uid)
 
         # 2. Update deposit status
         if was_awaiting:
@@ -415,7 +646,7 @@ def _infer_location_from_event(event_title):
 
 
 
-def _handle_booking_created(payload):
+def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
 
     The deposit request email is NOT sent automatically — the owner must
@@ -426,8 +657,17 @@ def _handle_booking_created(payload):
       - last_appointment_date  (from startTime)
       - clinic_location        (inferred from eventTitle ↔ Location names)
       - previous_visit_reason  (set to the Cal.com event title)
+
+    For BOOKING_REQUESTED events, also creates placeholder bookings on
+    sibling event types at the same location to prevent double-booking.
     """
     from clients.models import Client, Deposit
+
+    # Skip webhooks fired for our own placeholder bookings to avoid infinite loops
+    metadata = payload.get("metadata", {}) or {}
+    if metadata.get("placeholder") == "true":
+        logger.info("Skipping webhook for placeholder booking uid=%s", payload.get("uid", ""))
+        return
 
     attendees = payload.get("attendees", [])
     if not attendees:
@@ -437,6 +677,11 @@ def _handle_booking_created(payload):
     attendee = attendees[0]
     client_email = attendee.get("email", "").strip()
     client_name = attendee.get("name", "").strip()
+
+    if client_name == _PLACEHOLDER_ATTENDEE_NAME:
+        logger.info("Skipping webhook for placeholder booking (attendee name match)")
+        return
+
     booking_uid = payload.get("uid", "")
     reschedule_uid = payload.get("rescheduleUid", "") or payload.get("rescheduleuid", "")
     start_time = payload.get("startTime", "")
@@ -474,6 +719,9 @@ def _handle_booking_created(payload):
                 logger.info("Deposit pk=%s → confirmed (owner confirmed in Cal.com, BOOKING_CREATED)", existing.pk)
             else:
                 logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s (status=%s)", booking_uid, existing.status)
+            threading.Thread(
+                target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
+            ).start()
             return
 
     # Infer location from the event title; use the title itself as the visit reason
@@ -538,6 +786,16 @@ def _handle_booking_created(payload):
     except Exception:
         logger.exception("Failed to send owner new-booking notice for deposit pk=%s", deposit.pk)
 
+    # Block sibling event types at the same location to prevent double-booking.
+    # Only for BOOKING_REQUESTED (pending confirmation) — not for instantly
+    # confirmed bookings, which Cal.com handles natively.
+    if trigger_event == "BOOKING_REQUESTED" and booking_uid and start_time:
+        threading.Thread(
+            target=_create_placeholder_bookings,
+            args=(booking_uid, start_time, event_title, inferred_location),
+            daemon=True,
+        ).start()
+
 
 def _handle_booking_confirmed(payload):
     """Update deposit status when the owner confirms a booking in Cal.com."""
@@ -560,6 +818,10 @@ def _handle_booking_confirmed(payload):
         deposit.notes = (deposit.notes or "") + "\nDeposit confirmed — booking confirmed in Cal.com."
         deposit.save(update_fields=["status", "deposit_confirmed_sent", "notes", "updated_at"])
         logger.info("Deposit pk=%s → confirmed (via Cal.com webhook)", deposit.pk)
+
+    threading.Thread(
+        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
+    ).start()
 
 
 def _handle_booking_cancelled(payload):
@@ -591,6 +853,10 @@ def _handle_booking_cancelled(payload):
         deposit.save(update_fields=["status", "notes", "updated_at"])
         logger.info("Deposit pk=%s forfeited (%s)", deposit.pk, reason)
 
+    threading.Thread(
+        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
+    ).start()
+
 
 def _handle_booking_rejected(payload):
     """Auto-forfeit the deposit when the owner rejects a booking in Cal.com."""
@@ -612,6 +878,10 @@ def _handle_booking_rejected(payload):
         deposit.notes = (deposit.notes or "") + "\nAuto-forfeited: booking rejected by owner in Cal.com."
         deposit.save(update_fields=["status", "notes", "updated_at"])
         logger.info("Deposit pk=%s forfeited (rejected in Cal.com)", deposit.pk)
+
+    threading.Thread(
+        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
+    ).start()
 
 
 def _handle_booking_rescheduled(payload):
@@ -665,6 +935,7 @@ def _handle_booking_rescheduled(payload):
         deposit.service_name = new_title
         update_fields.append("service_name")
 
+    old_uid = reschedule_uid or deposit.cal_booking_uid
     deposit.save(update_fields=update_fields)
     logger.info("Deposit pk=%s updated from BOOKING_RESCHEDULED (new uid=%s, date=%s)",
                 deposit.pk, booking_uid, new_date)
@@ -675,6 +946,19 @@ def _handle_booking_rescheduled(payload):
         if client.last_appointment_date != new_date:
             client.last_appointment_date = new_date
             client.save(update_fields=["last_appointment_date", "updated_at"])
+
+    # Cancel old placeholders and create new ones for the new time slot
+    if old_uid:
+        threading.Thread(
+            target=cancel_placeholder_bookings, args=(old_uid,), daemon=True,
+        ).start()
+    if booking_uid and new_start:
+        inferred_location = _infer_location_from_event(new_title)
+        threading.Thread(
+            target=_create_placeholder_bookings,
+            args=(booking_uid, new_start, new_title, inferred_location),
+            daemon=True,
+        ).start()
 
 
 @csrf_exempt
@@ -708,7 +992,10 @@ def calcom_webhook_view(request):
     handler = handlers.get(trigger)
     if handler:
         try:
-            handler(payload)
+            if handler is _handle_booking_created:
+                handler(payload, trigger_event=trigger)
+            else:
+                handler(payload)
         except Exception:
             logger.exception("Error handling %s webhook", trigger)
     else:
@@ -752,5 +1039,6 @@ def cron_expire_deposits_view(request):
         return JsonResponse({"error": "unauthorized"}, status=403)
 
     count = expire_pending_deposits(hours=48)
+    stale = cleanup_stale_placeholders(max_age_hours=72)
 
-    return JsonResponse({"ok": True, "forfeited": count})
+    return JsonResponse({"ok": True, "forfeited": count, "stale_placeholders_cleaned": stale})

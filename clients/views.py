@@ -501,8 +501,9 @@ def _send_deposit_confirmation_action(request, deposit_id):
     deposit.save(update_fields=["status", "deposit_confirmed_sent", "updated_at"])
 
     if deposit.cal_booking_uid:
-        from booking.webhooks import confirm_calcom_booking
+        from booking.webhooks import confirm_calcom_booking, cancel_placeholder_bookings
         _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        _send_email_async(cancel_placeholder_bookings, deposit.cal_booking_uid)
         messages.success(request, f"Confirming Cal.com booking for {client_name}…")
     else:
         messages.success(request, f"Booking confirmed for {client_name}.")
@@ -589,8 +590,9 @@ def _mark_received_action(request, deposit_id):
     client_name = deposit.client.name if deposit.client_id else "Unknown"
 
     if deposit.cal_booking_uid:
-        from booking.webhooks import confirm_calcom_booking
+        from booking.webhooks import confirm_calcom_booking, cancel_placeholder_bookings
         _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        _send_email_async(cancel_placeholder_bookings, deposit.cal_booking_uid)
         messages.success(request, f"Deposit received! Confirming Cal.com booking for {client_name}…")
     else:
         messages.success(request, f"Deposit received and booking confirmed for {client_name}.")
@@ -628,11 +630,12 @@ def _reject_deposit_action(request, deposit_id):
     client_name = deposit.client.name if deposit.client_id else "Unknown"
 
     if deposit.cal_booking_uid:
-        from booking.webhooks import decline_calcom_booking, cancel_calcom_booking
+        from booking.webhooks import decline_calcom_booking, cancel_calcom_booking, cancel_placeholder_bookings
         if old_status == "awaiting_review":
             _send_email_async(decline_calcom_booking, deposit.cal_booking_uid, reason="Booking declined by organizer.")
         else:
             _send_email_async(cancel_calcom_booking, deposit.cal_booking_uid, reason="Booking cancelled by organizer.")
+        _send_email_async(cancel_placeholder_bookings, deposit.cal_booking_uid)
         messages.success(request, f"Rejected! Cancelling booking for {client_name} in Cal.com…")
     else:
         messages.success(request, f"Deposit for {client_name} has been forfeited.")
@@ -675,8 +678,9 @@ def _waive_deposit_action(request, deposit_id):
     client_name = deposit.client.name if deposit.client_id else "Unknown"
 
     if deposit.cal_booking_uid:
-        from booking.webhooks import confirm_calcom_booking
+        from booking.webhooks import confirm_calcom_booking, cancel_placeholder_bookings
         _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        _send_email_async(cancel_placeholder_bookings, deposit.cal_booking_uid)
         messages.success(request, f"Fee waived! Confirming Cal.com booking for {client_name}…")
     else:
         messages.success(request, f"Fee waived and booking confirmed for {client_name}.")

@@ -256,6 +256,43 @@ class LocationServiceLink(models.Model):
 
 
 # ──────────────────────────────────────────────────────────
+# PlaceholderBooking — cross-event-type slot blocking
+# ──────────────────────────────────────────────────────────
+
+class PlaceholderBooking(models.Model):
+    """
+    Tracks placeholder bookings created on sibling Cal.com event types
+    to work around a Cal.com bug where unconfirmed bookings only block
+    slots within the same event type, not across other event types.
+
+    When a real booking request arrives, we create placeholder bookings
+    on all other event types at the same location for the same time slot.
+    These are cancelled when the original booking is confirmed, cancelled,
+    rejected, or expires.
+    """
+
+    original_booking_uid = models.CharField(
+        max_length=200,
+        db_index=True,
+        help_text="Cal.com UID of the real booking that triggered these placeholders.",
+    )
+    placeholder_booking_uid = models.CharField(
+        max_length=200,
+        unique=True,
+        help_text="Cal.com UID of the placeholder booking to cancel later.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Placeholder booking"
+        verbose_name_plural = "Placeholder bookings"
+
+    def __str__(self):
+        return f"Placeholder {self.placeholder_booking_uid} (for {self.original_booking_uid})"
+
+
+# ──────────────────────────────────────────────────────────
 # BookingPage (Wagtail Page — the public /booking/ URL)
 # ──────────────────────────────────────────────────────────
 
