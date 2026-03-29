@@ -121,48 +121,33 @@
 </section>
 {% endif %}
 
-{# ========== SECTION 3: THERMOGRAPHER PROFILES ========== #}
-{% if page.thermographers_heading and page.thermographers.all %}
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-    <hr class="border-gray-200">
-</div>
+{# ========== SECTION 3: PROFESSIONAL IMAGING & REPORTING ========== #}
+{% if page.imaging_heading and page.imaging_body %}
+<section class="bg-brand-900 text-white py-16 md:py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col md:flex-row items-center gap-10 md:gap-16" data-aos="fade-up">
 
-<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div class="text-center mb-12" data-aos="fade-up">
-        <h2 class="text-3xl font-bold text-gray-900">{{ page.thermographers_heading }}</h2>
-    </div>
+            {# --- Text --- #}
+            <div class="md:w-3/5">
+                <p class="text-brand-300 font-semibold text-sm uppercase tracking-widest mb-3">How It Works</p>
+                <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                    {{ page.imaging_heading }}
+                </h2>
+                <div class="prose prose-lg prose-invert max-w-none text-white/85 leading-relaxed">
+                    {{ page.imaging_body|richtext }}
+                </div>
+            </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-        {% for person in page.thermographers.all %}
-        <div class="flex flex-col sm:flex-row items-start gap-6 bg-white border border-gray-200 rounded-xl shadow-sm p-6" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:0 }}00">
-            {% if person.photo %}
-            <div class="w-28 h-28 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                {% image person.photo max-224x224 class="max-w-full max-h-full object-contain rounded-lg shadow" alt=person.name %}
+            {# --- Image --- #}
+            {% if page.imaging_image %}
+            <div class="md:w-2/5">
+                <div class="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+                    {% image page.imaging_image fill-500x600 class="w-full h-auto" alt=page.imaging_heading %}
+                </div>
             </div>
             {% endif %}
-            <div class="flex-1">
-                <h3 class="text-xl font-bold text-gray-900 mb-1">{{ person.name }}</h3>
-                {% if person.role %}
-                <p class="text-brand-600 font-medium text-sm mb-3">{{ person.role }}</p>
-                {% endif %}
-                {% if person.bio %}
-                <div class="prose prose-sm prose-teal max-w-none">
-                    <div id="bio-short-{{ forloop.counter }}">
-                        {{ person.bio|richtext|truncatewords_html:40 }}
-                    </div>
-                    <div id="bio-full-{{ forloop.counter }}" class="hidden">
-                        {{ person.bio|richtext }}
-                    </div>
-                    <button
-                        type="button"
-                        onclick="document.getElementById('bio-short-{{ forloop.counter }}').classList.toggle('hidden'); document.getElementById('bio-full-{{ forloop.counter }}').classList.toggle('hidden'); this.textContent = this.textContent === 'Read more' ? 'Read less' : 'Read more';"
-                        class="text-brand-600 hover:text-brand-700 font-medium text-sm mt-2 transition"
-                    >Read more</button>
-                </div>
-                {% endif %}
-            </div>
+
         </div>
-        {% endfor %}
     </div>
 </section>
 {% endif %}

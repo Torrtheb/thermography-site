@@ -182,12 +182,35 @@ class TechnicianPage(Page):
         help_text="Optional second image (e.g. the mobile clinic or community event).",
     )
 
-    # ── Section 3: Thermographer Profiles ──────────────────────
+    # ── Section 3: Thermographer Profiles (legacy — kept for migration compat)
     thermographers_heading = models.CharField(
         max_length=200,
         default="People Reading Your Thermograms",
         blank=True,
-        help_text="Heading for the thermographer profiles section. Leave blank to hide.",
+        help_text="(Legacy) Heading for the old thermographer cards. Use the Imaging & Reporting fields instead.",
+    )
+
+    # ── Section 3 (new): Professional Imaging & Reporting ────
+    imaging_heading = models.CharField(
+        max_length=200,
+        default="Professional Imaging and Reporting",
+        blank=True,
+        help_text="Heading for the imaging and reporting section. Leave blank to hide the section.",
+    )
+
+    imaging_body = RichTextField(
+        blank=True,
+        help_text="Description of the imaging and reporting process — who reads the scans, "
+                  "turnaround times, what clients receive, etc.",
+    )
+
+    imaging_image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Image for this section (e.g. a sample report, the imaging room, or professional equipment).",
     )
 
     # ── Section 4: Reach Out / Contact CTA ─────────────────────
@@ -304,10 +327,12 @@ class TechnicianPage(Page):
         ),
         MultiFieldPanel(
             [
-                FieldPanel("thermographers_heading"),
-                InlinePanel("thermographers", label="Thermographer", min_num=0, max_num=10),
+                FieldPanel("imaging_heading"),
+                FieldPanel("imaging_body"),
+                FieldPanel("imaging_image"),
             ],
-            heading="Section 3 — People Reading Your Thermograms",
+            heading="Section 3 — Professional Imaging & Reporting",
+            help_text="Describe how scans are interpreted, who reads them, and what clients receive.",
         ),
         MultiFieldPanel(
             [
@@ -349,6 +374,7 @@ class TechnicianPage(Page):
         index.SearchField("bio"),
         index.SearchField("credentials"),
         index.SearchField("clinic_description"),
+        index.SearchField("imaging_body"),
     ]
 
     max_count = 1
