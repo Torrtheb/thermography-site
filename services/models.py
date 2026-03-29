@@ -165,7 +165,7 @@ class ServicesIndexPage(Page):
         """
         context = super().get_context(request, *args, **kwargs)
         context["services"] = (
-            ServicePage.objects.child_of(self).live().public().order_by("title")
+            ServicePage.objects.child_of(self).live().public().order_by("sort_order", "title")
         )
         return context
 
@@ -213,6 +213,11 @@ class ServicePage(Page):
         max_length=250,
         blank=True,
         help_text="Optional caption displayed below the service image.",
+    )
+
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Lower numbers appear first. Services with the same number sort alphabetically.",
     )
 
     is_featured = models.BooleanField(
@@ -266,6 +271,7 @@ class ServicePage(Page):
             ],
             heading="Service Image",
         ),
+        FieldPanel("sort_order"),
         FieldPanel("is_featured"),
         MultiFieldPanel(
             [

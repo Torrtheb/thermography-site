@@ -20,7 +20,7 @@ def get_services(featured_only=False):
     """Return live ServicePage instances, optionally filtered to featured only."""
     from services.models import ServicePage
 
-    qs = ServicePage.objects.live().public().order_by("title")
+    qs = ServicePage.objects.live().public().order_by("sort_order", "title")
     if featured_only:
         qs = qs.filter(is_featured=True)
     return qs
