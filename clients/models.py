@@ -247,7 +247,8 @@ class ClientReport(models.Model):
 DEPOSIT_STATUS_CHOICES = [
     ("awaiting_review", "Awaiting Review — owner must approve"),
     ("pending", "Pending — deposit request sent, awaiting payment"),
-    ("received", "Received"),
+    ("received", "Received — deposit paid"),
+    ("confirmed", "Confirmed — booking confirmed in Cal.com"),
     ("forfeited", "Forfeited — client cancelled / no-show"),
     ("applied", "Applied to service fee"),
     ("refunded", "Refunded (exception)"),
@@ -417,50 +418,41 @@ class Deposit(index.Indexed, models.Model):
         return self.client.email if self.client_id else "—"
     client_email_display.short_description = "Email"
 
-    def status_badge(self):
-        """HTML status badge for the admin listing."""
-        from django.utils.html import format_html
-        colours = {
-            "awaiting_review": ("🔍 Needs Review", "#6d28d9", "#ede9fe"),
-            "pending": ("⏳ Deposit Requested", "#856404", "#fff3cd"),
-            "received": ("✅ Received", "#155724", "#d4edda"),
-            "forfeited": ("🚫 Forfeited", "#721c24", "#f8d7da"),
-            "applied": ("💰 Applied", "#004085", "#cce5ff"),
-            "refunded": ("↩️ Refunded", "#6c757d", "#e2e3e5"),
-        }
-        label, fg, bg = colours.get(self.status, ("Unknown", "#333", "#eee"))
-        return format_html(
-            '<span style="color:{}; background:{}; padding:2px 8px; '
-            'border-radius:4px; font-size:0.8rem; font-weight:600;">{}</span>',
-            fg, bg, label,
-        )
-    status_badge.short_description = "Status"
-
-    def email_status_display(self):
-        """Show contextual action buttons in the admin listing.
-
-        Uses inline POST forms with CSRF tokens so state-changing actions
-        cannot be triggered by GET requests or cross-site link injection.
-        """
+    def status_and_actions(self):
+        """Combined status badge + contextual action buttons for the admin listing."""
         from django.utils.safestring import mark_safe
 
-        parts = []
-
-        btn_style = (
-            'display:inline-block; padding:3px 8px; border-radius:4px; '
-            'font-size:0.75rem; font-weight:600; border:none; cursor:pointer;'
+        badge_styles = {
+            "awaiting_review": ("🔍 Needs Review", "#6d28d9", "#ede9fe"),
+            "pending":         ("⏳ Awaiting Deposit", "#856404", "#fff3cd"),
+            "received":        ("💰 Deposit Received", "#155724", "#d4edda"),
+            "confirmed":       ("✅ Booked", "#004085", "#cce5ff"),
+            "forfeited":       ("🚫 Forfeited", "#721c24", "#f8d7da"),
+            "applied":         ("💰 Applied", "#065f46", "#d1fae5"),
+            "refunded":        ("↩️ Refunded", "#6c757d", "#e2e3e5"),
+        }
+        label, fg, bg = badge_styles.get(self.status, ("Unknown", "#333", "#eee"))
+        badge = (
+            f'<span style="color:{fg}; background:{bg}; padding:2px 8px; '
+            f'border-radius:4px; font-size:0.8rem; font-weight:600; '
+            f'white-space:nowrap;">{label}</span>'
         )
-        tag = 'color:#155724; background:#d4edda; padding:2px 6px; border-radius:4px; font-size:0.75rem;'
 
-        def _post_button(url, label, bg_color, confirm_msg=""):
+        btn = (
+            'display:inline-block; padding:3px 8px; border-radius:4px; '
+            'font-size:0.75rem; font-weight:600; border:none; cursor:pointer; '
+            'white-space:nowrap;'
+        )
+
+        def _post_button(url, text, bg_color, confirm_msg=""):
             onclick = f"return confirm('{confirm_msg}');" if confirm_msg else ""
             return (
                 f'<form method="post" action="{url}" style="display:inline;">'
                 f'<input type="hidden" name="csrfmiddlewaretoken" '
                 f'value="" class="js-csrf-token-placeholder">'
-                f'<button type="submit" style="color:#fff; background:{bg_color}; {btn_style}" '
+                f'<button type="submit" style="color:#fff; background:{bg_color}; {btn}" '
                 f'{f"onclick={chr(34)}{onclick}{chr(34)}" if onclick else ""}>'
-                f'{label}</button></form>'
+                f'{text}</button></form>'
             )
 
         reject_btn = _post_button(
@@ -469,36 +461,35 @@ class Deposit(index.Indexed, models.Model):
             confirm_msg="Reject this booking and cancel in Cal.com?",
         )
 
+        actions = ""
         if self.status == "awaiting_review":
-            parts.append(_post_button(
-                f"/admin/deposits/{self.pk}/approve/",
-                "✅ Approve &amp; Send Deposit Request", "#6d28d9",
-            ))
-            parts.append(reject_btn)
+            actions = (
+                _post_button(
+                    f"/admin/deposits/{self.pk}/approve/",
+                    "✅ Approve &amp; Send", "#6d28d9",
+                )
+                + " " + reject_btn
+            )
         elif self.status == "pending":
-            parts.append(f'<span style="{tag}">📧 Request sent</span>')
-            parts.append(_post_button(
-                f"/admin/deposits/{self.pk}/mark-received/",
-                "💰 Mark Received &amp; Confirm", "#2563eb",
-            ))
-            parts.append(reject_btn)
+            actions = (
+                _post_button(
+                    f"/admin/deposits/{self.pk}/mark-received/",
+                    "💰 Mark Received", "#2563eb",
+                )
+                + " " + reject_btn
+            )
         elif self.status == "received":
-            if self.deposit_confirmed_sent:
-                parts.append(f'<span style="{tag}">✅ Confirmed</span>')
-            else:
-                parts.append(_post_button(
-                    f"/admin/deposits/{self.pk}/send-confirmation/",
-                    "✅ Confirm in Cal.com", "#059669",
-                ))
-        elif self.deposit_request_sent:
-            parts.append(f'<span style="{tag}">📧 Request sent</span>')
-        else:
-            parts.append(_post_button(
-                f"/admin/deposits/{self.pk}/send-request/",
-                "📧 Send deposit request", "#d97706",
-            ))
+            actions = _post_button(
+                f"/admin/deposits/{self.pk}/send-confirmation/",
+                "✅ Confirm Booking", "#059669",
+            )
 
-        return mark_safe(" ".join(parts))
-    email_status_display.short_description = "Actions"
+        if actions:
+            return mark_safe(
+                f'<div style="display:flex; flex-direction:column; gap:6px;">'
+                f'{badge}<div style="display:flex; flex-wrap:wrap; gap:4px;">{actions}</div></div>'
+            )
+        return mark_safe(badge)
+    status_and_actions.short_description = "Status"
 
 

@@ -488,7 +488,7 @@ send_deposit_request_view = csrf_exempt(require_POST(require_admin_access(_send_
 
 
 def _send_deposit_confirmation_action(request, deposit_id):
-    """Confirm the Cal.com booking (fallback for deposits manually set to 'received').
+    """Confirm the Cal.com booking — transitions deposit to 'confirmed'.
 
     Cal.com's own confirmation email serves as the client notification,
     so no separate email is sent from this site.
@@ -501,15 +501,16 @@ def _send_deposit_confirmation_action(request, deposit_id):
 
     client_name = deposit.client.name if deposit.client_id else "Unknown"
 
+    deposit.status = "confirmed"
     deposit.deposit_confirmed_sent = True
-    deposit.save(update_fields=["deposit_confirmed_sent", "updated_at"])
+    deposit.save(update_fields=["status", "deposit_confirmed_sent", "updated_at"])
 
     if deposit.cal_booking_uid:
         from booking.webhooks import confirm_calcom_booking
         _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
         messages.success(request, f"Confirming Cal.com booking for {client_name}…")
     else:
-        messages.success(request, f"Deposit for {client_name} marked as confirmed.")
+        messages.success(request, f"Booking confirmed for {client_name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
@@ -569,10 +570,9 @@ approve_deposit_view = csrf_exempt(require_POST(require_admin_access(_approve_de
 def _mark_received_action(request, deposit_id):
     """One-click: mark deposit as received and confirm the Cal.com booking.
 
-    Transitions the deposit from 'pending' → 'received' and confirms the
+    Transitions the deposit from 'pending' → 'confirmed' and confirms the
     booking in Cal.com (which sends Cal.com's own confirmation email to
-    the client). No separate confirmation email is sent from the site to
-    avoid duplicate "booking confirmed" emails.
+    the client).
     """
     try:
         deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
@@ -586,7 +586,7 @@ def _mark_received_action(request, deposit_id):
 
     from django.utils import timezone
 
-    deposit.status = "received"
+    deposit.status = "confirmed"
     deposit.received_date = timezone.localdate()
     deposit.deposit_confirmed_sent = True
     deposit.save(update_fields=["status", "received_date", "deposit_confirmed_sent", "updated_at"])
@@ -598,7 +598,7 @@ def _mark_received_action(request, deposit_id):
         _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
         messages.success(request, f"Deposit received! Confirming Cal.com booking for {client_name}…")
     else:
-        messages.success(request, f"Deposit received for {client_name}.")
+        messages.success(request, f"Deposit received and booking confirmed for {client_name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 

@@ -72,8 +72,8 @@ class DepositViewSet(SnippetViewSet):
     menu_order = 199
     add_to_admin_menu = True
     list_display = [
-        "client_name_display", "client_email_display", "status_badge",
-        "email_status_display", "service_name", "appointment_date", "created_at",
+        "client_name_display", "client_email_display", "status_and_actions",
+        "service_name", "appointment_date", "created_at",
     ]
     list_filter = [
         "status",
