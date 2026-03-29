@@ -326,6 +326,10 @@ def _get_deposit_amount(location_name=""):
             from booking.models import Location
             loc = Location.objects.filter(name=location_name).first()
             if loc and loc.deposit_amount is not None:
+                logger.info(
+                    "Using per-location deposit $%s for '%s'",
+                    loc.deposit_amount, location_name,
+                )
                 return loc.deposit_amount
         except Exception:
             pass
@@ -349,18 +353,26 @@ def _parse_appointment_date(start_time_str):
         return None
 
 
+_LOCATION_NOISE_WORDS = frozenset({
+    "main", "clinic", "pop-up", "popup", "the", "a", "an", "and", "at", "in",
+    "of", "for", "our", "satellite", "office", "location", "branch", "centre",
+    "center", "studio", "room",
+})
+
+
 def _infer_location_from_event(event_title):
     """Try to match a Cal.com event title to a Location name.
 
-    Cal.com event types are typically named like "Full Body Scan — Nanaimo"
-    or "Breast Screening — Victoria Pop-Up".  We compare against all
-    Location names (case-insensitive substring match).
+    Cal.com event types are typically named like
+    "Upper Body Assessments Campbell River" or
+    "Breast Screening — Victoria Pop-Up".
 
-    Matching strategy (longest name first to avoid "Victoria" matching
-    before "Victoria Pop-Up"):
-      1. Full location name found as substring in the event title.
-      2. No word-level fallback — too prone to false positives with
-         generic words like "Main" or "Clinic".
+    Matching strategy (most specific first):
+      1. Full location name found as a substring in the event title.
+      2. Significant tokens extracted from each location name (ignoring
+         generic words like "Main", "Clinic", "Pop-Up") checked as
+         substrings of the event title.  Locations with more matching
+         tokens win; ties broken by longest name first.
 
     Returns the Location.name string if matched, or "" if no match.
     """
@@ -370,11 +382,33 @@ def _infer_location_from_event(event_title):
         from booking.models import Location
         title_lower = event_title.lower()
         locations = list(Location.objects.all())
-        # Sort longest name first so "Victoria Pop-Up" matches before "Victoria"
         locations.sort(key=lambda loc: len(loc.name), reverse=True)
+
+        # Pass 1: exact full-name substring
         for loc in locations:
             if loc.name.lower() in title_lower:
                 return loc.name
+
+        # Pass 2: significant-token matching
+        best, best_score = None, 0
+        for loc in locations:
+            tokens = [
+                t for t in loc.name.lower().replace("—", " ").replace("-", " ").split()
+                if t not in _LOCATION_NOISE_WORDS and len(t) > 1
+            ]
+            if not tokens:
+                continue
+            score = sum(1 for t in tokens if t in title_lower)
+            if score > best_score:
+                best, best_score = loc, score
+
+        if best and best_score > 0:
+            logger.debug(
+                "Location inferred by token match: '%s' (score=%d) from '%s'",
+                best.name, best_score, event_title,
+            )
+            return best.name
+
     except Exception:
         logger.debug("Could not look up location from event title", exc_info=True)
     return ""
