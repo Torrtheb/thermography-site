@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import logging
+import threading
 from datetime import date
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -37,6 +38,22 @@ logger = logging.getLogger(__name__)
 VALID_VISIT_REASONS = {slug for slug, _ in VISIT_REASON_CHOICES}
 
 CLIENTS_PER_PAGE = 50
+
+
+def _send_email_async(func, *args, **kwargs):
+    """Fire an email-sending function in a daemon thread.
+
+    Prevents slow Brevo API calls from blocking the admin HTTP response
+    and triggering Railway's "Application failed to respond" timeout.
+    """
+    def _worker():
+        try:
+            func(*args, **kwargs)
+        except Exception:
+            logger.exception("Background email send failed: %s", func.__name__)
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
 
 
 def _paginate(request, items, per_page=CLIENTS_PER_PAGE):
@@ -457,14 +474,11 @@ def _send_deposit_request_action(request, deposit_id):
     if deposit.appointment_date:
         date_str = deposit.appointment_date.strftime("%B %d, %Y")
 
-    try:
-        send_deposit_request(client, deposit.amount, appointment_date=date_str)
-        deposit.deposit_request_sent = True
-        deposit.save(update_fields=["deposit_request_sent", "updated_at"])
-        messages.success(request, f"Deposit request email sent to {client.name}.")
-    except Exception as e:
-        logger.exception("Failed to send deposit request for deposit pk=%s", deposit.pk)
-        messages.error(request, f"Failed to send email: {e}")
+    deposit.deposit_request_sent = True
+    deposit.save(update_fields=["deposit_request_sent", "updated_at"])
+
+    _send_email_async(send_deposit_request, client, deposit.amount, appointment_date=date_str)
+    messages.success(request, f"Deposit request email is being sent to {client.name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
@@ -491,15 +505,8 @@ def _send_deposit_confirmation_action(request, deposit_id):
 
     if deposit.cal_booking_uid:
         from booking.webhooks import confirm_calcom_booking
-        try:
-            confirmed = confirm_calcom_booking(deposit.cal_booking_uid)
-            if confirmed:
-                messages.success(request, f"Cal.com booking confirmed for {client_name}.")
-            else:
-                messages.warning(request, f"Could not auto-confirm in Cal.com for {client_name} — please confirm manually.")
-        except Exception:
-            logger.exception("Failed to auto-confirm Cal.com booking for deposit pk=%s", deposit.pk)
-            messages.warning(request, f"Could not auto-confirm in Cal.com for {client_name} — please confirm manually.")
+        _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        messages.success(request, f"Confirming Cal.com booking for {client_name}…")
     else:
         messages.success(request, f"Deposit for {client_name} marked as confirmed.")
 
@@ -540,16 +547,13 @@ def _approve_deposit_action(request, deposit_id):
 
     from django.utils import timezone
 
-    try:
-        send_deposit_request(client, deposit.amount, appointment_date=date_str)
-        deposit.status = "pending"
-        deposit.deposit_request_sent = True
-        deposit.approved_at = timezone.now()
-        deposit.save(update_fields=["status", "deposit_request_sent", "approved_at", "updated_at"])
-        messages.success(request, f"Approved! Deposit request email sent to {client.name}.")
-    except Exception as e:
-        logger.exception("Failed to send deposit request for deposit pk=%s", deposit.pk)
-        messages.error(request, f"Failed to send email: {e}")
+    deposit.status = "pending"
+    deposit.deposit_request_sent = True
+    deposit.approved_at = timezone.now()
+    deposit.save(update_fields=["status", "deposit_request_sent", "approved_at", "updated_at"])
+
+    _send_email_async(send_deposit_request, client, deposit.amount, appointment_date=date_str)
+    messages.success(request, f"Approved! Deposit request email is being sent to {client.name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
 
@@ -590,15 +594,8 @@ def _mark_received_action(request, deposit_id):
 
     if deposit.cal_booking_uid:
         from booking.webhooks import confirm_calcom_booking
-        try:
-            confirmed = confirm_calcom_booking(deposit.cal_booking_uid)
-            if confirmed:
-                messages.success(request, f"Deposit received! Cal.com booking confirmed for {client_name}.")
-            else:
-                messages.warning(request, f"Deposit received for {client_name}, but could not auto-confirm in Cal.com — please confirm manually.")
-        except Exception:
-            logger.exception("Failed to auto-confirm Cal.com booking for deposit pk=%s", deposit.pk)
-            messages.warning(request, f"Deposit received for {client_name}, but could not auto-confirm in Cal.com — please confirm manually.")
+        _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        messages.success(request, f"Deposit received! Confirming Cal.com booking for {client_name}…")
     else:
         messages.success(request, f"Deposit received for {client_name}.")
 
@@ -636,18 +633,11 @@ def _reject_deposit_action(request, deposit_id):
 
     if deposit.cal_booking_uid:
         from booking.webhooks import decline_calcom_booking, cancel_calcom_booking
-        try:
-            if old_status == "awaiting_review":
-                ok = decline_calcom_booking(deposit.cal_booking_uid, reason="Booking declined by organizer.")
-            else:
-                ok = cancel_calcom_booking(deposit.cal_booking_uid, reason="Booking cancelled by organizer.")
-            if ok:
-                messages.success(request, f"Rejected! Booking for {client_name} has been cancelled in Cal.com.")
-            else:
-                messages.warning(request, f"Deposit forfeited, but could not update Cal.com — please cancel/decline manually.")
-        except Exception:
-            logger.exception("Failed to decline/cancel Cal.com booking for deposit pk=%s", deposit.pk)
-            messages.warning(request, f"Deposit forfeited, but could not update Cal.com — please cancel/decline manually.")
+        if old_status == "awaiting_review":
+            _send_email_async(decline_calcom_booking, deposit.cal_booking_uid, reason="Booking declined by organizer.")
+        else:
+            _send_email_async(cancel_calcom_booking, deposit.cal_booking_uid, reason="Booking cancelled by organizer.")
+        messages.success(request, f"Rejected! Cancelling booking for {client_name} in Cal.com…")
     else:
         messages.success(request, f"Deposit for {client_name} has been forfeited.")
 

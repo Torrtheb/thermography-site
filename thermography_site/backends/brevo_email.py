@@ -63,7 +63,7 @@ class BrevoAPIBackend(BaseEmailBackend):
 
         from brevo import Brevo
 
-        client = Brevo(api_key=self.api_key)
+        client = Brevo(api_key=self.api_key, timeout=15.0)
 
         sent_count = 0
         for message in email_messages:
