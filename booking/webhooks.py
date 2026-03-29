@@ -465,6 +465,9 @@ def _handle_booking_created(payload):
         logger.info("Created new client pk=%s from Cal.com booking", client.pk)
     else:
         update_fields = ["updated_at"]
+        if client_name and client_name != client.name:
+            client.name = client_name
+            update_fields.append("name")
         if appointment_date:
             client.last_appointment_date = appointment_date
             update_fields.append("last_appointment_date")
@@ -477,6 +480,10 @@ def _handle_booking_created(payload):
 
         if len(update_fields) > 1:
             client.save(update_fields=update_fields)
+            logger.info(
+                "Updated client pk=%s from new booking: %s",
+                client.pk, ", ".join(f for f in update_fields if f != "updated_at"),
+            )
 
     deposit_amount = _get_deposit_amount()
 
@@ -629,6 +636,13 @@ def _handle_booking_rescheduled(payload):
     deposit.save(update_fields=update_fields)
     logger.info("Deposit pk=%s updated from BOOKING_RESCHEDULED (new uid=%s, date=%s)",
                 deposit.pk, booking_uid, new_date)
+
+    # Keep the Client record in sync with the latest appointment date
+    if new_date and deposit.client:
+        client = deposit.client
+        if client.last_appointment_date != new_date:
+            client.last_appointment_date = new_date
+            client.save(update_fields=["last_appointment_date", "updated_at"])
 
 
 @csrf_exempt
