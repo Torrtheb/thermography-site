@@ -3,8 +3,9 @@ Cal.com webhook handler — bidirectional sync between Cal.com and Wagtail.
 Cal.com API integration — confirm, decline, and cancel bookings.
 
 Handled webhook events:
-  BOOKING_CREATED / BOOKING_REQUESTED → creates Client + Deposit (awaiting_review)
-  BOOKING_CONFIRMED → transitions deposit to "confirmed" (deposit secured, booking confirmed)
+  BOOKING_REQUESTED → creates Client + Deposit (awaiting_review)
+  BOOKING_CREATED   → creates deposit for new bookings, OR confirms existing
+                      deposit when owner confirms a requested booking in Cal.com
   BOOKING_CANCELLED → forfeits the deposit
   BOOKING_REJECTED  → forfeits the deposit (owner declined in Cal.com)
   BOOKING_RESCHEDULED → updates deposit date and booking UID
@@ -409,9 +410,24 @@ def _handle_booking_created(payload):
         )
         return
 
-    if booking_uid and Deposit.objects.filter(cal_booking_uid=booking_uid).exists():
-        logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s", booking_uid)
-        return
+    if booking_uid:
+        try:
+            existing = Deposit.objects.get(cal_booking_uid=booking_uid)
+        except Deposit.DoesNotExist:
+            existing = None
+
+        if existing is not None:
+            # BOOKING_CREATED fires after owner confirms a BOOKING_REQUESTED booking.
+            # Transition the existing deposit to "confirmed" if it's still pre-confirmation.
+            if existing.status in ("awaiting_review", "pending", "received"):
+                existing.status = "confirmed"
+                existing.deposit_confirmed_sent = True
+                existing.notes = (existing.notes or "") + "\nDeposit confirmed — booking confirmed in Cal.com."
+                existing.save(update_fields=["status", "deposit_confirmed_sent", "notes", "updated_at"])
+                logger.info("Deposit pk=%s → confirmed (owner confirmed in Cal.com, BOOKING_CREATED)", existing.pk)
+            else:
+                logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s (status=%s)", booking_uid, existing.status)
+            return
 
     # Infer location from the event title; use the title itself as the visit reason
     inferred_location = _infer_location_from_event(event_title)
