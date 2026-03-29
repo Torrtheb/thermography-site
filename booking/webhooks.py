@@ -366,38 +366,6 @@ def _infer_location_from_event(event_title):
     return ""
 
 
-def _infer_visit_reason(event_title):
-    """Map a Cal.com event title to a VISIT_REASON_CHOICES key.
-
-    Uses case-insensitive keyword matching against the event title.
-    Order matters — more specific phrases are checked first to avoid
-    "Breast Screening" matching the generic "screening" keyword.
-    Returns "" if no confident match (never guesses).
-    """
-    if not event_title:
-        return ""
-    title_lower = event_title.lower()
-
-    # Ordered most-specific first. Each keyword maps to a VISIT_REASON_CHOICES key.
-    keyword_map = [
-        ("breast", "breast_health"),
-        ("full body", "full_body"),
-        ("full-body", "full_body"),
-        ("pain", "pain_inflammation"),
-        ("inflammation", "pain_inflammation"),
-        ("injury", "pain_inflammation"),
-        ("sport", "pain_inflammation"),
-        ("follow up", "follow_up"),
-        ("follow-up", "follow_up"),
-        ("followup", "follow_up"),
-    ]
-    for keyword, reason in keyword_map:
-        if keyword in title_lower:
-            return reason
-    # "upper body" and other unrecognised services → leave blank
-    # rather than guessing. The owner can set it manually.
-    return ""
-
 
 def _handle_booking_created(payload):
     """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
@@ -409,7 +377,7 @@ def _handle_booking_created(payload):
     Auto-populates on the Client record (only when real data is available):
       - last_appointment_date  (from startTime)
       - clinic_location        (inferred from eventTitle ↔ Location names)
-      - previous_visit_reason  (inferred from eventTitle keywords)
+      - previous_visit_reason  (set to the Cal.com event title)
     """
     from clients.models import Client, Deposit
 
@@ -445,9 +413,9 @@ def _handle_booking_created(payload):
         logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s", booking_uid)
         return
 
-    # Infer visit details from the event title (blank if no match)
+    # Infer location from the event title; use the title itself as the visit reason
     inferred_location = _infer_location_from_event(event_title)
-    inferred_reason = _infer_visit_reason(event_title)
+    visit_reason = event_title.strip() if event_title else ""
 
     # Find existing client by email hash (O(1) indexed lookup)
     client = Client.find_by_email(client_email)
@@ -458,8 +426,8 @@ def _handle_booking_created(payload):
             create_kwargs["last_appointment_date"] = appointment_date
         if inferred_location:
             create_kwargs["clinic_location"] = inferred_location
-        if inferred_reason:
-            create_kwargs["previous_visit_reason"] = inferred_reason
+        if visit_reason:
+            create_kwargs["previous_visit_reason"] = visit_reason
 
         client = Client.objects.create(**create_kwargs)
         logger.info("Created new client pk=%s from Cal.com booking", client.pk)
@@ -474,8 +442,8 @@ def _handle_booking_created(payload):
         if inferred_location:
             client.clinic_location = inferred_location
             update_fields.append("clinic_location")
-        if inferred_reason:
-            client.previous_visit_reason = inferred_reason
+        if visit_reason and visit_reason != client.previous_visit_reason:
+            client.previous_visit_reason = visit_reason
             update_fields.append("previous_visit_reason")
 
         if len(update_fields) > 1:

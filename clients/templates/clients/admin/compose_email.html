@@ -121,7 +121,7 @@
                     </td>
                     <td style="color: #555;">{{ client.email|default:"—" }}</td>
                     <td style="color: #555;">{{ client.clinic_location|default:"—" }}</td>
-                    <td style="color: #555;">{{ client.get_previous_visit_reason_display|default:"—" }}</td>
+                    <td style="color: #555;">{{ client.previous_visit_reason|default:"—" }}</td>
                     <td style="color: #555;">{{ client.last_appointment_date|date:"M j, Y"|default:"—" }}</td>
                 </tr>
                 {% empty %}

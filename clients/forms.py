@@ -4,7 +4,7 @@ Forms for the clients app — used in Wagtail admin views.
 
 from django import forms
 
-from .models import Client, VISIT_REASON_CHOICES
+from .models import Client
 
 
 class ComposeEmailForm(forms.Form):
@@ -52,8 +52,20 @@ class ClientFilterForm(forms.Form):
     previous_visit_reason = forms.ChoiceField(
         required=False,
         label="Visit reason",
-        choices=[("", "All")] + list(VISIT_REASON_CHOICES),
+        choices=[("", "All")],
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        reasons = (
+            Client.objects.exclude(previous_visit_reason="")
+            .values_list("previous_visit_reason", flat=True)
+            .distinct()
+            .order_by("previous_visit_reason")
+        )
+        self.fields["previous_visit_reason"].choices = [("", "All")] + [
+            (r, r) for r in reasons
+        ]
     appt_from = forms.DateField(
         required=False,
         label="Appointment from",

@@ -31,12 +31,10 @@ from django.views.decorators.http import require_POST
 from wagtail.admin.auth import require_admin_access
 
 from .forms import ClientFilterForm, ComposeEmailForm, CSVImportForm
-from .models import Client, Deposit, VISIT_REASON_CHOICES
+from .models import Client, Deposit
 from .email import send_custom_email, send_deposit_request
 
 logger = logging.getLogger(__name__)
-
-VALID_VISIT_REASONS = {slug for slug, _ in VISIT_REASON_CHOICES}
 
 CLIENTS_PER_PAGE = 50
 
@@ -336,9 +334,6 @@ class CSVImportView(View):
                         errors.append(f"Row {row_num}: invalid date '{raw_date}' — skipped date field.")
 
                 visit_reason = row.get("previous_visit_reason", "").strip()
-                if visit_reason and visit_reason not in VALID_VISIT_REASONS:
-                    errors.append(f"Row {row_num}: unknown visit reason '{visit_reason}' — cleared.")
-                    visit_reason = ""
 
                 Client.objects.create(
                     name=name,

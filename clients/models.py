@@ -82,11 +82,10 @@ class Client(index.Indexed, models.Model):
     )
 
     previous_visit_reason = models.CharField(
-        max_length=50,
-        choices=VISIT_REASON_CHOICES,
+        max_length=200,
         blank=True,
         default="",
-        help_text="Reason for the most recent visit.",
+        help_text="Service / reason for the most recent visit (auto-filled from Cal.com event title).",
     )
 
     last_appointment_date = models.DateField(
