@@ -100,6 +100,15 @@ class Location(ClusterableModel):
         help_text="Show this location on the homepage (e.g., as an upcoming pop-up).",
     )
 
+    deposit_amount = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Deposit amount ($) for bookings at this location. "
+                  "Leave blank to use the global default from Site Settings.",
+    )
+
     sort_order = models.IntegerField(
         default=0,
         help_text="Lower numbers appear first. Permanent clinics should be 0.",
@@ -125,6 +134,13 @@ class Location(ClusterableModel):
                       "Create one Cal.com event type per service per location, each assigned "
                       "to this location's Cal.com Schedule. Example: "
                       "'Full Body Scan — Victoria' → https://cal.com/you/full-body-victoria",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("deposit_amount"),
+            ],
+            heading="Deposit",
+            help_text="Override the global deposit amount for this location. Leave blank to use the default.",
         ),
         MultiFieldPanel(
             [

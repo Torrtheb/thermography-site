@@ -315,8 +315,21 @@ def _verify_signature(request):
     return True
 
 
-def _get_deposit_amount():
-    """Fetch the configured deposit amount from SiteSettings."""
+def _get_deposit_amount(location_name=""):
+    """Fetch the deposit amount — location override first, then global default.
+
+    If the inferred location has a deposit_amount set, use it.
+    Otherwise fall back to the global deposit_amount in SiteSettings.
+    """
+    if location_name:
+        try:
+            from booking.models import Location
+            loc = Location.objects.filter(name=location_name).first()
+            if loc and loc.deposit_amount is not None:
+                return loc.deposit_amount
+        except Exception:
+            pass
+
     try:
         from wagtail.models import Site
         from home.models import SiteSettings
@@ -469,7 +482,7 @@ def _handle_booking_created(payload):
                 client.pk, ", ".join(f for f in update_fields if f != "updated_at"),
             )
 
-    deposit_amount = _get_deposit_amount()
+    deposit_amount = _get_deposit_amount(location_name=inferred_location)
 
     deposit = Deposit.objects.create(
         client=client,
