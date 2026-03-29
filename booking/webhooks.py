@@ -519,6 +519,7 @@ def _handle_booking_cancelled(payload):
         "pending": "client cancelled before paying deposit",
         "received": "client cancelled after paying deposit",
         "confirmed": "client cancelled after deposit was confirmed",
+        "waived": "client cancelled after fee was waived",
     }
     reason = reason_map.get(deposit.status)
     if reason:
@@ -543,7 +544,7 @@ def _handle_booking_rejected(payload):
         logger.info("BOOKING_REJECTED webhook: no deposit found for uid=%s", booking_uid)
         return
 
-    if deposit.status in ("awaiting_review", "pending", "received", "confirmed"):
+    if deposit.status in ("awaiting_review", "pending", "received", "confirmed", "waived"):
         deposit.status = "forfeited"
         deposit.notes = (deposit.notes or "") + "\nAuto-forfeited: booking rejected by owner in Cal.com."
         deposit.save(update_fields=["status", "notes", "updated_at"])

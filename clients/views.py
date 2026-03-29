@@ -641,3 +641,47 @@ def _reject_deposit_action(request, deposit_id):
 
 
 reject_deposit_view = csrf_exempt(require_POST(require_admin_access(_reject_deposit_action)))
+
+
+# ──────────────────────────────────────────────────────────
+# Waive deposit fee — confirm booking without requiring payment
+# ──────────────────────────────────────────────────────────
+
+def _waive_deposit_action(request, deposit_id):
+    """Waive the deposit fee and confirm the Cal.com booking directly.
+
+    For special circumstances where the owner wants to skip the deposit
+    requirement (e.g. returning client, complimentary appointment).
+    Works from 'awaiting_review' or 'pending' status.
+    """
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        messages.error(request, "Deposit not found.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    if deposit.status not in ("awaiting_review", "pending"):
+        messages.warning(request, "This deposit can no longer be waived.")
+        return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+    from django.utils import timezone
+
+    deposit.status = "waived"
+    deposit.amount = 0
+    deposit.approved_at = deposit.approved_at or timezone.now()
+    deposit.notes = (deposit.notes or "") + "\nDeposit fee waived by owner."
+    deposit.save(update_fields=["status", "amount", "approved_at", "notes", "updated_at"])
+
+    client_name = deposit.client.name if deposit.client_id else "Unknown"
+
+    if deposit.cal_booking_uid:
+        from booking.webhooks import confirm_calcom_booking
+        _send_email_async(confirm_calcom_booking, deposit.cal_booking_uid)
+        messages.success(request, f"Fee waived! Confirming Cal.com booking for {client_name}…")
+    else:
+        messages.success(request, f"Fee waived and booking confirmed for {client_name}.")
+
+    return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+
+waive_deposit_view = csrf_exempt(require_POST(require_admin_access(_waive_deposit_action)))

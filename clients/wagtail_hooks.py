@@ -30,6 +30,7 @@ from .views import (
     reject_deposit_view,
     send_deposit_request_view,
     send_deposit_confirmation_view,
+    waive_deposit_view,
 )
 
 
@@ -104,6 +105,7 @@ def register_client_admin_urls():
         path("deposits/<int:deposit_id>/mark-received/", mark_received_view, name="deposit_mark_received"),
         path("deposits/<int:deposit_id>/send-request/", send_deposit_request_view, name="deposit_send_request"),
         path("deposits/<int:deposit_id>/send-confirmation/", send_deposit_confirmation_view, name="deposit_send_confirmation"),
+        path("deposits/<int:deposit_id>/waive/", waive_deposit_view, name="deposit_waive"),
     ]
 
 

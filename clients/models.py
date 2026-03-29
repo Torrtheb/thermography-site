@@ -248,6 +248,7 @@ DEPOSIT_STATUS_CHOICES = [
     ("pending", "Pending — deposit request sent, awaiting payment"),
     ("received", "Received — deposit paid"),
     ("confirmed", "Confirmed — deposit secured, booking confirmed"),
+    ("waived", "Waived — fee waived, booking confirmed"),
     ("forfeited", "Forfeited — client cancelled / no-show"),
     ("applied", "Applied to service fee"),
     ("refunded", "Refunded (exception)"),
@@ -426,6 +427,7 @@ class Deposit(index.Indexed, models.Model):
             "pending":         ("⏳ Awaiting Deposit", "#856404", "#fff3cd"),
             "received":        ("💰 Deposit Received", "#155724", "#d4edda"),
             "confirmed":       ("✅ Confirmed", "#004085", "#cce5ff"),
+            "waived":          ("🎟️ Fee Waived", "#5b21b6", "#ede9fe"),
             "forfeited":       ("🚫 Forfeited", "#721c24", "#f8d7da"),
             "applied":         ("💰 Applied", "#065f46", "#d1fae5"),
             "refunded":        ("↩️ Refunded", "#6c757d", "#e2e3e5"),
@@ -460,6 +462,12 @@ class Deposit(index.Indexed, models.Model):
             confirm_msg="Reject this booking and cancel in Cal.com?",
         )
 
+        waive_btn = _post_button(
+            f"/admin/deposits/{self.pk}/waive/",
+            "🎟️ Waive Fee", "#5b21b6",
+            confirm_msg="Waive the deposit fee and confirm this booking?",
+        )
+
         actions = ""
         if self.status == "awaiting_review":
             actions = (
@@ -467,6 +475,7 @@ class Deposit(index.Indexed, models.Model):
                     f"/admin/deposits/{self.pk}/approve/",
                     "✅ Approve &amp; Send", "#6d28d9",
                 )
+                + " " + waive_btn
                 + " " + reject_btn
             )
         elif self.status == "pending":
@@ -475,6 +484,7 @@ class Deposit(index.Indexed, models.Model):
                     f"/admin/deposits/{self.pk}/mark-received/",
                     "💰 Mark Received", "#2563eb",
                 )
+                + " " + waive_btn
                 + " " + reject_btn
             )
         elif self.status == "received":
