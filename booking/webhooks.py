@@ -422,12 +422,23 @@ def _handle_booking_created(payload):
     client_email = attendee.get("email", "").strip()
     client_name = attendee.get("name", "").strip()
     booking_uid = payload.get("uid", "")
+    reschedule_uid = payload.get("rescheduleUid", "") or payload.get("rescheduleuid", "")
     start_time = payload.get("startTime", "")
     event_title = payload.get("eventTitle", "") or payload.get("title", "")
     appointment_date = _parse_appointment_date(start_time)
 
     if not client_email:
         logger.warning("BOOKING_CREATED webhook: no attendee email — skipping")
+        return
+
+    # If this is a reschedule, don't create a new deposit — the
+    # BOOKING_RESCHEDULED handler updates the existing one.
+    if reschedule_uid:
+        logger.info(
+            "BOOKING_CREATED webhook: reschedule detected (rescheduleUid=%s) — skipping, "
+            "BOOKING_RESCHEDULED handler will update the existing deposit",
+            reschedule_uid,
+        )
         return
 
     if booking_uid and Deposit.objects.filter(cal_booking_uid=booking_uid).exists():
