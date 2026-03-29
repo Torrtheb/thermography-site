@@ -280,6 +280,11 @@ class ChecklistBlock(StructBlock):
         required=False,
         help_text="Optional image beside the checklist (e.g. calm clinic room).",
     )
+    background_image = ImageChooserBlock(
+        required=False,
+        help_text="Background image for the section. A dark overlay is added for readability. "
+                  "When set, the list displays in two columns with white text.",
+    )
 
     class Meta:
         template = "home/blocks/checklist_block.html"

@@ -1,6 +1,50 @@
-{# --- Checklist: heading + items with checkmarks + optional image + button --- #}
+{# --- Checklist: heading + items with checkmarks + optional background image --- #}
 {% load wagtailimages_tags %}
 
+{% if value.background_image %}
+{# ── With background image: full-width, dark overlay, two-column white text ── #}
+<section class="relative py-20 overflow-hidden">
+    {# Background image #}
+    {% image value.background_image fill-1920x900 class="absolute inset-0 w-full h-full object-cover" alt="" %}
+    <div class="absolute inset-0 bg-gray-900/70"></div>
+
+    <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl md:text-4xl font-bold text-white text-center mb-4" data-aos="fade-up">
+            {{ value.heading }}
+        </h2>
+
+        {% if value.intro %}
+        <p class="text-lg text-white/80 text-center max-w-2xl mx-auto mb-12" data-aos="fade-up">
+            {{ value.intro }}
+        </p>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 max-w-4xl mx-auto" data-aos="fade-up">
+            {% for item in value.items %}
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-6 h-6 bg-white/20 text-white rounded-full flex items-center justify-center mt-0.5">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </div>
+                <span class="text-white text-lg">{{ item.text }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if value.button_text and value.button_link %}
+        <div class="mt-10 text-center" data-aos="fade-up">
+            <a href="{{ value.button_link }}"
+               class="inline-block bg-white hover:bg-gray-100 text-gray-900 font-semibold px-8 py-3 rounded-lg transition shadow-sm hover:shadow-md">
+                {{ value.button_text }}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% else %}
+{# ── Without background image: original card layout ── #}
 <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
     <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4" data-aos="fade-up">
@@ -51,3 +95,4 @@
 
     </div>
 </section>
+{% endif %}
