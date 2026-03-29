@@ -31,7 +31,7 @@
             </div>
         </div>
 
-        {# --- Service Image (right ~50%) --- #}
+        {# --- Service Image or Icon (right ~50%) --- #}
         {% if page.service_image %}
         <figure class="md:w-1/2">
             <div class="rounded-xl overflow-hidden shadow-lg">
@@ -43,6 +43,13 @@
             </figcaption>
             {% endif %}
         </figure>
+        {% else %}
+        {% service_icon_bg page 0 as detail_icon_bg %}
+        <div class="md:w-1/2">
+            <div class="rounded-xl shadow-lg flex items-center justify-center py-16" style="background-color: {{ detail_icon_bg }};">
+                {% service_icon_svg page 0 %}
+            </div>
+        </div>
         {% endif %}
     </div>
 
