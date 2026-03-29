@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                     ("awaiting_review", "Awaiting Review — owner must approve"),
                     ("pending", "Pending — deposit request sent, awaiting payment"),
                     ("received", "Received — deposit paid"),
-                    ("confirmed", "Confirmed — booking confirmed in Cal.com"),
+                    ("confirmed", "Confirmed — deposit secured, booking confirmed"),
                     ("forfeited", "Forfeited — client cancelled / no-show"),
                     ("applied", "Applied to service fee"),
                     ("refunded", "Refunded (exception)"),

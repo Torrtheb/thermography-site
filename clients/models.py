@@ -248,7 +248,7 @@ DEPOSIT_STATUS_CHOICES = [
     ("awaiting_review", "Awaiting Review — owner must approve"),
     ("pending", "Pending — deposit request sent, awaiting payment"),
     ("received", "Received — deposit paid"),
-    ("confirmed", "Confirmed — booking confirmed in Cal.com"),
+    ("confirmed", "Confirmed — deposit secured, booking confirmed"),
     ("forfeited", "Forfeited — client cancelled / no-show"),
     ("applied", "Applied to service fee"),
     ("refunded", "Refunded (exception)"),
@@ -426,7 +426,7 @@ class Deposit(index.Indexed, models.Model):
             "awaiting_review": ("🔍 Needs Review", "#6d28d9", "#ede9fe"),
             "pending":         ("⏳ Awaiting Deposit", "#856404", "#fff3cd"),
             "received":        ("💰 Deposit Received", "#155724", "#d4edda"),
-            "confirmed":       ("✅ Booked", "#004085", "#cce5ff"),
+            "confirmed":       ("✅ Confirmed", "#004085", "#cce5ff"),
             "forfeited":       ("🚫 Forfeited", "#721c24", "#f8d7da"),
             "applied":         ("💰 Applied", "#065f46", "#d1fae5"),
             "refunded":        ("↩️ Refunded", "#6c757d", "#e2e3e5"),
@@ -481,7 +481,7 @@ class Deposit(index.Indexed, models.Model):
         elif self.status == "received":
             actions = _post_button(
                 f"/admin/deposits/{self.pk}/send-confirmation/",
-                "✅ Confirm Booking", "#059669",
+                "✅ Confirm &amp; Notify", "#059669",
             )
 
         if actions:

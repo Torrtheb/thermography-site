@@ -4,7 +4,7 @@ Cal.com API integration — confirm, decline, and cancel bookings.
 
 Handled webhook events:
   BOOKING_CREATED / BOOKING_REQUESTED → creates Client + Deposit (awaiting_review)
-  BOOKING_CONFIRMED → transitions deposit to "confirmed" (owner confirmed in Cal.com)
+  BOOKING_CONFIRMED → transitions deposit to "confirmed" (deposit secured, booking confirmed)
   BOOKING_CANCELLED → forfeits the deposit
   BOOKING_REJECTED  → forfeits the deposit (owner declined in Cal.com)
   BOOKING_RESCHEDULED → updates deposit date and booking UID
@@ -526,7 +526,7 @@ def _handle_booking_confirmed(payload):
     if deposit.status in ("awaiting_review", "pending", "received"):
         deposit.status = "confirmed"
         deposit.deposit_confirmed_sent = True
-        deposit.notes = (deposit.notes or "") + "\nBooking confirmed via Cal.com."
+        deposit.notes = (deposit.notes or "") + "\nDeposit confirmed — booking confirmed in Cal.com."
         deposit.save(update_fields=["status", "deposit_confirmed_sent", "notes", "updated_at"])
         logger.info("Deposit pk=%s → confirmed (via Cal.com webhook)", deposit.pk)
 
@@ -550,7 +550,7 @@ def _handle_booking_cancelled(payload):
         "awaiting_review": "client cancelled before owner reviewed",
         "pending": "client cancelled before paying deposit",
         "received": "client cancelled after paying deposit",
-        "confirmed": "client cancelled after booking was confirmed",
+        "confirmed": "client cancelled after deposit was confirmed",
     }
     reason = reason_map.get(deposit.status)
     if reason:
