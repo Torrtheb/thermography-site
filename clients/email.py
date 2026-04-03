@@ -168,7 +168,10 @@ def send_deposit_request(client, amount, appointment_date=""):
     """
     Send deposit payment instructions to a client after they book.
 
-    Uses the owner-editable template from SiteSettings → Email Templates.
+    Renders a professional HTML email with deposit details plus the
+    cancellation / deposit / payment-methods policies pulled from
+    SiteSettings.  The owner-editable plain-text template is kept as the
+    text/plain fallback for mail clients that don't render HTML.
     """
     if not client.email:
         return False
@@ -176,7 +179,10 @@ def send_deposit_request(client, amount, appointment_date=""):
     ss = _get_site_settings()
     etransfer_email = (ss.etransfer_email or "") if ss else ""
     appointment_line = f" on {appointment_date}" if appointment_date else ""
+    client_name = client.name or "there"
+    business_name = (ss.business_name if ss and ss.business_name else "Your Thermography Team")
 
+    # ── Build the owner-editable message body (used in both HTML + plain text) ──
     template = (ss.email_deposit_request if ss and ss.email_deposit_request else "")
     if not template:
         template = (
@@ -186,11 +192,54 @@ def send_deposit_request(client, amount, appointment_date=""):
         )
 
     plain_message = template.format_map(_SafeDict(
-        client_name=client.name or "there",
+        client_name=client_name,
         amount=str(amount),
         appointment_line=appointment_line,
         etransfer_email=etransfer_email,
     ))
+
+    # ── Render richtext policy fields to HTML for the email ──
+    deposit_policy_html = ""
+    cancellation_policy_html = ""
+    payment_methods_html = ""
+    if ss:
+        from wagtail.rich_text import expand_db_html
+        if ss.deposit_policy:
+            deposit_policy_html = expand_db_html(ss.deposit_policy)
+        if ss.cancellation_policy:
+            cancellation_policy_html = expand_db_html(ss.cancellation_policy)
+        if ss.payment_methods:
+            payment_methods_html = expand_db_html(ss.payment_methods)
+
+    # ── HTML email — wraps the owner-editable text in a styled template ──
+    try:
+        html_message = render_to_string(
+            "clients/emails/deposit_request.html",
+            {
+                "email_body": plain_message,
+                "amount": str(amount),
+                "appointment_line": appointment_line,
+                "business_name": business_name,
+                "deposit_policy": deposit_policy_html,
+                "cancellation_policy": cancellation_policy_html,
+                "payment_methods": payment_methods_html,
+            },
+        )
+    except Exception:
+        html_message = None
+
+    # ── Append policies to the plain-text version for text-only clients ──
+    if ss:
+        from django.utils.html import strip_tags
+        policy_lines = []
+        if ss.deposit_policy:
+            policy_lines.append("DEPOSIT & PAYMENT POLICY\n" + strip_tags(ss.deposit_policy).strip())
+        if ss.cancellation_policy:
+            policy_lines.append("CANCELLATION POLICY\n" + strip_tags(ss.cancellation_policy).strip())
+        if ss.payment_methods:
+            policy_lines.append("PAYMENT METHODS\n" + strip_tags(ss.payment_methods).strip())
+        if policy_lines:
+            plain_message += "\n\n---\n\n" + "\n\n".join(policy_lines)
 
     subject = "Booking Deposit Required — Payment Instructions"
 
@@ -199,6 +248,7 @@ def send_deposit_request(client, amount, appointment_date=""):
         message=plain_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[client.email],
+        html_message=html_message,
         fail_silently=False,
     )
     return True

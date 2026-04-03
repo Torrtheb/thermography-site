@@ -269,7 +269,22 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "wagtail": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "storages": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "google.cloud.storage": {
             "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,

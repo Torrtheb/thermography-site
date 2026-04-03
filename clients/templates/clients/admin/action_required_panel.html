@@ -1,10 +1,49 @@
 {% load wagtailadmin_tags %}
 
 {% if needs_review or needs_confirmation %}
-<section class="w-full" style="grid-column: 1 / -1;">
+<style>
+    .action-required-panel .action-required-mobile { display: none; }
+    .action-required-panel .action-required-desktop { display: block; }
+    @media (max-width: 640px) {
+        .action-required-panel .action-required-desktop { display: none !important; }
+        .action-required-panel .action-required-mobile { display: block !important; }
+        .action-required-panel .action-required-card {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .action-required-panel .action-required-card:last-child { margin-bottom: 0; }
+        .action-required-panel .action-required-card form {
+            display: block;
+            margin-top: 0.75rem;
+        }
+        .action-required-panel .action-required-card form button {
+            width: 100%;
+            padding: 0.65rem 1rem !important;
+            font-size: 0.9rem !important;
+            touch-action: manipulation;
+        }
+        .action-required-panel .action-required-kv {
+            font-size: 0.85rem;
+            margin: 0.35rem 0 0 0;
+            color: #374151;
+        }
+        .action-required-panel .action-required-kv span {
+            color: #6b7280;
+            font-weight: 500;
+            margin-right: 0.35rem;
+        }
+    }
+</style>
+
+<section class="action-required-panel w-full" style="grid-column: 1 / -1;">
     <div style="background:#fef3c7; border:2px solid #f59e0b; border-radius:0.75rem; padding:1.25rem 1.5rem; margin-bottom:1.5rem;">
         <h2 style="margin:0 0 1rem 0; font-size:1.1rem; font-weight:700; color:#92400e; display:flex; align-items:center; gap:0.5rem;">
-            <svg style="width:1.25rem;height:1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg style="width:1.25rem;height:1.25rem;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
@@ -19,39 +58,61 @@
             <p style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#6b7280;">
                 New bookings — review the client info and click "Approve" to send the deposit request email.
             </p>
-            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                <thead>
-                    <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Amount</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for dep in needs_review %}
-                    <tr style="border-bottom:1px solid #f3f4f6;">
-                        <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
-                        <td style="padding:0.4rem 0.5rem;">
-                            <form method="post" action="/admin/deposits/{{ dep.pk }}/approve/" style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit"
-                                   style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
-                                          border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
-                                    ✅ Approve &amp; Send
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+            <div class="action-required-desktop">
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Amount</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dep in needs_review %}
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">${{ dep.amount|floatformat:"0" }}</td>
+                            <td style="padding:0.4rem 0.5rem;">
+                                <form method="post" action="/admin/deposits/{{ dep.pk }}/approve/" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                       style="display:inline-block; background:#6d28d9; color:#fff; padding:0.2rem 0.6rem;
+                                              border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
+                                        ✅ Approve &amp; Send
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-required-mobile">
+                {% for dep in needs_review %}
+                <div class="action-required-card">
+                    <p style="margin:0; font-size:1rem; font-weight:600; color:#111827;">{{ dep.client.name|default:"Unknown" }}</p>
+                    <p class="action-required-kv" style="margin-top:0.5rem;"><span>Email</span>{{ dep.client.email|default:"—" }}</p>
+                    <p class="action-required-kv"><span>Service</span>{{ dep.service_name|default:"—" }}</p>
+                    <p class="action-required-kv"><span>Date</span>{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</p>
+                    <p class="action-required-kv"><span>Amount</span>${{ dep.amount|floatformat:"0" }}</p>
+                    <form method="post" action="/admin/deposits/{{ dep.pk }}/approve/">
+                        {% csrf_token %}
+                        <button type="submit"
+                               style="display:block; background:#6d28d9; color:#fff; border-radius:0.35rem; font-weight:600; border:none; cursor:pointer;">
+                            ✅ Approve &amp; Send
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
 
@@ -63,37 +124,58 @@
             <p style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#6b7280;">
                 These clients have paid. Click "Confirm" to confirm the booking in Cal.com (Cal.com will send the confirmation email).
             </p>
-            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                <thead>
-                    <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
-                        <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for dep in needs_confirmation %}
-                    <tr style="border-bottom:1px solid #f3f4f6;">
-                        <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
-                        <td style="padding:0.4rem 0.5rem;">
-                            <form method="post" action="/admin/deposits/{{ dep.pk }}/send-confirmation/" style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit"
-                                   style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
-                                          border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
-                                    ✅ Confirm in Cal.com
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+            <div class="action-required-desktop">
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #e5e7eb; text-align:left;">
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Client</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Email</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Service</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Date</th>
+                            <th style="padding:0.35rem 0.5rem; color:#374151; font-weight:600;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dep in needs_confirmation %}
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:0.4rem 0.5rem; color:#111827;">{{ dep.client.name|default:"Unknown" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.client.email|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.service_name|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem; color:#6b7280;">{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</td>
+                            <td style="padding:0.4rem 0.5rem;">
+                                <form method="post" action="/admin/deposits/{{ dep.pk }}/send-confirmation/" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                       style="display:inline-block; background:#059669; color:#fff; padding:0.2rem 0.6rem;
+                                              border-radius:0.25rem; font-size:0.75rem; font-weight:600; border:none; cursor:pointer;">
+                                        ✅ Confirm in Cal.com
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-required-mobile">
+                {% for dep in needs_confirmation %}
+                <div class="action-required-card">
+                    <p style="margin:0; font-size:1rem; font-weight:600; color:#111827;">{{ dep.client.name|default:"Unknown" }}</p>
+                    <p class="action-required-kv" style="margin-top:0.5rem;"><span>Email</span>{{ dep.client.email|default:"—" }}</p>
+                    <p class="action-required-kv"><span>Service</span>{{ dep.service_name|default:"—" }}</p>
+                    <p class="action-required-kv"><span>Date</span>{{ dep.appointment_date|date:"M j, Y"|default:"—" }}</p>
+                    <form method="post" action="/admin/deposits/{{ dep.pk }}/send-confirmation/">
+                        {% csrf_token %}
+                        <button type="submit"
+                               style="display:block; background:#059669; color:#fff; border-radius:0.35rem; font-weight:600; border:none; cursor:pointer;">
+                            ✅ Confirm in Cal.com
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
     </div>

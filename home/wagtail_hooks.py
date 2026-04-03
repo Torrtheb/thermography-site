@@ -2,12 +2,14 @@
 Wagtail admin customizations for a non-technical site owner.
 
 - Custom welcome panel with simple instructions on the admin dashboard
+  (booking deposits link first for mobile-first owner workflow)
 - GoatCounter analytics panel embedded in the dashboard
 - Simplified sidebar (hides confusing menu items)
 - Friendly admin title
 """
 
 from django.conf import settings
+from django.urls import reverse
 from django.utils.safestring import mark_safe
 
 from django.forms import Media
@@ -28,8 +30,9 @@ class WelcomePanel:
         return Media()
 
     def render(self):
+        deposits_url = reverse("wagtailsnippets_clients_deposit:list")
         return mark_safe(
-            '<section class="panel summary nice-padding" style="padding:2em;">'
+            '<section class="panel summary nice-padding owner-dashboard-welcome" style="padding:2em;">'
 
             # Header
             '<div style="text-align:center; margin-bottom:2em;">'
@@ -39,8 +42,21 @@ class WelcomePanel:
             '</p>'
             '</div>'
 
-            # Quick-action cards grid
-            '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1em; margin-bottom:2em;">'
+            # Quick-action cards grid (deposits first — primary workflow on phone)
+            '<div class="owner-dashboard-quicklinks" style="display:grid; gap:1em; margin-bottom:2em;">'
+
+            # Card: Deposits (booking approvals — first tap target)
+            f'<a href="{deposits_url}" style="text-decoration:none; color:inherit;">'
+            '<div style="background:#fffbeb; border:2px solid #f59e0b; border-radius:12px; padding:1.2em; '
+            'transition:box-shadow 0.2s; cursor:pointer;" '
+            'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.12)\'" '
+            'onmouseout="this.style.boxShadow=\'none\'">'
+            '<div style="font-size:1.5em; margin-bottom:0.3em;">\U0001f4b3</div>'
+            '<div style="font-weight:700; margin-bottom:0.3em;">Booking deposits</div>'
+            '<div style="font-size:0.85em; color:#666;">'
+            'Approve new bookings, send deposit requests, and mark payments received.'
+            '</div>'
+            '</div></a>'
 
             # Card: Edit pages
             '<a href="/admin/pages/" style="text-decoration:none; color:inherit;">'
@@ -238,6 +254,23 @@ def admin_css():
     """Add CSS tweaks for friendlier admin UX + mobile scroll fixes."""
     return mark_safe(
         "<style>"
+        ".owner-dashboard-quicklinks {"
+        "  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));"
+        "}"
+        ".owner-dashboard-quicklinks > a {"
+        "  touch-action: manipulation;"
+        "  -webkit-tap-highlight-color: rgba(245, 158, 11, 0.15);"
+        "}"
+        "@media (max-width: 640px) {"
+        "  .owner-dashboard-welcome .owner-dashboard-quicklinks {"
+        "    grid-template-columns: 1fr;"
+        "  }"
+        "  .owner-dashboard-welcome { padding: 1.25em !important; }"
+        "  .owner-dashboard-welcome .owner-dashboard-quicklinks > a > div {"
+        "    padding: 1.35em !important;"
+        "    min-height: 5.5rem;"
+        "  }"
+        "}"
         ".c-sf-block-type-description { color: #666 !important; font-size: 0.85em; }"
         ".help { font-size: 0.9em !important; }"
         ".content-wrapper h1 { font-size: 1.5em; }"
