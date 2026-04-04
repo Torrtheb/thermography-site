@@ -201,16 +201,12 @@ def send_deposit_request(client, amount, appointment_date=""):
     # ── Render richtext policy fields to HTML for the email ──
     deposit_policy_html = ""
     cancellation_policy_html = ""
-    payment_methods_html = ""
     if ss:
         from wagtail.rich_text import expand_db_html
         if ss.deposit_policy:
             deposit_policy_html = expand_db_html(ss.deposit_policy)
         if ss.cancellation_policy:
             cancellation_policy_html = expand_db_html(ss.cancellation_policy)
-        if ss.payment_methods:
-            payment_methods_html = expand_db_html(ss.payment_methods)
-
     # ── HTML email — wraps the owner-editable text in a styled template ──
     try:
         html_message = render_to_string(
@@ -222,7 +218,6 @@ def send_deposit_request(client, amount, appointment_date=""):
                 "business_name": business_name,
                 "deposit_policy": deposit_policy_html,
                 "cancellation_policy": cancellation_policy_html,
-                "payment_methods": payment_methods_html,
             },
         )
     except Exception:
@@ -236,8 +231,6 @@ def send_deposit_request(client, amount, appointment_date=""):
             policy_lines.append("DEPOSIT & PAYMENT POLICY\n" + strip_tags(ss.deposit_policy).strip())
         if ss.cancellation_policy:
             policy_lines.append("CANCELLATION POLICY\n" + strip_tags(ss.cancellation_policy).strip())
-        if ss.payment_methods:
-            policy_lines.append("PAYMENT METHODS\n" + strip_tags(ss.payment_methods).strip())
         if policy_lines:
             plain_message += "\n\n---\n\n" + "\n\n".join(policy_lines)
 

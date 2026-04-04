@@ -41,7 +41,7 @@
 
         <div class="message-content">{{ email_body }}</div>
 
-        {% if deposit_policy or cancellation_policy or payment_methods %}
+        {% if deposit_policy or cancellation_policy %}
         <div class="policy-section">
 
           {% if deposit_policy %}
@@ -55,11 +55,6 @@
           <div class="policy-content">{{ cancellation_policy|safe }}</div>
           {% endif %}
 
-          {% if payment_methods %}
-          {% if deposit_policy or cancellation_policy %}<div class="policy-divider"></div>{% endif %}
-          <h3>Payment Methods</h3>
-          <div class="policy-content">{{ payment_methods|safe }}</div>
-          {% endif %}
 
         </div>
         {% endif %}
