@@ -204,6 +204,18 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20 MB
 # Wagtail image upload limit (default is 10 MB)
 WAGTAILIMAGES_MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20 MB
 
+# Convert non-web-safe image formats to JPEG when generating renditions.
+# Without this, inserting a HEIC/BMP/TIFF into a richtext block crashes
+# because Willow/Pillow doesn't know what output format to use.
+WAGTAILIMAGES_FORMAT_CONVERSIONS = {
+    "bmp": "jpeg",
+    "tiff": "jpeg",
+    "heic": "jpeg",
+    "heif": "jpeg",
+    "avif": "jpeg",
+    "webp": "webp",
+}
+
 
 # Wagtail settings
 

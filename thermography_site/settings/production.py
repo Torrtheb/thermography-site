@@ -279,6 +279,11 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "wagtail.images": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "storages": {
             "handlers": ["console"],
             "level": "WARNING",
