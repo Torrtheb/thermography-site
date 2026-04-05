@@ -45,19 +45,14 @@
     {% endif %}
 
     <div data-aos="fade-up">
-        {# --- Floated photo(s) --- #}
+        {# --- Floated headshot --- #}
         {% if page.headshot %}
         <div style="float:left;width:40%;margin-right:3rem;margin-bottom:2rem" class="max-md:!float-none max-md:!w-full max-md:!mr-0">
             {% image page.headshot max-400x500 class="rounded-xl shadow-lg w-full h-auto" alt=page.full_name %}
-            {% if page.owner_story_image %}
-            <div class="mt-6">
-                {% image page.owner_story_image fill-400x280 class="rounded-xl shadow w-full h-auto" alt=page.owner_story_heading %}
-            </div>
-            {% endif %}
         </div>
         {% endif %}
 
-        {# --- Bio (wraps beside then under photos) --- #}
+        {# --- Bio (wraps beside then under headshot) --- #}
         <div>
             <p class="text-brand-600 font-semibold text-sm uppercase tracking-wide mb-2">Meet the Owner</p>
             <h3 class="text-2xl font-bold text-gray-900 mb-2">
@@ -87,6 +82,13 @@
         </div>
         <div style="clear:both"></div>
     </div>
+
+    {# --- Owner story image — centered below all text --- #}
+    {% if page.owner_story_image %}
+    <div class="mt-10 flex justify-center" data-aos="fade-up">
+        {% image page.owner_story_image fill-800x500 class="rounded-xl shadow-lg max-w-full h-auto" alt=page.owner_story_heading %}
+    </div>
+    {% endif %}
 </section>
 
 {# ========== SECTION 2: CREATING THE CLINIC ========== #}
