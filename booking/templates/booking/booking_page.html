@@ -572,26 +572,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Decide which date the Cal.com calendar should open on ──
     // Priority: starts_on (explicit) > display_until (auto-fallback) > today
-    // Only applies to non-permanent (pop-up) locations.
     function getCalendarJumpDate(locData) {
-        // Permanent locations have regular weekly availability — no need to jump
-        if (locData.is_permanent) return '';
-
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Explicit starts_on date (best option)
+        // 1. Explicit starts_on date — always respected, even for permanent
+        //    locations (e.g. a permanent clinic adding new future availability)
         if (locData.starts_on) {
             const d = new Date(locData.starts_on + 'T00:00:00');
             if (d >= today) return locData.starts_on;
         }
 
-        // 2. Fallback: jump to the display_until month (the pop-up is visible
-        //    until this date, so availability is around this period)
+        // Permanent locations with no starts_on use today (default)
+        if (locData.is_permanent) return '';
+
+        // 2. Fallback for pop-ups: jump to the display_until month
+        //    (the pop-up is visible until this date, so availability
+        //    is around this period)
         if (locData.display_until) {
             const d = new Date(locData.display_until + 'T00:00:00');
             if (d >= today) {
-                // Jump to the 1st of that month
                 const y = d.getFullYear();
                 const m = String(d.getMonth() + 1).padStart(2, '0');
                 return y + '-' + m + '-01';
@@ -622,6 +622,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (jumpDate) {
                 fullUrl += '&date=' + jumpDate + '&layout=month_view';
             }
+
+            // Cache-bust so availability updates are always reflected
+            fullUrl += '&_t=' + Date.now();
 
             const iframe = document.createElement('iframe');
             iframe.src = fullUrl;

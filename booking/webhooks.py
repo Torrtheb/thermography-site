@@ -51,7 +51,6 @@ import hmac
 import json
 import logging
 import re
-import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -282,12 +281,16 @@ def _parse_cal_url(cal_booking_url):
     return None, None
 
 
-def _get_sibling_event_slugs(event_title, inferred_location):
+def _get_sibling_event_slugs(event_title, inferred_location, booked_cal_url=""):
     """Find Cal.com event slugs for other services at the same location.
 
     Uses the LocationServiceLink table — no API call needed.
     Returns a list of (username, event_slug) tuples, excluding the
-    event type that matches the current booking's event title.
+    event type that matches the current booking.
+
+    Identification of the "current" event type (to exclude):
+      1. If booked_cal_url is provided, match by parsed (username, slug).
+      2. Otherwise fall back to fuzzy title matching.
     """
     from booking.models import Location, LocationServiceLink
 
@@ -298,30 +301,42 @@ def _get_sibling_event_slugs(event_title, inferred_location):
     if not location:
         return []
 
+    booked_user, booked_slug = _parse_cal_url(booked_cal_url) if booked_cal_url else (None, None)
     title_lower = (event_title or "").lower()
+
     siblings = []
     for link in LocationServiceLink.objects.filter(location=location).select_related("service"):
         username, slug = _parse_cal_url(link.cal_booking_url)
         if not username or not slug:
             continue
-        if link.service.title.lower() in title_lower or title_lower in link.service.title.lower():
-            continue
+
+        # Exclude the event type that was just booked
+        if booked_user and booked_slug:
+            if username == booked_user and slug == booked_slug:
+                continue
+        else:
+            svc_lower = link.service.title.lower()
+            if svc_lower in title_lower or title_lower in svc_lower:
+                continue
+
         siblings.append((username, slug))
 
     return siblings
 
 
-def _create_placeholder_bookings(booking_uid, start_time, event_title, inferred_location):
+def _create_placeholder_bookings(booking_uid, start_time, event_title, inferred_location, booked_cal_url=""):
     """Create placeholder bookings on sibling event types to block the time slot.
 
-    Called in a background thread from the BOOKING_REQUESTED handler.
+    Called synchronously from the webhook handler so slots are blocked
+    before the HTTP response is returned (prevents race-condition
+    double-booking if another client loads the calendar immediately).
     """
     from booking.models import PlaceholderBooking
 
     if not booking_uid or not start_time:
         return
 
-    siblings = _get_sibling_event_slugs(event_title, inferred_location)
+    siblings = _get_sibling_event_slugs(event_title, inferred_location, booked_cal_url=booked_cal_url)
     if not siblings:
         logger.info("No sibling event types found for '%s' — no placeholders needed", event_title)
         return
@@ -591,14 +606,34 @@ _LOCATION_NOISE_WORDS = frozenset({
 })
 
 
-def _infer_location_from_event(event_title):
-    """Try to match a Cal.com event title to a Location name.
+def _infer_location_from_cal_url(cal_url):
+    """Try to match a Cal.com event-type URL to a Location via LocationServiceLink.
 
-    Cal.com event types are typically named like
-    "Upper Body Assessments Campbell River" or
-    "Breast Screening — Victoria Pop-Up".
+    More reliable than title matching because it uses the exact URL stored
+    in the database. Returns the Location.name string if matched, or "".
+    """
+    if not cal_url:
+        return ""
+    try:
+        from booking.models import LocationServiceLink
+        link = (
+            LocationServiceLink.objects
+            .filter(cal_booking_url=cal_url)
+            .select_related("location")
+            .first()
+        )
+        if link:
+            return link.location.name
+    except Exception:
+        logger.debug("Could not look up location from Cal URL", exc_info=True)
+    return ""
 
-    Matching strategy (most specific first):
+
+def _infer_location_from_event(event_title, cal_url=""):
+    """Try to match a Cal.com event to a Location name.
+
+    Matching strategy (most reliable first):
+      0. Exact Cal.com URL lookup via LocationServiceLink (if provided).
       1. Full location name found as a substring in the event title.
       2. Significant tokens extracted from each location name (ignoring
          generic words like "Main", "Clinic", "Pop-Up") checked as
@@ -607,6 +642,12 @@ def _infer_location_from_event(event_title):
 
     Returns the Location.name string if matched, or "" if no match.
     """
+    # Pass 0: exact URL match (most reliable)
+    if cal_url:
+        loc_name = _infer_location_from_cal_url(cal_url)
+        if loc_name:
+            return loc_name
+
     if not event_title:
         return ""
     try:
@@ -646,6 +687,28 @@ def _infer_location_from_event(event_title):
 
 
 
+def _extract_cal_url_from_payload(payload):
+    """Extract the Cal.com event-type URL from a webhook payload.
+
+    Cal.com includes event type metadata in various payload shapes.
+    Try common fields that contain the event-type slug or URL.
+    """
+    # Some payloads include the full event URL
+    for key in ("eventTypeUrl", "calEventUrl", "bookingUrl"):
+        val = (payload.get(key) or "").strip()
+        if val and "cal.com" in val:
+            return val
+
+    # Build from slug + organizer username if available
+    slug = payload.get("eventTypeSlug", "") or ""
+    organizer = payload.get("organizer", {}) or {}
+    username = organizer.get("username", "") or ""
+    if slug and username:
+        return f"https://cal.com/{username}/{slug}"
+
+    return ""
+
+
 def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
 
@@ -658,8 +721,10 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
       - clinic_location        (inferred from eventTitle ↔ Location names)
       - previous_visit_reason  (set to the Cal.com event title)
 
-    For BOOKING_REQUESTED events, also creates placeholder bookings on
+    For BOOKING_REQUESTED events, creates placeholder bookings on
     sibling event types at the same location to prevent double-booking.
+    Placeholders are created synchronously to eliminate the race-condition
+    window that allowed double-booking.
     """
     from clients.models import Client, Deposit
 
@@ -687,6 +752,7 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     start_time = payload.get("startTime", "")
     event_title = payload.get("eventTitle", "") or payload.get("title", "")
     appointment_date = _parse_appointment_date(start_time)
+    booked_cal_url = _extract_cal_url_from_payload(payload)
 
     if not client_email:
         logger.warning("BOOKING_CREATED webhook: no attendee email — skipping")
@@ -719,13 +785,11 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
                 logger.info("Deposit pk=%s → confirmed (owner confirmed in Cal.com, BOOKING_CREATED)", existing.pk)
             else:
                 logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s (status=%s)", booking_uid, existing.status)
-            threading.Thread(
-                target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
-            ).start()
+            cancel_placeholder_bookings(booking_uid)
             return
 
-    # Infer location from the event title; use the title itself as the visit reason
-    inferred_location = _infer_location_from_event(event_title)
+    # Infer location — try Cal.com URL first (most reliable), then event title
+    inferred_location = _infer_location_from_event(event_title, cal_url=booked_cal_url)
     visit_reason = event_title.strip() if event_title else ""
 
     # Find existing client by email hash (O(1) indexed lookup)
@@ -779,22 +843,28 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
         deposit.pk, client.pk, booking_uid,
     )
 
-    # Notify the owner so they know to review and approve
+    # Block sibling event types SYNCHRONOUSLY before sending any emails
+    # or returning the webhook response. This eliminates the race-condition
+    # window where another client could book the same slot.
+    if trigger_event == "BOOKING_REQUESTED" and booking_uid and start_time:
+        try:
+            _create_placeholder_bookings(
+                booking_uid, start_time, event_title, inferred_location,
+                booked_cal_url=booked_cal_url,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create placeholder bookings for uid=%s — "
+                "double-booking risk until placeholders are created manually or by cron",
+                booking_uid,
+            )
+
+    # Notify the owner so they know to review and approve (background — non-critical)
     from clients.email import send_owner_new_booking_notice
     try:
         send_owner_new_booking_notice(client, deposit)
     except Exception:
         logger.exception("Failed to send owner new-booking notice for deposit pk=%s", deposit.pk)
-
-    # Block sibling event types at the same location to prevent double-booking.
-    # Only for BOOKING_REQUESTED (pending confirmation) — not for instantly
-    # confirmed bookings, which Cal.com handles natively.
-    if trigger_event == "BOOKING_REQUESTED" and booking_uid and start_time:
-        threading.Thread(
-            target=_create_placeholder_bookings,
-            args=(booking_uid, start_time, event_title, inferred_location),
-            daemon=True,
-        ).start()
 
 
 def _handle_booking_confirmed(payload):
@@ -819,9 +889,7 @@ def _handle_booking_confirmed(payload):
         deposit.save(update_fields=["status", "deposit_confirmed_sent", "notes", "updated_at"])
         logger.info("Deposit pk=%s → confirmed (via Cal.com webhook)", deposit.pk)
 
-    threading.Thread(
-        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
-    ).start()
+    cancel_placeholder_bookings(booking_uid)
 
 
 def _handle_booking_cancelled(payload):
@@ -853,9 +921,7 @@ def _handle_booking_cancelled(payload):
         deposit.save(update_fields=["status", "notes", "updated_at"])
         logger.info("Deposit pk=%s forfeited (%s)", deposit.pk, reason)
 
-    threading.Thread(
-        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
-    ).start()
+    cancel_placeholder_bookings(booking_uid)
 
 
 def _handle_booking_rejected(payload):
@@ -879,9 +945,7 @@ def _handle_booking_rejected(payload):
         deposit.save(update_fields=["status", "notes", "updated_at"])
         logger.info("Deposit pk=%s forfeited (rejected in Cal.com)", deposit.pk)
 
-    threading.Thread(
-        target=cancel_placeholder_bookings, args=(booking_uid,), daemon=True,
-    ).start()
+    cancel_placeholder_bookings(booking_uid)
 
 
 def _handle_booking_rescheduled(payload):
@@ -949,16 +1013,20 @@ def _handle_booking_rescheduled(payload):
 
     # Cancel old placeholders and create new ones for the new time slot
     if old_uid:
-        threading.Thread(
-            target=cancel_placeholder_bookings, args=(old_uid,), daemon=True,
-        ).start()
+        cancel_placeholder_bookings(old_uid)
     if booking_uid and new_start:
-        inferred_location = _infer_location_from_event(new_title)
-        threading.Thread(
-            target=_create_placeholder_bookings,
-            args=(booking_uid, new_start, new_title, inferred_location),
-            daemon=True,
-        ).start()
+        booked_cal_url = _extract_cal_url_from_payload(payload)
+        inferred_location = _infer_location_from_event(new_title, cal_url=booked_cal_url)
+        try:
+            _create_placeholder_bookings(
+                booking_uid, new_start, new_title, inferred_location,
+                booked_cal_url=booked_cal_url,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create placeholder bookings for rescheduled uid=%s",
+                booking_uid,
+            )
 
 
 @csrf_exempt
