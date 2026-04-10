@@ -1,15 +1,16 @@
 """
-Management command: expire deposits that have been pending for more than 48 hours.
+Management command: expire deposits that have been pending for more than 72 hours.
 
 Usage:
   python manage.py expire_unpaid_deposits          # dry-run by default
   python manage.py expire_unpaid_deposits --apply   # actually expire them
 
 When --apply is used, this command:
-  1. Cancels the Cal.com booking (frees the slot)
-  2. Emails each client about the cancellation
-  3. Emails the owner a summary
-  4. Marks deposits as "forfeited"
+  1. Sends a 48-hour warning email to clients who haven't paid yet
+  2. Cancels the Cal.com booking (frees the slot) for 72-hour expired deposits
+  3. Emails each client about the cancellation
+  4. Emails the owner a summary
+  5. Marks deposits as "forfeited"
 """
 
 import logging
@@ -21,7 +22,8 @@ from clients.models import Deposit
 
 logger = logging.getLogger(__name__)
 
-EXPIRY_HOURS = 48
+EXPIRY_HOURS = 72
+WARNING_HOURS = 48
 
 
 class Command(BaseCommand):
@@ -81,11 +83,16 @@ class Command(BaseCommand):
             ))
             return
 
-        from booking.webhooks import expire_pending_deposits
+        from booking.webhooks import send_deposit_expiry_warnings, expire_pending_deposits
+        warned = send_deposit_expiry_warnings(hours=WARNING_HOURS)
         forfeited = expire_pending_deposits(hours=hours)
 
         self.stdout.write(self.style.SUCCESS(
-            f"\nForfeited {forfeited} deposit(s), cancelled their Cal.com bookings, "
+            f"\nSent {warned} warning email(s), "
+            f"forfeited {forfeited} deposit(s), cancelled their Cal.com bookings, "
             "and notified clients + owner."
         ))
-        logger.info("expire_unpaid_deposits: forfeited %d deposit(s) older than %d hours", forfeited, hours)
+        logger.info(
+            "expire_unpaid_deposits: warned %d, forfeited %d deposit(s) older than %d hours",
+            warned, forfeited, hours,
+        )

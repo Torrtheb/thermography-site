@@ -18,7 +18,7 @@ Wagtail → Cal.com actions:
   "Approve & Send" → sends deposit request email (no Cal.com API call needed)
   "Mark Received & Confirm" → confirms booking via Cal.com API + cancels placeholders
   "Reject & Cancel" → declines booking via Cal.com API + cancels placeholders
-  48-hour expiry cron → cancels booking via Cal.com API + cancels placeholders
+  72-hour expiry cron → cancels booking via Cal.com API + cancels placeholders
 
 Cross-event-type slot blocking:
   Cal.com has a known bug (#23069) where unconfirmed bookings only block
@@ -54,8 +54,9 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import datetime, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -179,7 +180,7 @@ def cancel_calcom_booking(booking_uid, reason=""):
 
     ok, resp = _calcom_api_post(
         f"/v2/bookings/{booking_uid}/cancel",
-        {"cancellationReason": reason or "Booking deposit not received within 48 hours."},
+        {"cancellationReason": reason or "Booking deposit not received within 72 hours."},
     )
 
     if ok:
@@ -447,10 +448,66 @@ def cleanup_stale_placeholders(max_age_hours=72):
 
 
 # ──────────────────────────────────────────────────────────
+# Deposit expiry warning — 24 hours before cancellation
+# ──────────────────────────────────────────────────────────
+
+def send_deposit_expiry_warnings(hours=48):
+    """
+    Send a warning email to clients whose deposits have been pending for
+    `hours` (default 48) but not yet expired.
+
+    Only targets "pending" deposits (where the client has received the
+    deposit request but hasn't paid). Skips deposits where the warning
+    has already been sent.
+
+    Returns the number of warning emails sent.
+    """
+    from django.db.models import F, Q
+    from django.db.models.functions import Coalesce
+    from django.utils import timezone as tz
+    from clients.models import Deposit
+    from clients.email import send_deposit_expiry_warning
+
+    cutoff = tz.now() - tz.timedelta(hours=hours)
+
+    warn_qs = Deposit.objects.filter(
+        status="pending",
+        expiry_warning_sent=False,
+    ).annotate(
+        timer_start=Coalesce(F("approved_at"), F("created_at")),
+    ).filter(
+        timer_start__lt=cutoff,
+    ).select_related("client")
+
+    warn_list = list(warn_qs)
+    if not warn_list:
+        return 0
+
+    sent = 0
+    for deposit in warn_list:
+        date_str = deposit.appointment_date.strftime("%B %d, %Y") if deposit.appointment_date else ""
+        try:
+            send_deposit_expiry_warning(
+                deposit.client,
+                deposit.amount,
+                appointment_date=date_str,
+                service_name=deposit.service_name,
+            )
+            deposit.expiry_warning_sent = True
+            deposit.save(update_fields=["expiry_warning_sent", "updated_at"])
+            sent += 1
+        except Exception:
+            logger.exception("Failed to send expiry warning for deposit pk=%s", deposit.pk)
+
+    logger.info("Sent %d deposit expiry warning(s) (>%d hours pending)", sent, hours)
+    return sent
+
+
+# ──────────────────────────────────────────────────────────
 # Shared expiry logic — used by both cron endpoint and management command
 # ──────────────────────────────────────────────────────────
 
-def expire_pending_deposits(hours=48):
+def expire_pending_deposits(hours=72):
     """
     Forfeit deposits that have been pending or awaiting review for too long,
     cancel/decline their Cal.com bookings, and notify the client and owner.
@@ -492,7 +549,7 @@ def expire_pending_deposits(hours=48):
             if was_awaiting:
                 decline_calcom_booking(
                     deposit.cal_booking_uid,
-                    reason="Booking expired — not reviewed within 48 hours.",
+                    reason="Booking expired — not reviewed within 72 hours.",
                 )
             else:
                 cancel_calcom_booking(deposit.cal_booking_uid)
@@ -590,11 +647,22 @@ def _get_deposit_amount(location_name=""):
 
 
 def _parse_appointment_date(start_time_str):
-    """Parse a Cal.com startTime ISO string into a date object."""
+    """Parse a Cal.com startTime ISO string into a local-timezone date.
+
+    Cal.com sends startTime in UTC (e.g. "2026-04-10T01:00:00.000Z").
+    Naive slicing of the first 10 chars would yield the UTC calendar date,
+    which can be a day ahead of the actual appointment date in Pacific time
+    for evening bookings.  Convert to America/Vancouver first.
+    """
     if not start_time_str:
         return None
     try:
-        return date.fromisoformat(start_time_str[:10])
+        cleaned = start_time_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(cleaned)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        local_dt = dt.astimezone(ZoneInfo(_PLACEHOLDER_TIMEZONE))
+        return local_dt.date()
     except (ValueError, TypeError):
         return None
 
@@ -1080,17 +1148,19 @@ def calcom_webhook_view(request):
 @require_POST
 def cron_expire_deposits_view(request):
     """
-    HTTP-callable endpoint for the 48-hour deposit expiry rule.
+    HTTP-callable endpoint for the 72-hour deposit expiry rule.
 
     Protected by CRON_SECRET — an external cron service (e.g. cron-job.org)
     POSTs to this URL every hour with the secret in the Authorization header.
 
     What happens when this runs:
-      1. Finds all deposits still "pending" after 48 hours.
-      2. Cancels their Cal.com bookings (frees the slot).
-      3. Emails each client about the cancellation.
-      4. Emails the owner a summary.
-      5. Marks the deposits as "forfeited".
+      1. Sends a warning email to clients whose deposits have been pending
+         for 48 hours (24 hours before the 72-hour cancellation).
+      2. Finds all deposits still "pending" after 72 hours.
+      3. Cancels their Cal.com bookings (frees the slot).
+      4. Emails each client about the cancellation.
+      5. Emails the owner a summary.
+      6. Marks the deposits as "forfeited".
 
     Header format:  Authorization: Bearer <CRON_SECRET>
     """
@@ -1106,7 +1176,11 @@ def cron_expire_deposits_view(request):
     if not hmac.compare_digest(token, expected_secret):
         return JsonResponse({"error": "unauthorized"}, status=403)
 
-    count = expire_pending_deposits(hours=48)
-    stale = cleanup_stale_placeholders(max_age_hours=72)
+    warn_count = send_deposit_expiry_warnings(hours=48)
+    count = expire_pending_deposits(hours=72)
+    stale = cleanup_stale_placeholders(max_age_hours=96)
 
-    return JsonResponse({"ok": True, "forfeited": count, "stale_placeholders_cleaned": stale})
+    return JsonResponse({
+        "ok": True, "warnings_sent": warn_count,
+        "forfeited": count, "stale_placeholders_cleaned": stale,
+    })

@@ -112,7 +112,7 @@ OWNER_NOTIFICATION_EMAIL = os.environ.get("OWNER_NOTIFICATION_EMAIL", "")
 # Set this to the same value you configure in Cal.com → Settings → Developer → Webhooks → Secret
 CAL_WEBHOOK_SECRET = os.environ.get("CAL_WEBHOOK_SECRET", "")
 
-# Cal.com API key — used to cancel bookings when deposits expire (48-hour rule)
+# Cal.com API key — used to cancel bookings when deposits expire (72-hour rule)
 # Get from Cal.com → Settings → Developer → API Keys
 CAL_API_KEY = os.environ.get("CAL_API_KEY", "")
 

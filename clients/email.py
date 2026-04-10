@@ -247,10 +247,59 @@ def send_deposit_request(client, amount, appointment_date=""):
     return True
 
 
+def send_deposit_expiry_warning(client, amount, appointment_date="", service_name=""):
+    """
+    Warn a client that their appointment will be cancelled in 24 hours
+    unless the booking deposit is received.
+
+    Sent at the 48-hour mark (24 hours before the 72-hour cancellation).
+    Uses the owner-editable template from SiteSettings → Email Templates.
+    """
+    if not client.email:
+        return False
+
+    ss = _get_site_settings()
+    appointment_line = f" on {appointment_date}" if appointment_date else ""
+    service_line = f" ({service_name})" if service_name else ""
+
+    template = (ss.email_deposit_warning if ss and ss.email_deposit_warning else "")
+    if not template:
+        template = (
+            "Hi {client_name},\n\n"
+            "This is a friendly reminder that the ${amount} booking deposit for your "
+            "thermography appointment{appointment_line}{service_line} has not yet been received.\n\n"
+            "If we do not receive the deposit within the next 24 hours, the appointment "
+            "will be automatically cancelled.\n\n"
+            "If you've already sent payment, please disregard this message — it may take "
+            "a moment for us to process it.\n\n"
+            "If you have any questions, please reply to this email.\n\n"
+            "Best regards,\n"
+            "Your Thermography Team"
+        )
+
+    plain_message = template.format_map(_SafeDict(
+        client_name=client.name or "there",
+        amount=str(amount),
+        appointment_line=appointment_line,
+        service_line=service_line,
+    ))
+
+    subject = "Reminder: Booking Deposit Due — Appointment at Risk of Cancellation"
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[client.email],
+        fail_silently=False,
+    )
+    return True
+
+
 def send_deposit_expired_cancellation(client, amount, appointment_date="", service_name=""):
     """
     Notify a client that their appointment was cancelled because
-    the booking deposit was not received within 48 hours.
+    the booking deposit was not received within 72 hours.
 
     Uses the owner-editable template from SiteSettings → Email Templates.
     """
@@ -265,9 +314,11 @@ def send_deposit_expired_cancellation(client, amount, appointment_date="", servi
     if not template:
         template = (
             "Hi {client_name},\n\n"
-            "Your appointment{appointment_line}{service_line} has been cancelled. "
-            "The ${amount} deposit was not received within 48 hours.\n\n"
-            "Best regards,\nYour Thermography Team"
+            "Your appointment{appointment_line}{service_line} has been cancelled.\n\n"
+            "Unfortunately, the booking deposit was not received within 72 hours. "
+            "Please let us know asap if you want to rebook.\n\n"
+            "Best regards,\n"
+            "Your Thermography Team"
         )
 
     plain_message = template.format_map(_SafeDict(
@@ -347,7 +398,7 @@ def send_owner_deposit_expiry_notice(expired_deposits):
 
     lines = [
         f"{count} booking(s) were automatically cancelled because the deposit "
-        f"was not received within 48 hours:\n"
+        f"was not received within 72 hours:\n"
     ]
 
     for dep in expired_deposits:

@@ -336,11 +336,16 @@ class Deposit(index.Indexed, models.Model):
         help_text="Whether the deposit confirmation email has been sent.",
     )
 
+    expiry_warning_sent = models.BooleanField(
+        default=False,
+        help_text="Whether the 48-hour warning email has been sent (24 hours before cancellation).",
+    )
+
     approved_at = models.DateTimeField(
         null=True,
         blank=True,
         editable=False,
-        help_text="When the owner approved the booking and sent the deposit request. The 48-hour clock starts here.",
+        help_text="When the owner approved the booking and sent the deposit request. The 72-hour clock starts here.",
     )
 
     cal_booking_uid = models.CharField(
