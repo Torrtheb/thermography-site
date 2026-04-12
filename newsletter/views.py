@@ -61,8 +61,11 @@ def subscribe(request):
                 unblock_contact_in_brevo(raw_email)
                 add_contact_to_brevo(raw_email)
                 send_welcome_email(raw_email)
+                return JsonResponse(
+                    {"ok": True, "message": "Welcome back! You've been re-subscribed."}
+                )
             return JsonResponse(
-                {"ok": True, "message": "Thank you for subscribing!"}
+                {"ok": True, "message": "You're already subscribed — thank you!"}
             )
 
     if not form.is_valid():
