@@ -51,10 +51,13 @@ nav.scrolled {
 
 /* ── Wagtail rich-text image alignment ─────────────────
    Wagtail outputs bare <img class="richtext-image left|right|full-width">
-   inside .prose containers.  A small script in base.html wraps each
-   left/right image + its immediately following paragraph into a flex
-   row so the paragraph sits entirely beside the image (never wrapping
-   under it) and subsequent paragraphs return to full width.
+   inside .prose containers.
+
+   Left/right images float to their side.  Each following block element
+   (p, ul, ol …) gets overflow:hidden which creates a block formatting
+   context — the whole paragraph sits beside the image as a unit, never
+   splitting across.  Once the float is cleared (text taller than the
+   image), subsequent paragraphs return to full page width automatically.
    ─────────────────────────────────────────────────────── */
 
 .prose img.richtext-image {
@@ -68,62 +71,44 @@ nav.scrolled {
     margin: 2rem 0;
 }
 
-/* ── Flex wrapper (injected by JS) ──────────────────── */
-.rt-img-wrap {
-    display: flex !important;
-    gap: 2rem;
-    align-items: flex-start;
-    margin: 1.5rem 0;
-    clear: both;
-}
-
-.rt-img-wrap > img {
-    flex: 0 0 45%;
-    max-width: 45%;
-    border-radius: 0.75rem;
-    height: auto;
-    margin: 0 !important;
-}
-
-.rt-img-wrap > .rt-img-text {
-    flex: 1 1 0%;
-    min-width: 0;
-}
-
-.rt-img-wrap > .rt-img-text > *:first-child {
-    margin-top: 0;
-}
-.rt-img-wrap > .rt-img-text > *:last-child {
-    margin-bottom: 0;
-}
-
-@media (max-width: 640px) {
-    .rt-img-wrap {
-        flex-direction: column !important;
-        gap: 1rem;
-    }
-    .rt-img-wrap > img {
-        flex: 0 0 100%;
-        max-width: 100%;
-    }
-}
-
-/* ── CSS-only fallback (before JS runs or if JS fails) ── */
 .prose img.richtext-image.left {
     float: left;
     max-width: 45%;
-    margin: 0.25rem 2rem 1.5rem 0;
+    margin: 0.25rem 2rem 1.25rem 0;
 }
+
 .prose img.richtext-image.right {
     float: right;
     max-width: 45%;
-    margin: 0.25rem 0 1.5rem 2rem;
+    margin: 0.25rem 0 1.25rem 2rem;
 }
+
+/* Each block after a floated image stays together as a unit */
+.prose img.richtext-image.left ~ p,
+.prose img.richtext-image.left ~ ul,
+.prose img.richtext-image.left ~ ol,
+.prose img.richtext-image.left ~ blockquote,
+.prose img.richtext-image.left ~ h2,
+.prose img.richtext-image.left ~ h3,
+.prose img.richtext-image.left ~ h4,
+.prose img.richtext-image.right ~ p,
+.prose img.richtext-image.right ~ ul,
+.prose img.richtext-image.right ~ ol,
+.prose img.richtext-image.right ~ blockquote,
+.prose img.richtext-image.right ~ h2,
+.prose img.richtext-image.right ~ h3,
+.prose img.richtext-image.right ~ h4 {
+    overflow: hidden;
+}
+
+/* Clear the float after the prose block */
 .prose::after {
     content: "";
     display: table;
     clear: both;
 }
+
+/* On small screens, stack images full-width */
 @media (max-width: 640px) {
     .prose img.richtext-image.left,
     .prose img.richtext-image.right {

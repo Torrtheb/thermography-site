@@ -130,55 +130,6 @@
         });
     </script>
 
-    {# --- Rich-text image layout: wrap left/right images + adjacent text --- #}
-    <script>
-    (function(){
-        var BLOCK_RE = /^(p|ul|ol|blockquote|h[1-6]|div|dl|table|figure|pre)$/;
-
-        document.querySelectorAll('.prose img.richtext-image.left, .prose img.richtext-image.right').forEach(function(img){
-            if (img.closest('.rt-img-wrap')) return;
-            var isLeft = img.classList.contains('left');
-            var parent = img.parentNode;
-
-            // Collect all adjacent block-level siblings after the image
-            var blocks = [];
-            var node = img.nextSibling;
-            while (node) {
-                if (node.nodeType === 3 && !node.textContent.trim()) {
-                    node = node.nextSibling;
-                    continue;
-                }
-                if (node.nodeType !== 1) break;
-                if (node.classList && node.classList.contains('richtext-image')) break;
-                if (!BLOCK_RE.test(node.tagName.toLowerCase())) break;
-                blocks.push(node);
-                node = node.nextSibling;
-            }
-            if (!blocks.length) return;
-
-            // Build wrapper
-            var wrap = document.createElement('div');
-            wrap.className = 'rt-img-wrap';
-            parent.insertBefore(wrap, img);
-
-            // Build text column
-            var textCol = document.createElement('div');
-            textCol.className = 'rt-img-text';
-            for (var i = 0; i < blocks.length; i++) {
-                textCol.appendChild(blocks[i]);
-            }
-
-            if (isLeft) {
-                wrap.appendChild(img);
-                wrap.appendChild(textCol);
-            } else {
-                wrap.appendChild(textCol);
-                wrap.appendChild(img);
-            }
-        });
-    })();
-    </script>
-
     {% block extra_js %}{% endblock %}
 
     {# GoatCounter analytics — only loads when GOATCOUNTER_SITE_CODE is set #}
