@@ -212,7 +212,9 @@ class SiteSettings(BaseSiteSetting):
         help_text=(
             "Sent automatically when a client books. Available placeholders: "
             "{client_name}, {amount}, {appointment_line} (\" on March 15, 2026\" or blank), "
-            "{etransfer_email}. Edit freely — placeholders are replaced when the email sends."
+            "{etransfer_email}, {service_name} (e.g. \"Full Body Scan\"), "
+            "{service_price} (e.g. \"$150\" — pulled from the service page). "
+            "Edit freely — placeholders are replaced when the email sends."
         ),
     )
 

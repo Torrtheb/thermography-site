@@ -35,6 +35,9 @@
         {% if appointment_line %}
         <p>Appointment{{ appointment_line }}</p>
         {% endif %}
+        {% if service_name %}
+        <p style="margin: 4px 0 0; color: #a7f3d0; font-size: 14px;">{{ service_name }}{% if service_price %} — {{ service_price }}{% endif %}</p>
+        {% endif %}
       </div>
 
       <div class="body">

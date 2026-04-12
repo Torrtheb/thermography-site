@@ -473,7 +473,10 @@ def _send_deposit_request_action(request, deposit_id):
     deposit.deposit_request_sent = True
     deposit.save(update_fields=["deposit_request_sent", "updated_at"])
 
-    _send_email_async(send_deposit_request, client, deposit.amount, appointment_date=date_str)
+    _send_email_async(
+        send_deposit_request, client, deposit.amount,
+        appointment_date=date_str, service_name=deposit.service_name,
+    )
     messages.success(request, f"Deposit request email is being sent to {client.name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))
@@ -550,7 +553,10 @@ def _approve_deposit_action(request, deposit_id):
     deposit.approved_at = timezone.now()
     deposit.save(update_fields=["status", "deposit_request_sent", "approved_at", "updated_at"])
 
-    _send_email_async(send_deposit_request, client, deposit.amount, appointment_date=date_str)
+    _send_email_async(
+        send_deposit_request, client, deposit.amount,
+        appointment_date=date_str, service_name=deposit.service_name,
+    )
     messages.success(request, f"Approved! Deposit request email is being sent to {client.name}.")
 
     return redirect(reverse("wagtailsnippets_clients_deposit:list"))

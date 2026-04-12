@@ -130,6 +130,41 @@
         });
     </script>
 
+    {# --- Rich-text image layout: wrap left/right images + adjacent paragraph --- #}
+    <script>
+    (function(){
+        var imgs = document.querySelectorAll('.prose .richtext-image.left, .prose .richtext-image.right');
+        imgs.forEach(function(img){
+            var isLeft = img.classList.contains('left');
+
+            // Find the next element sibling (skip whitespace text nodes)
+            var sibling = img.nextSibling;
+            while (sibling && sibling.nodeType === 3 && !sibling.textContent.trim()) {
+                sibling = sibling.nextSibling;
+            }
+            if (!sibling || sibling.nodeType !== 1) return;
+
+            var tag = sibling.tagName.toLowerCase();
+            if (sibling.classList.contains('richtext-image')) return;
+            if (!/^(p|ul|ol|blockquote|h[1-6]|div|dl|table|figure|pre)$/.test(tag)) return;
+
+            // Build flex wrapper: image on one side, the single block on the other
+            var wrap = document.createElement('div');
+            wrap.className = 'rt-img-wrap' + (isLeft ? '' : ' rt-img-wrap--right');
+
+            img.parentNode.insertBefore(wrap, img);
+
+            if (isLeft) {
+                wrap.appendChild(img);
+                wrap.appendChild(sibling);
+            } else {
+                wrap.appendChild(sibling);
+                wrap.appendChild(img);
+            }
+        });
+    })();
+    </script>
+
     {% block extra_js %}{% endblock %}
 
     {# GoatCounter analytics — only loads when GOATCOUNTER_SITE_CODE is set #}

@@ -49,6 +49,86 @@ nav.scrolled {
     display: none;
 }
 
+/* ── Wagtail rich-text image alignment ─────────────────
+   Wagtail outputs bare <img class="richtext-image left|right|full-width">
+   inside .prose containers.  A small script in base.html wraps each
+   left/right image + its adjacent paragraph(s) into a .rt-img-wrap
+   flex container so the paragraph sits entirely beside the image and
+   subsequent paragraphs return to full width.
+   ─────────────────────────────────────────────────────── */
+
+.prose .richtext-image {
+    border-radius: 0.75rem;
+    height: auto;
+}
+
+.prose .richtext-image.full-width {
+    display: block;
+    width: 100%;
+    margin: 2rem 0;
+}
+
+/* Flex wrapper injected by JS around image + adjacent paragraph(s) */
+.rt-img-wrap {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    margin: 1.5rem 0;
+}
+
+.rt-img-wrap > img {
+    flex-shrink: 0;
+    width: 45%;
+    max-width: 45%;
+    border-radius: 0.75rem;
+    height: auto;
+}
+
+/* The text block (p, ul, etc.) placed beside the image */
+.rt-img-wrap > *:not(img) {
+    flex: 1;
+    min-width: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* On small screens, stack vertically */
+@media (max-width: 640px) {
+    .rt-img-wrap {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .rt-img-wrap > img {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* Fallback: if JS hasn't run, floats still give a reasonable result */
+.prose > .richtext-image.left {
+    float: left;
+    max-width: 45%;
+    margin: 0.25rem 2rem 1.5rem 0;
+}
+.prose > .richtext-image.right {
+    float: right;
+    max-width: 45%;
+    margin: 0.25rem 0 1.5rem 2rem;
+}
+.prose::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+@media (max-width: 640px) {
+    .prose > .richtext-image.left,
+    .prose > .richtext-image.right {
+        float: none;
+        max-width: 100%;
+        margin: 1.5rem 0;
+    }
+}
+
 /* Teal accent underline for active nav links */
 .nav-link-active {
     border-bottom: 2px solid #3b7a84;
