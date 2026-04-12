@@ -272,8 +272,30 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
     business_name = (ss.business_name if ss and ss.business_name else "Your Thermography Team")
 
     clean_service_title, service_price = _lookup_service_info(service_name)
-    # Use the clean page title when available; fall back to the raw Cal.com event title
     display_service_name = clean_service_title or service_name
+
+    # ── Compute total with GST and balance due ──
+    from decimal import Decimal, ROUND_HALF_UP
+    gst_rate = Decimal(str(ss.gst_rate)) if ss and ss.gst_rate else Decimal("5.00")
+    total_with_gst = ""
+    balance_due = ""
+    if service_price:
+        try:
+            raw = service_price.replace("$", "").replace(",", "").strip()
+            base = Decimal(raw)
+            total = (base * (1 + gst_rate / 100)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total_with_gst = f"${total}"
+            remaining = total - Decimal(str(amount))
+            if remaining > 0:
+                balance_due = f"${remaining.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)}"
+            else:
+                balance_due = "$0.00"
+        except Exception:
+            logger.debug("Could not compute GST for service_price=%r", service_price)
+
+    appointment_price_note = ""
+    if ss and ss.appointment_price_note:
+        appointment_price_note = ss.appointment_price_note.strip()
 
     # ── Build the owner-editable message body (used in both HTML + plain text) ──
     template = (ss.email_deposit_request if ss and ss.email_deposit_request else "")
@@ -291,6 +313,8 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
         etransfer_email=etransfer_email,
         service_name=display_service_name,
         service_price=service_price,
+        total_with_gst=total_with_gst,
+        balance_due=balance_due,
     ))
 
     # ── Render richtext policy fields to HTML for the email ──
@@ -315,6 +339,9 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
                 "cancellation_policy": cancellation_policy_html,
                 "service_name": display_service_name,
                 "service_price": service_price,
+                "total_with_gst": total_with_gst,
+                "balance_due": balance_due,
+                "appointment_price_note": appointment_price_note,
             },
         )
     except Exception:

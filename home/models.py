@@ -188,6 +188,30 @@ class SiteSettings(BaseSiteSetting):
         help_text="e-Transfer email address included in deposit request emails sent to clients. Never displayed publicly on the website.",
     )
 
+    gst_rate = models.DecimalField(
+        "GST rate (%)",
+        max_digits=4,
+        decimal_places=2,
+        default=5.00,
+        help_text="GST percentage applied to appointment prices (e.g. 5.00 for 5%). Used in deposit emails to show total with tax.",
+    )
+
+    appointment_price_note = models.TextField(
+        "Appointment prices (shown in deposit email)",
+        blank=True,
+        default=(
+            "APPOINTMENT PRICES (including GST):\n"
+            "  • $310 service → $325.50 total\n"
+            "  • $555 service → $582.75 total\n"
+            "  • $940 service → $987.00 total"
+        ),
+        help_text=(
+            "Pricing summary shown in the deposit request email. "
+            "Edit freely to keep prices current. "
+            "Leave blank to hide this section from emails."
+        ),
+    )
+
     # ── Editable email templates ─────────────────────────
     # The owner can edit these at any time. Placeholders like {client_name}
     # are automatically replaced when the email is sent.
@@ -196,25 +220,27 @@ class SiteSettings(BaseSiteSetting):
         "Deposit request email body",
         default=(
             "Hi {client_name},\n\n"
-            "Thank you for booking your {service_name} appointment{appointment_line}! "
-            "The total appointment price is {service_price}.\n\n"
-            "To confirm your booking, a non-refundable ${amount} deposit is required.\n\n"
+            "Thank you for booking your {service_name} appointment{appointment_line}!\n\n"
+            "To confirm your booking, a non-refundable ${amount} e-transfer deposit is required.\n\n"
             "HOW TO PAY:\n"
-            "  - e-Transfer: Send ${amount} to {etransfer_email}\n"
-            "  - Cash: Pay at your appointment\n"
-            "  - Cheque: Mail or bring in person\n\n"
+            "  e-Transfer ${amount} to {etransfer_email}\n\n"
+            "Your ${amount} deposit will be applied toward your {total_with_gst} appointment fee "
+            "(includes GST). The remaining balance of {balance_due} is due on the day of your "
+            "appointment and can be paid by e-transfer, cash, or cheque. "
+            "You're also welcome to pay the full amount now.\n\n"
+            "A receipt will be issued to you along with your report.\n\n"
             "Please note: only send e-Transfers to the address above. "
             "We will never ask you to send money to a different address.\n\n"
-            "Your deposit will be applied toward your service fee on the day of your visit.\n\n"
             "If you have any questions, please reply to this email.\n\n"
             "Best regards,\n"
             "Your Thermography Team"
         ),
         help_text=(
-            "Sent automatically when a client books. Available placeholders: "
-            "{client_name}, {amount}, {appointment_line} (\" on March 15, 2026\" or blank), "
-            "{etransfer_email}, {service_name} (e.g. \"Full Body Scan\"), "
-            "{service_price} (e.g. \"$150\" — pulled from the service page). "
+            "Sent when a deposit request is approved. Available placeholders: "
+            "{client_name}, {amount}, {appointment_line}, {etransfer_email}, "
+            "{service_name}, {service_price} (price before tax), "
+            "{total_with_gst} (price + GST, e.g. \"$325.50\"), "
+            "{balance_due} (total minus deposit, e.g. \"$300.50\"). "
             "Edit freely — placeholders are replaced when the email sends."
         ),
     )
@@ -279,9 +305,11 @@ class SiteSettings(BaseSiteSetting):
             [
                 FieldPanel("deposit_amount"),
                 FieldPanel("etransfer_email"),
+                FieldPanel("gst_rate"),
+                FieldPanel("appointment_price_note"),
             ],
             heading="Deposit Settings",
-            help_text="Configure the booking deposit amount and payment details.",
+            help_text="Configure the booking deposit amount, payment details, and pricing shown in emails.",
         ),
         MultiFieldPanel(
             [

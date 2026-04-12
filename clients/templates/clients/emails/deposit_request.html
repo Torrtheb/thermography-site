@@ -36,13 +36,23 @@
         <p>Appointment{{ appointment_line }}</p>
         {% endif %}
         {% if service_name %}
-        <p style="margin: 4px 0 0; color: #a7f3d0; font-size: 14px;">{{ service_name }}{% if service_price %} — {{ service_price }}{% endif %}</p>
+        <p style="margin: 4px 0 0; color: #a7f3d0; font-size: 14px;">{{ service_name }}{% if total_with_gst %} — {{ total_with_gst }} (incl. GST){% elif service_price %} — {{ service_price }}{% endif %}</p>
         {% endif %}
       </div>
 
       <div class="body">
 
         <div class="message-content">{{ email_body }}</div>
+
+        {% if appointment_price_note %}
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%; margin-top:24px; border-collapse:collapse;">
+          <tr>
+            <td style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px 20px;">
+              <div style="white-space:pre-line; font-size:13px; color:#374151; line-height:1.6;">{{ appointment_price_note }}</div>
+            </td>
+          </tr>
+        </table>
+        {% endif %}
 
         {% if deposit_policy or cancellation_policy %}
         <div class="policy-section">
