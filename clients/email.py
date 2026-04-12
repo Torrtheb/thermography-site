@@ -11,9 +11,13 @@ Usage:
     send_followup_email(client, message="Thank you for visiting!")
 """
 
+import logging
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+
+logger = logging.getLogger(__name__)
 
 
 def send_appointment_reminder(client, appointment_date, location=""):
@@ -196,7 +200,7 @@ def _lookup_service_info(service_name):
     The deposit stores the Cal.com event title (e.g. "Full Body Scan —
     Nanaimo"), which may contain a location suffix.  We strip that suffix
     first, try an exact title match, then fall back to substring matching
-    (longest match wins).
+    (longest match wins, checked in both directions).
 
     Returns (clean_title, price_label) — e.g. ("Full Body Scan", "$150").
     Returns ("", "") if no match is found.
@@ -207,6 +211,7 @@ def _lookup_service_info(service_name):
         from services.models import ServicePage
         pages = list(ServicePage.objects.live().values_list("title", "price_label"))
         if not pages:
+            logger.debug("_lookup_service_info: no live ServicePages found")
             return "", ""
 
         stripped = _strip_location_suffix(service_name)
@@ -214,18 +219,37 @@ def _lookup_service_info(service_name):
         if stripped.lower() != service_name.strip().lower():
             candidates.append(service_name.strip().lower())
 
+        logger.debug(
+            "_lookup_service_info: service_name=%r  stripped=%r  candidates=%r  pages=%r",
+            service_name, stripped, candidates, [(t, p) for t, p in pages],
+        )
+
+        # Pass 1: exact match
         for candidate in candidates:
             for title, price in pages:
                 if title.lower() == candidate:
+                    logger.debug("_lookup_service_info: exact match → %r, %r", title, price)
                     return title, price
 
-        best_title, best_price = "", ""
+        # Pass 2: substring match (either direction — page title in candidate
+        # OR candidate in page title), longest match wins
+        best_title, best_price, best_len = "", "", 0
         for candidate in candidates:
             for title, price in pages:
-                if title.lower() in candidate and len(title) > len(best_title):
-                    best_title, best_price = title, price
+                t_low = title.lower()
+                if (t_low in candidate or candidate in t_low) and len(title) > best_len:
+                    best_title, best_price, best_len = title, price, len(title)
+
+        if best_title:
+            logger.debug("_lookup_service_info: substring match → %r, %r", best_title, best_price)
+        else:
+            logger.warning(
+                "_lookup_service_info: no match for service_name=%r (stripped=%r)",
+                service_name, stripped,
+            )
         return best_title, best_price
     except Exception:
+        logger.exception("_lookup_service_info failed for %r", service_name)
         return "", ""
 
 
