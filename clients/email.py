@@ -164,37 +164,38 @@ class _SafeDict(dict):
         return "{" + key + "}"
 
 
-def _lookup_service_price(service_name):
-    """Look up the price_label from ServicePage by matching on title.
+def _lookup_service_info(service_name):
+    """Look up the ServicePage title and price_label from a Cal.com event title.
 
     The deposit stores the Cal.com event title (e.g. "Full Body Scan —
     Nanaimo"), which may contain a location suffix.  We try an exact title
     match first, then fall back to checking whether any ServicePage title
     appears as a substring (longest match wins).
 
-    Returns the price_label string (e.g. "$150") or "" if not found.
+    Returns (clean_title, price_label) — e.g. ("Full Body Scan", "$150").
+    Returns ("", "") if no match is found.
     """
     if not service_name:
-        return ""
+        return "", ""
     try:
         from services.models import ServicePage
         pages = list(ServicePage.objects.live().values_list("title", "price_label"))
         if not pages:
-            return ""
+            return "", ""
 
         sn_lower = service_name.lower()
 
         for title, price in pages:
             if title.lower() == sn_lower:
-                return price
+                return title, price
 
         best_title, best_price = "", ""
         for title, price in pages:
             if title.lower() in sn_lower and len(title) > len(best_title):
                 best_title, best_price = title, price
-        return best_price
+        return best_title, best_price
     except Exception:
-        return ""
+        return "", ""
 
 
 def send_deposit_request(client, amount, appointment_date="", service_name=""):
@@ -215,7 +216,9 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
     client_name = client.name or "there"
     business_name = (ss.business_name if ss and ss.business_name else "Your Thermography Team")
 
-    service_price = _lookup_service_price(service_name)
+    clean_service_title, service_price = _lookup_service_info(service_name)
+    # Use the clean page title when available; fall back to the raw Cal.com event title
+    display_service_name = clean_service_title or service_name
 
     # ── Build the owner-editable message body (used in both HTML + plain text) ──
     template = (ss.email_deposit_request if ss and ss.email_deposit_request else "")
@@ -231,7 +234,7 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
         amount=str(amount),
         appointment_line=appointment_line,
         etransfer_email=etransfer_email,
-        service_name=service_name,
+        service_name=display_service_name,
         service_price=service_price,
     ))
 
@@ -255,7 +258,7 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
                 "business_name": business_name,
                 "deposit_policy": deposit_policy_html,
                 "cancellation_policy": cancellation_policy_html,
-                "service_name": service_name,
+                "service_name": display_service_name,
                 "service_price": service_price,
             },
         )

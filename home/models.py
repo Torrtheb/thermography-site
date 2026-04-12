@@ -196,7 +196,8 @@ class SiteSettings(BaseSiteSetting):
         "Deposit request email body",
         default=(
             "Hi {client_name},\n\n"
-            "Thank you for booking your thermography appointment{appointment_line}!\n\n"
+            "Thank you for booking your {service_name} appointment{appointment_line}! "
+            "The total appointment price is {service_price}.\n\n"
             "To confirm your booking, a non-refundable ${amount} deposit is required.\n\n"
             "HOW TO PAY:\n"
             "  - e-Transfer: Send ${amount} to {etransfer_email}\n"
