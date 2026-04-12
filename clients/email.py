@@ -164,13 +164,39 @@ class _SafeDict(dict):
         return "{" + key + "}"
 
 
+def _strip_location_suffix(event_title):
+    """Remove a trailing location name from a Cal.com event title.
+
+    Cal.com titles look like "Full Body Scan — Nanaimo" or
+    "Breast Thermography Parksville".  We strip the location so
+    the remainder can be matched against ServicePage titles.
+    """
+    if not event_title:
+        return event_title
+    try:
+        from booking.models import Location
+        locations = list(Location.objects.values_list("name", flat=True))
+        locations.sort(key=len, reverse=True)
+        title = event_title.strip()
+        for loc_name in locations:
+            for sep in (" — ", " – ", " - "):
+                suffix = sep + loc_name
+                if title.lower().endswith(suffix.lower()):
+                    return title[: -len(suffix)].strip()
+            if title.lower().endswith(" " + loc_name.lower()):
+                return title[: -(len(loc_name) + 1)].strip()
+    except Exception:
+        pass
+    return event_title.strip()
+
+
 def _lookup_service_info(service_name):
     """Look up the ServicePage title and price_label from a Cal.com event title.
 
     The deposit stores the Cal.com event title (e.g. "Full Body Scan —
-    Nanaimo"), which may contain a location suffix.  We try an exact title
-    match first, then fall back to checking whether any ServicePage title
-    appears as a substring (longest match wins).
+    Nanaimo"), which may contain a location suffix.  We strip that suffix
+    first, try an exact title match, then fall back to substring matching
+    (longest match wins).
 
     Returns (clean_title, price_label) — e.g. ("Full Body Scan", "$150").
     Returns ("", "") if no match is found.
@@ -183,16 +209,21 @@ def _lookup_service_info(service_name):
         if not pages:
             return "", ""
 
-        sn_lower = service_name.lower()
+        stripped = _strip_location_suffix(service_name)
+        candidates = [stripped.lower()]
+        if stripped.lower() != service_name.strip().lower():
+            candidates.append(service_name.strip().lower())
 
-        for title, price in pages:
-            if title.lower() == sn_lower:
-                return title, price
+        for candidate in candidates:
+            for title, price in pages:
+                if title.lower() == candidate:
+                    return title, price
 
         best_title, best_price = "", ""
-        for title, price in pages:
-            if title.lower() in sn_lower and len(title) > len(best_title):
-                best_title, best_price = title, price
+        for candidate in candidates:
+            for title, price in pages:
+                if title.lower() in candidate and len(title) > len(best_title):
+                    best_title, best_price = title, price
         return best_title, best_price
     except Exception:
         return "", ""
