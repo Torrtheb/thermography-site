@@ -467,6 +467,50 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
             3,
         )
 
+    def test_slot_already_blocked_by_calcom_is_treated_as_success(self):
+        """When Cal.com returns 400 'User either already has booking at this
+        time or is not available', the organizer's slot is already blocked
+        for sibling event types — no placeholder is needed and this must not
+        be logged as an error.
+        """
+        from booking.webhooks import _create_placeholder_bookings
+        from booking.models import PlaceholderBooking
+
+        calls = []
+        calcom_busy_error = (
+            'HTTP 400: {"status":"error","error":{"code":"BadRequestException",'
+            '"message":"User either already has booking at this time or is not available"}}'
+        )
+
+        def fake_post(path, body=None):
+            calls.append((path, body))
+            return False, calcom_busy_error
+
+        def fake_length(username, slug):
+            return 30
+
+        with mock.patch("booking.webhooks._calcom_api_post", side_effect=fake_post), \
+             mock.patch("booking.webhooks._fetch_event_type_length_minutes",
+                        side_effect=fake_length), \
+             self.assertLogs("booking.webhooks", level="INFO") as cm:
+            _create_placeholder_bookings(
+                booking_uid="orig-busy",
+                start_time="2026-05-12T23:00:00.000Z",
+                event_title="Full Body — Main Clinic",
+                inferred_location="Main Clinic",
+                booked_cal_url="https://cal.com/you/full-body-main",
+                end_time="2026-05-13T00:30:00.000Z",
+            )
+
+        self.assertEqual(len(calls), 3)
+        self.assertFalse(
+            PlaceholderBooking.objects.filter(original_booking_uid="orig-busy").exists()
+        )
+
+        full_log = "\n".join(cm.output)
+        self.assertIn("Slot already blocked", full_log)
+        self.assertNotIn("Failed to create placeholder", full_log)
+
     def test_placeholders_are_retained_on_booking_confirmed(self):
         """Confirming a booking must NOT release cross-event-type holds.
 

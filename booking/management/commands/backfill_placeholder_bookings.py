@@ -131,6 +131,15 @@ class Command(BaseCommand):
             help="Also process deposits whose appointment has already passed "
                  "(normally skipped because blocking past slots is pointless).",
         )
+        parser.add_argument(
+            "--include-confirmed",
+            action="store_true",
+            help="Also process deposits whose Cal.com booking is already "
+                 "confirmed or waived. Cal.com's organizer conflict detection "
+                 "naturally blocks sibling event types for confirmed bookings, "
+                 "so placeholders are normally unnecessary for these and "
+                 "Cal.com will simply reject the POSTs.",
+        )
 
     def handle(self, *args, **options):
         from django.db.models import Q
@@ -145,9 +154,20 @@ class Command(BaseCommand):
         apply = options["apply"]
         deposit_id = options["deposit_id"]
         include_past = options["include_past"]
+        include_confirmed = options["include_confirmed"]
 
-        active_statuses = Q(status="awaiting_review") | Q(status="pending") \
-            | Q(status="received") | Q(status="confirmed") | Q(status="waived")
+        # By default only target statuses where the Cal.com booking is still
+        # in the "awaiting confirmation" state — those are the ones affected
+        # by Cal.com bug #23069 (pending bookings don't block sibling event
+        # types). Confirmed/waived bookings are blocked naturally by Cal.com
+        # itself, so placeholder POSTs for them just return 400 "User
+        # already has booking at this time" — noise, not progress.
+        if include_confirmed:
+            active_statuses = Q(status="awaiting_review") | Q(status="pending") \
+                | Q(status="received") | Q(status="confirmed") | Q(status="waived")
+        else:
+            active_statuses = Q(status="awaiting_review") | Q(status="pending") \
+                | Q(status="received")
 
         qs = Deposit.objects.filter(active_statuses).exclude(cal_booking_uid="")
         if deposit_id is not None:
@@ -160,11 +180,18 @@ class Command(BaseCommand):
 
         deposits = list(qs)
         if not deposits:
-            self.stdout.write(self.style.SUCCESS("No active future deposits found."))
+            self.stdout.write(self.style.SUCCESS(
+                "No deposits needing placeholder backfill. "
+                "Confirmed/waived bookings are blocked naturally by Cal.com — "
+                "pass --include-confirmed to force-retry them anyway."
+            ))
             return
 
         mode = "APPLY" if apply else "DRY-RUN"
-        self.stdout.write(f"[{mode}] Found {len(deposits)} active deposit(s) to evaluate.\n")
+        status_scope = "all statuses" if include_confirmed else "pending/awaiting_review/received"
+        self.stdout.write(
+            f"[{mode}] Found {len(deposits)} deposit(s) to evaluate ({status_scope}).\n"
+        )
 
         processed = 0
         skipped = 0

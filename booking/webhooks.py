@@ -598,10 +598,24 @@ def _create_placeholder_bookings(
 
             ok, resp_body = _calcom_api_post("/v2/bookings", body)
             if not ok:
-                # Some placeholder slots may be outside the sibling's schedule
-                # (e.g. the tail end of a pop-up clinic's hours) — Cal.com
-                # rejects those and we simply skip; the slot wasn't bookable
-                # there anyway.
+                resp_lower = (resp_body or "").lower()
+                # Cal.com returns this 400 when the organizer's calendar is
+                # already busy — usually because (a) the original confirmed
+                # booking has already taken the slot and Cal.com is correctly
+                # blocking siblings for us (no placeholder needed), or (b) the
+                # slot is outside the sibling's availability window. Either
+                # way the customer-facing booking page cannot double-book, so
+                # we log it as a quiet success rather than a failure.
+                if (
+                    "already has booking" in resp_lower
+                    or "not available" in resp_lower
+                ):
+                    logger.info(
+                        "Slot already blocked on %s/%s at %s for booking %s "
+                        "(Cal.com reports organizer unavailable) — no placeholder needed",
+                        username, slug, ph_start_iso, booking_uid,
+                    )
+                    continue
                 logger.warning(
                     "Failed to create placeholder on %s/%s at %s for booking %s: %s",
                     username, slug, ph_start_iso, booking_uid, resp_body,
