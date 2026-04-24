@@ -7,16 +7,19 @@ the original time range bookable on those siblings.
 """
 
 import json
+import urllib.error
 from datetime import datetime, timezone
 from unittest import mock
 
 from django.test import SimpleTestCase, TestCase
 
 from booking.webhooks import (
+    _calcom_api_post,
     _compute_placeholder_starts,
     _fetch_event_type_length_minutes,
     _format_cal_iso,
     _parse_iso_datetime,
+    _placeholder_attendee_email,
 )
 
 
@@ -157,6 +160,117 @@ class FetchEventTypeLengthTests(SimpleTestCase):
     def test_empty_identifiers_return_none(self):
         self.assertIsNone(_fetch_event_type_length_minutes("", "s"))
         self.assertIsNone(_fetch_event_type_length_minutes("u", ""))
+
+
+class PlaceholderAttendeeEmailTests(SimpleTestCase):
+    """Cal.com v2 /bookings validates ``attendee.email`` — we must send a bare
+    address, not the ``Display Name <addr@host>`` form that Django stores in
+    ``DEFAULT_FROM_EMAIL``. Without this helper, every placeholder POST 400s
+    with ``email_validation_error``.
+    """
+
+    def test_display_name_wrapper_is_stripped(self):
+        with self.settings(
+            DEFAULT_FROM_EMAIL="Thermography Clinic Vancouver Island <admin@thermographyvancouverisland.com>"
+        ):
+            self.assertEqual(
+                _placeholder_attendee_email(),
+                "admin@thermographyvancouverisland.com",
+            )
+
+    def test_bare_email_is_passed_through(self):
+        with self.settings(DEFAULT_FROM_EMAIL="admin@thermographyvancouverisland.com"):
+            self.assertEqual(
+                _placeholder_attendee_email(),
+                "admin@thermographyvancouverisland.com",
+            )
+
+    def test_empty_setting_falls_back_to_safe_default(self):
+        with self.settings(DEFAULT_FROM_EMAIL=""):
+            self.assertEqual(_placeholder_attendee_email(), "noreply@cal.com")
+
+    def test_garbage_setting_falls_back_to_safe_default(self):
+        with self.settings(DEFAULT_FROM_EMAIL="not an email"):
+            self.assertEqual(_placeholder_attendee_email(), "noreply@cal.com")
+
+
+class CalcomApiPostRateLimitTests(SimpleTestCase):
+    """A burst of placeholder POSTs can hit Cal.com's 429 rate limit. The
+    helper must retry with backoff so the batch doesn't silently drop writes.
+    """
+
+    def _fake_http_error(self, code, body=b'{"status":"error"}', headers=None):
+        err = urllib.error.HTTPError(
+            url="https://api.cal.com/v2/bookings",
+            code=code,
+            msg="",
+            hdrs=None,
+            fp=None,
+        )
+        err.read = lambda: body
+        err.headers = headers or {}
+        return err
+
+    def test_retries_on_429_then_succeeds(self):
+        call_count = {"n": 0}
+
+        class _OkResponse:
+            status = 200
+            def read(self_):
+                return b'{"data":{"uid":"ph-1"}}'
+            def __enter__(self_):
+                return self_
+            def __exit__(self_, *exc):
+                return False
+
+        def _fake_urlopen(req, timeout=15):
+            call_count["n"] += 1
+            if call_count["n"] < 3:
+                raise self._fake_http_error(429, body=b'{"error":"Rate limit exceeded"}')
+            return _OkResponse()
+
+        with mock.patch(
+            "booking.webhooks.settings.CAL_API_KEY", "test-key", create=True
+        ), mock.patch(
+            "booking.webhooks.urllib.request.urlopen", side_effect=_fake_urlopen
+        ), mock.patch("booking.webhooks.time.sleep"):
+            ok, body = _calcom_api_post("/v2/bookings", {"start": "now"})
+
+        self.assertTrue(ok)
+        self.assertEqual(call_count["n"], 3)
+        self.assertIn("ph-1", body)
+
+    def test_gives_up_after_retry_budget(self):
+        def _always_429(req, timeout=15):
+            raise self._fake_http_error(429, body=b'{"error":"Rate limit exceeded"}')
+
+        with mock.patch(
+            "booking.webhooks.settings.CAL_API_KEY", "test-key", create=True
+        ), mock.patch(
+            "booking.webhooks.urllib.request.urlopen", side_effect=_always_429
+        ), mock.patch("booking.webhooks.time.sleep"):
+            ok, body = _calcom_api_post("/v2/bookings", {"start": "now"}, max_retries=2)
+
+        self.assertFalse(ok)
+        self.assertIn("429", body)
+
+    def test_400_is_not_retried(self):
+        call_count = {"n": 0}
+
+        def _always_400(req, timeout=15):
+            call_count["n"] += 1
+            raise self._fake_http_error(400, body=b'{"error":"bad request"}')
+
+        with mock.patch(
+            "booking.webhooks.settings.CAL_API_KEY", "test-key", create=True
+        ), mock.patch(
+            "booking.webhooks.urllib.request.urlopen", side_effect=_always_400
+        ), mock.patch("booking.webhooks.time.sleep") as sleep_mock:
+            ok, _ = _calcom_api_post("/v2/bookings", {"start": "now"})
+
+        self.assertFalse(ok)
+        self.assertEqual(call_count["n"], 1)
+        sleep_mock.assert_not_called()
 
 
 class CleanupStalePlaceholdersTests(TestCase):

@@ -51,11 +51,13 @@ import hmac
 import json
 import logging
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from email.utils import parseaddr
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -74,10 +76,19 @@ _SAFE_UID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 CAL_API_VERSION = "2026-02-25"
 
+# Cal.com's burst rate limit kicks in around ~5–10 requests/second. When we
+# hit it, we back off and retry so batch jobs (backfill, multi-placeholder
+# creation) don't silently drop writes.
+_CAL_RATE_LIMIT_MAX_RETRIES = 4
+_CAL_RATE_LIMIT_BASE_DELAY_S = 2.0
 
-def _calcom_api_post(path, body_dict=None):
+
+def _calcom_api_post(path, body_dict=None, max_retries=_CAL_RATE_LIMIT_MAX_RETRIES):
     """
     Make an authenticated POST to the Cal.com v2 API.
+
+    Automatically retries HTTP 429 (rate-limited) responses with exponential
+    backoff, honouring a ``Retry-After`` header when present.
 
     Returns (success: bool, response_body: str).
     """
@@ -112,18 +123,48 @@ def _calcom_api_post(path, body_dict=None):
         headers=headers,
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            resp_body = resp.read().decode("utf-8", errors="replace")[:2000]
-            logger.info("Cal.com API %s → %d: %s", path, resp.status, resp_body[:200])
-            return True, resp_body
-    except urllib.error.HTTPError as e:
-        resp_body = e.read().decode("utf-8", errors="replace")[:500]
-        logger.warning("Cal.com API %s → HTTP %d: %s", path, e.code, resp_body)
-        return False, f"HTTP {e.code}: {resp_body}"
-    except Exception as exc:
-        logger.warning("Cal.com API %s → exception: %s", path, exc)
-        return False, str(exc)
+    attempts = max(1, max_retries)
+    last_resp_body = ""
+    last_code = None
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                resp_body = resp.read().decode("utf-8", errors="replace")[:2000]
+                logger.info("Cal.com API %s → %d: %s", path, resp.status, resp_body[:200])
+                return True, resp_body
+        except urllib.error.HTTPError as e:
+            resp_body = e.read().decode("utf-8", errors="replace")[:500]
+            last_resp_body = resp_body
+            last_code = e.code
+
+            if e.code == 429 and attempt < attempts - 1:
+                retry_after_hdr = e.headers.get("Retry-After") if e.headers else None
+                try:
+                    retry_after = float(retry_after_hdr) if retry_after_hdr else None
+                except (TypeError, ValueError):
+                    retry_after = None
+                delay = retry_after if retry_after and retry_after > 0 else (
+                    _CAL_RATE_LIMIT_BASE_DELAY_S * (2 ** attempt)
+                )
+                logger.warning(
+                    "Cal.com API %s rate-limited (attempt %d/%d) — sleeping %.1fs",
+                    path, attempt + 1, attempts, delay,
+                )
+                time.sleep(delay)
+                continue
+
+            logger.warning("Cal.com API %s → HTTP %d: %s", path, e.code, resp_body)
+            return False, f"HTTP {e.code}: {resp_body}"
+        except Exception as exc:
+            logger.warning("Cal.com API %s → exception: %s", path, exc)
+            return False, str(exc)
+
+    # Exhausted retries (429 loop)
+    logger.warning(
+        "Cal.com API %s → HTTP %s after %d retries: %s",
+        path, last_code, attempts, last_resp_body,
+    )
+    return False, f"HTTP {last_code}: {last_resp_body}"
 
 
 def _calcom_api_get(path, params=None):
@@ -262,6 +303,29 @@ def decline_calcom_booking(booking_uid, reason=""):
 
 _PLACEHOLDER_ATTENDEE_NAME = "SLOT HOLD"
 _PLACEHOLDER_TIMEZONE = "America/Vancouver"
+# Cal.com's v2 /bookings endpoint validates the attendee email. Sending the
+# RFC-5322 "Display Name <addr@host>" form produces an ``email_validation_error``
+# — we must pass only the bare address. This fallback is used if
+# ``DEFAULT_FROM_EMAIL`` is unset or malformed.
+_PLACEHOLDER_EMAIL_FALLBACK = "noreply@cal.com"
+# Minimal delay between consecutive placeholder POSTs to stay below Cal.com's
+# burst rate limit when tiling many placeholders for a single booking.
+_PLACEHOLDER_POST_DELAY_S = 0.25
+
+
+def _placeholder_attendee_email():
+    """Return a bare email address safe to send to Cal.com's v2 booking API.
+
+    Strips any ``Display Name <addr@host>`` wrapper from ``DEFAULT_FROM_EMAIL``
+    and falls back to a known-valid address if the parsed result is empty
+    or missing an ``@``.
+    """
+    raw = getattr(settings, "DEFAULT_FROM_EMAIL", "") or ""
+    _, addr = parseaddr(raw)
+    addr = (addr or "").strip()
+    if addr and "@" in addr:
+        return addr
+    return _PLACEHOLDER_EMAIL_FALLBACK
 
 
 def _parse_cal_url(cal_booking_url):
@@ -487,9 +551,10 @@ def _create_placeholder_bookings(
         )
         return
 
-    placeholder_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost")
+    placeholder_email = _placeholder_attendee_email()
 
     created_count = 0
+    first_post = True
     for username, slug in siblings:
         sibling_length = _fetch_event_type_length_minutes(username, slug)
         placeholder_starts = _compute_placeholder_starts(
@@ -526,6 +591,10 @@ def _create_placeholder_bookings(
                     "originalBookingUid": booking_uid,
                 },
             }
+
+            if not first_post:
+                time.sleep(_PLACEHOLDER_POST_DELAY_S)
+            first_post = False
 
             ok, resp_body = _calcom_api_post("/v2/bookings", body)
             if not ok:
