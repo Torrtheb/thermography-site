@@ -595,29 +595,74 @@ def cancel_placeholder_bookings(original_booking_uid):
     )
 
 
-def cleanup_stale_placeholders(max_age_hours=72):
-    """Cancel placeholder bookings older than max_age_hours.
+_PLACEHOLDER_BLOCKING_STATUSES = frozenset({
+    "awaiting_review",  # owner hasn't reviewed the new booking yet
+    "pending",          # deposit request sent, awaiting payment
+    "received",         # deposit paid, awaiting confirmation
+    "confirmed",        # fully confirmed — still holds the slot
+    "waived",           # fee waived but slot still reserved
+})
 
-    Safety net for orphaned placeholders (e.g. webhook delivery failures).
-    Called from the cron endpoint alongside deposit expiry.
+
+def cleanup_stale_placeholders(max_age_hours=None):
+    """Cancel orphaned placeholder bookings.
+
+    A placeholder is "orphaned" when its original booking is no longer
+    expected to hold a slot — i.e. no Deposit row with that cal_booking_uid
+    exists, or the deposit's status is ``forfeited`` / ``applied`` /
+    ``refunded``. Orphans can accumulate if a BOOKING_CANCELLED or
+    BOOKING_REJECTED webhook is missed or malformed.
+
+    An active future booking (awaiting_review, pending, received, confirmed,
+    waived) keeps its placeholders indefinitely. This is a behaviour change
+    from the previous 96-hour age cutoff, which incorrectly cancelled valid
+    placeholders for any booking more than ~4 days in the future and left
+    sibling event types bookable during those slots.
+
+    To avoid racing with in-flight BOOKING_REQUESTED webhooks we skip
+    placeholders created in the last hour — if a deposit row hasn't been
+    written yet, the placeholder would look orphaned.
+
+    ``max_age_hours`` is accepted for backwards compatibility with the
+    existing cron endpoint and ignored.
     """
     from django.utils import timezone as tz
     from booking.models import PlaceholderBooking
+    from clients.models import Deposit
 
-    cutoff = tz.now() - tz.timedelta(hours=max_age_hours)
-    stale = list(PlaceholderBooking.objects.filter(created_at__lt=cutoff))
-    if not stale:
+    del max_age_hours  # accepted for compatibility; unused
+
+    min_age_cutoff = tz.now() - tz.timedelta(hours=1)
+    candidates = list(
+        PlaceholderBooking.objects.filter(created_at__lt=min_age_cutoff)
+    )
+    if not candidates:
         return 0
 
-    for ph in stale:
+    original_uids = {p.original_booking_uid for p in candidates if p.original_booking_uid}
+
+    active_uids = set(
+        Deposit.objects
+        .filter(cal_booking_uid__in=original_uids, status__in=_PLACEHOLDER_BLOCKING_STATUSES)
+        .values_list("cal_booking_uid", flat=True)
+    ) if original_uids else set()
+
+    orphans = [p for p in candidates if p.original_booking_uid not in active_uids]
+    if not orphans:
+        return 0
+
+    for ph in orphans:
         cancel_calcom_booking(
             ph.placeholder_booking_uid,
-            reason="Slot hold expired — automatic cleanup.",
+            reason="Orphaned slot hold — original booking no longer active.",
         )
         ph.delete()
 
-    logger.info("Cleaned up %d stale placeholder booking(s)", len(stale))
-    return len(stale)
+    logger.info(
+        "Cleaned up %d orphaned placeholder booking(s) (original booking resolved or missing)",
+        len(orphans),
+    )
+    return len(orphans)
 
 
 # ──────────────────────────────────────────────────────────
@@ -1027,7 +1072,11 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
                 logger.info("Deposit pk=%s → confirmed (owner confirmed in Cal.com, BOOKING_CREATED)", existing.pk)
             else:
                 logger.info("BOOKING_CREATED webhook: deposit already exists for uid=%s (status=%s)", booking_uid, existing.status)
-            cancel_placeholder_bookings(booking_uid)
+            # Intentionally NOT cancelling placeholders here: the original
+            # booking is still active (now confirmed), and Cal.com's
+            # cross-event-type blocking bug means the confirmed booking
+            # doesn't block slots on sibling event types. Keep the placeholders
+            # alive until the booking is cancelled, rejected, or forfeited.
             return
 
     # Infer location — try Cal.com URL first (most reliable), then event title
@@ -1131,7 +1180,11 @@ def _handle_booking_confirmed(payload):
         deposit.save(update_fields=["status", "deposit_confirmed_sent", "notes", "updated_at"])
         logger.info("Deposit pk=%s → confirmed (via Cal.com webhook)", deposit.pk)
 
-    cancel_placeholder_bookings(booking_uid)
+    # Intentionally NOT cancelling placeholders here: the confirmed booking
+    # still needs to block its slot on sibling event types, and Cal.com does
+    # not propagate cross-event-type busy status even for confirmed bookings
+    # (Cal.com bug #23069). Placeholders are released only when the booking
+    # is cancelled, rejected, rescheduled, or the deposit is forfeited.
 
 
 def _handle_booking_cancelled(payload):

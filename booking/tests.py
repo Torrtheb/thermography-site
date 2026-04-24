@@ -159,6 +159,119 @@ class FetchEventTypeLengthTests(SimpleTestCase):
         self.assertIsNone(_fetch_event_type_length_minutes("u", ""))
 
 
+class CleanupStalePlaceholdersTests(TestCase):
+    """The new orphan-only cleanup must preserve holds for active bookings."""
+
+    def _make_deposit(self, uid, status):
+        from clients.models import Client, Deposit
+        client = Client.objects.create(name=f"C-{uid}", email=f"{uid}@example.com")
+        return Deposit.objects.create(
+            client=client,
+            amount="25.00",
+            cal_booking_uid=uid,
+            status=status,
+        )
+
+    def _make_placeholder(self, original_uid, placeholder_uid, hours_old=24):
+        from django.utils import timezone as tz
+        from booking.models import PlaceholderBooking
+        ph = PlaceholderBooking.objects.create(
+            original_booking_uid=original_uid,
+            placeholder_booking_uid=placeholder_uid,
+        )
+        PlaceholderBooking.objects.filter(pk=ph.pk).update(
+            created_at=tz.now() - tz.timedelta(hours=hours_old)
+        )
+        return ph
+
+    def test_active_deposit_placeholders_are_kept_indefinitely(self):
+        """Even 30-day-old placeholders must stay if the deposit is active."""
+        from booking.webhooks import cleanup_stale_placeholders
+        from booking.models import PlaceholderBooking
+
+        self._make_deposit("orig-active", "confirmed")
+        self._make_placeholder("orig-active", "ph-active", hours_old=30 * 24)
+
+        cancel_calls = []
+        with mock.patch(
+            "booking.webhooks.cancel_calcom_booking",
+            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+        ):
+            cleaned = cleanup_stale_placeholders()
+
+        self.assertEqual(cleaned, 0)
+        self.assertEqual(cancel_calls, [])
+        self.assertTrue(
+            PlaceholderBooking.objects.filter(placeholder_booking_uid="ph-active").exists()
+        )
+
+    def test_orphaned_placeholder_is_cancelled(self):
+        """A placeholder whose deposit was forfeited should be released."""
+        from booking.webhooks import cleanup_stale_placeholders
+        from booking.models import PlaceholderBooking
+
+        self._make_deposit("orig-forfeited", "forfeited")
+        self._make_placeholder("orig-forfeited", "ph-orphan", hours_old=24)
+
+        cancel_calls = []
+        with mock.patch(
+            "booking.webhooks.cancel_calcom_booking",
+            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+        ):
+            cleaned = cleanup_stale_placeholders()
+
+        self.assertEqual(cleaned, 1)
+        self.assertEqual(cancel_calls, ["ph-orphan"])
+        self.assertFalse(
+            PlaceholderBooking.objects.filter(placeholder_booking_uid="ph-orphan").exists()
+        )
+
+    def test_placeholder_with_missing_deposit_row_is_cancelled(self):
+        """If the Deposit row was deleted, the placeholder is orphaned."""
+        from booking.webhooks import cleanup_stale_placeholders
+        from booking.models import PlaceholderBooking
+
+        self._make_placeholder("never-existed", "ph-missing", hours_old=24)
+
+        cancel_calls = []
+        with mock.patch(
+            "booking.webhooks.cancel_calcom_booking",
+            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+        ):
+            cleaned = cleanup_stale_placeholders()
+
+        self.assertEqual(cleaned, 1)
+        self.assertEqual(cancel_calls, ["ph-missing"])
+
+    def test_young_placeholders_are_skipped_to_avoid_webhook_races(self):
+        """A placeholder created <1 h ago is left alone even if orphaned."""
+        from booking.webhooks import cleanup_stale_placeholders
+        from booking.models import PlaceholderBooking
+
+        self._make_placeholder("in-flight", "ph-new", hours_old=0)
+
+        cancel_calls = []
+        with mock.patch(
+            "booking.webhooks.cancel_calcom_booking",
+            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+        ):
+            cleaned = cleanup_stale_placeholders()
+
+        self.assertEqual(cleaned, 0)
+        self.assertEqual(cancel_calls, [])
+        self.assertTrue(
+            PlaceholderBooking.objects.filter(placeholder_booking_uid="ph-new").exists()
+        )
+
+    def test_max_age_hours_parameter_is_accepted_but_ignored(self):
+        """The cron endpoint still passes max_age_hours; we accept and ignore."""
+        from booking.webhooks import cleanup_stale_placeholders
+        self._make_deposit("orig-active-2", "confirmed")
+        self._make_placeholder("orig-active-2", "ph-active-2", hours_old=500)
+        cleaned = cleanup_stale_placeholders(max_age_hours=96)
+        self.assertEqual(cleaned, 0)
+
+
 class CreatePlaceholderBookingsIntegrationTests(TestCase):
     """End-to-end: given a 90-min booking, verify correct placeholders tile."""
 
@@ -238,6 +351,131 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
         self.assertEqual(
             PlaceholderBooking.objects.filter(original_booking_uid="orig-1").count(),
             3,
+        )
+
+    def test_placeholders_are_retained_on_booking_confirmed(self):
+        """Confirming a booking must NOT release cross-event-type holds.
+
+        Cal.com does not propagate busy status to sibling event types even
+        for confirmed bookings, so we keep the placeholders until the
+        booking is cancelled, rejected, or forfeited.
+        """
+        from booking.webhooks import _handle_booking_confirmed
+        from booking.models import PlaceholderBooking
+        from clients.models import Client, Deposit
+
+        client = Client.objects.create(name="Dawn Bishop", email="dawn@example.com")
+        Deposit.objects.create(
+            client=client,
+            amount="25.00",
+            cal_booking_uid="orig-confirm-test",
+            status="pending",
+        )
+        PlaceholderBooking.objects.create(
+            original_booking_uid="orig-confirm-test",
+            placeholder_booking_uid="ph-1",
+        )
+        PlaceholderBooking.objects.create(
+            original_booking_uid="orig-confirm-test",
+            placeholder_booking_uid="ph-2",
+        )
+
+        cancel_calls = []
+
+        def fake_cancel(uid, reason=""):
+            cancel_calls.append(uid)
+            return True
+
+        with mock.patch("booking.webhooks.cancel_calcom_booking", side_effect=fake_cancel):
+            _handle_booking_confirmed({"uid": "orig-confirm-test"})
+
+        self.assertEqual(cancel_calls, [])
+        self.assertEqual(
+            PlaceholderBooking.objects.filter(
+                original_booking_uid="orig-confirm-test"
+            ).count(),
+            2,
+        )
+        deposit = Deposit.objects.get(cal_booking_uid="orig-confirm-test")
+        self.assertEqual(deposit.status, "confirmed")
+
+    def test_placeholders_are_retained_on_booking_created_for_existing_deposit(self):
+        """The BOOKING_CREATED follow-up that transitions status to confirmed
+        must also preserve placeholders for the same reason."""
+        from booking.webhooks import _handle_booking_created
+        from booking.models import PlaceholderBooking
+        from clients.models import Client, Deposit
+
+        client = Client.objects.create(name="Rhonda", email="rhonda@example.com")
+        Deposit.objects.create(
+            client=client,
+            amount="25.00",
+            cal_booking_uid="orig-created-test",
+            status="pending",
+        )
+        PlaceholderBooking.objects.create(
+            original_booking_uid="orig-created-test",
+            placeholder_booking_uid="ph-c1",
+        )
+
+        cancel_calls = []
+
+        def fake_cancel(uid, reason=""):
+            cancel_calls.append(uid)
+            return True
+
+        payload = {
+            "uid": "orig-created-test",
+            "attendees": [{"email": "rhonda@example.com", "name": "Rhonda"}],
+            "startTime": "2026-05-13T16:00:00.000Z",
+            "endTime": "2026-05-13T16:30:00.000Z",
+            "eventTitle": "Breast Thermography Leduc",
+        }
+
+        with mock.patch("booking.webhooks.cancel_calcom_booking", side_effect=fake_cancel):
+            _handle_booking_created(payload)
+
+        self.assertEqual(cancel_calls, [])
+        self.assertEqual(
+            PlaceholderBooking.objects.filter(
+                original_booking_uid="orig-created-test"
+            ).count(),
+            1,
+        )
+
+    def test_placeholders_still_cancelled_on_booking_cancelled(self):
+        """Cancellation of the original booking must still release holds."""
+        from booking.webhooks import _handle_booking_cancelled
+        from booking.models import PlaceholderBooking
+        from clients.models import Client, Deposit
+
+        client = Client.objects.create(name="Test", email="t@example.com")
+        Deposit.objects.create(
+            client=client,
+            amount="25.00",
+            cal_booking_uid="orig-cancel-test",
+            status="confirmed",
+        )
+        PlaceholderBooking.objects.create(
+            original_booking_uid="orig-cancel-test",
+            placeholder_booking_uid="ph-cancel-1",
+        )
+
+        cancel_calls = []
+
+        def fake_cancel(uid, reason=""):
+            cancel_calls.append(uid)
+            return True
+
+        with mock.patch("booking.webhooks.cancel_calcom_booking", side_effect=fake_cancel):
+            _handle_booking_cancelled({"uid": "orig-cancel-test"})
+
+        self.assertIn("ph-cancel-1", cancel_calls)
+        self.assertEqual(
+            PlaceholderBooking.objects.filter(
+                original_booking_uid="orig-cancel-test"
+            ).count(),
+            0,
         )
 
     def test_missing_end_time_preserves_legacy_single_placeholder(self):
