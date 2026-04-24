@@ -54,7 +54,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -282,6 +282,122 @@ def _parse_cal_url(cal_booking_url):
     return None, None
 
 
+def _fetch_event_type_length_minutes(username, slug):
+    """Return a Cal.com event type's duration in minutes, or None on failure.
+
+    Needed so we can tile placeholder bookings across a sibling event type
+    whose length may differ from the original booking's length. Without this,
+    a single placeholder only blocks the sibling's own duration, which leaves
+    the rest of the original booking's time range bookable on that sibling
+    (see Cal.com bug #23069 and the multi-placeholder logic below).
+    """
+    if not username or not slug:
+        return None
+
+    ok, data = _calcom_api_get(
+        "/v2/event-types",
+        params={"username": username, "eventSlug": slug},
+    )
+    if not ok or not isinstance(data, dict):
+        return None
+
+    payload = data.get("data")
+
+    # Cal.com has shipped a few response shapes over the years; handle the
+    # common ones defensively so the fix doesn't silently break on upgrades.
+    candidates = []
+    if isinstance(payload, list):
+        candidates = payload
+    elif isinstance(payload, dict):
+        if isinstance(payload.get("eventTypeGroups"), list):
+            for group in payload["eventTypeGroups"]:
+                if isinstance(group, dict) and isinstance(group.get("eventTypes"), list):
+                    candidates.extend(group["eventTypes"])
+        elif isinstance(payload.get("eventTypes"), list):
+            candidates = payload["eventTypes"]
+        else:
+            candidates = [payload]
+
+    for et in candidates:
+        if not isinstance(et, dict):
+            continue
+        et_slug = et.get("slug")
+        if et_slug and et_slug != slug:
+            continue
+        length = et.get("lengthInMinutes") or et.get("length")
+        if isinstance(length, (int, float)) and length > 0:
+            return int(length)
+
+    logger.warning("Could not determine length for Cal.com event type %s/%s", username, slug)
+    return None
+
+
+def _parse_iso_datetime(iso_str):
+    """Parse a Cal.com ISO timestamp into a timezone-aware UTC datetime, or None."""
+    if not iso_str:
+        return None
+    try:
+        cleaned = iso_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(cleaned)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def _format_cal_iso(dt):
+    """Format a UTC datetime as a Cal.com-compatible ISO string."""
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _compute_placeholder_starts(original_start_dt, original_end_dt, sibling_length_minutes):
+    """Return the list of placeholder start datetimes (UTC) needed on one sibling.
+
+    Strategy: place placeholders every `sibling_length_minutes` starting at
+    `original_start_dt` while the placeholder's start is strictly before
+    `original_end_dt`. Each placeholder occupies `sibling_length_minutes`,
+    so adjacent placeholders tile without gaps across the original range.
+
+    This is enough to block every sibling slot whose time span overlaps the
+    original booking, because:
+      - A candidate start T on the sibling makes [T, T+L) busy.
+      - If T < original_end and T >= original_start, T falls inside a placeholder
+        (or at its exact start), causing a conflict.
+      - If T < original_start but T + L > original_start, the placeholder
+        at original_start (covering [original_start, original_start+L)) overlaps it.
+
+    If the sibling's length is unknown, we fall back to a single placeholder
+    at the original start (preserving the previous, partial behaviour rather
+    than failing open).
+    """
+    if original_start_dt is None:
+        return []
+
+    if (
+        original_end_dt is None
+        or original_end_dt <= original_start_dt
+        or not sibling_length_minutes
+        or sibling_length_minutes <= 0
+    ):
+        return [original_start_dt]
+
+    starts = []
+    current = original_start_dt
+    step = timedelta(minutes=int(sibling_length_minutes))
+
+    # Safety cap: a single booking should never need more than 96 placeholders
+    # (24 hours in 15-minute steps). This protects us from a pathological
+    # mis-parse or malicious payload that reports a multi-day booking.
+    max_placeholders = 96
+
+    while current < original_end_dt and len(starts) < max_placeholders:
+        starts.append(current)
+        current = current + step
+
+    return starts
+
+
 def _get_sibling_event_slugs(event_title, inferred_location, booked_cal_url=""):
     """Find Cal.com event slugs for other services at the same location.
 
@@ -325,12 +441,31 @@ def _get_sibling_event_slugs(event_title, inferred_location, booked_cal_url=""):
     return siblings
 
 
-def _create_placeholder_bookings(booking_uid, start_time, event_title, inferred_location, booked_cal_url=""):
+def _create_placeholder_bookings(
+    booking_uid,
+    start_time,
+    event_title,
+    inferred_location,
+    booked_cal_url="",
+    end_time="",
+):
     """Create placeholder bookings on sibling event types to block the time slot.
 
     Called synchronously from the webhook handler so slots are blocked
     before the HTTP response is returned (prevents race-condition
     double-booking if another client loads the calendar immediately).
+
+    Because each sibling event type may have a DIFFERENT length than the
+    original booking, a single placeholder at the original start only blocks
+    the sibling's own duration. For a 90-minute original booking and a
+    30-minute sibling, a single placeholder at 4:00pm would leave 4:30,
+    5:00, and 5:15 bookable on the sibling. To close that hole, we tile
+    placeholders across the entire original time range for each sibling,
+    using that sibling's own length as the step size.
+
+    If ``end_time`` is not provided we fall back to a single placeholder at
+    the start (pre-fix behaviour), which protects short single-slot bookings
+    but does not fully cover multi-slot ones.
     """
     from booking.models import PlaceholderBooking
 
@@ -342,56 +477,94 @@ def _create_placeholder_bookings(booking_uid, start_time, event_title, inferred_
         logger.info("No sibling event types found for '%s' — no placeholders needed", event_title)
         return
 
+    original_start_dt = _parse_iso_datetime(start_time)
+    original_end_dt = _parse_iso_datetime(end_time) if end_time else None
+
+    if original_start_dt is None:
+        logger.warning(
+            "Could not parse startTime=%r for booking %s — skipping placeholder creation",
+            start_time, booking_uid,
+        )
+        return
+
     placeholder_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost")
 
     created_count = 0
     for username, slug in siblings:
-        body = {
-            "start": start_time,
-            "eventTypeSlug": slug,
-            "username": username,
-            "attendee": {
-                "name": _PLACEHOLDER_ATTENDEE_NAME,
-                "email": placeholder_email,
-                "timeZone": _PLACEHOLDER_TIMEZONE,
-                "language": "en",
-            },
-            "metadata": {
-                "placeholder": "true",
-                "originalBookingUid": booking_uid,
-            },
-        }
+        sibling_length = _fetch_event_type_length_minutes(username, slug)
+        placeholder_starts = _compute_placeholder_starts(
+            original_start_dt, original_end_dt, sibling_length,
+        )
 
-        ok, resp_body = _calcom_api_post("/v2/bookings", body)
-        if not ok:
+        if original_end_dt is None:
             logger.warning(
-                "Failed to create placeholder on %s/%s for booking %s: %s",
-                username, slug, booking_uid, resp_body,
+                "No endTime available for booking %s; placing single placeholder on %s/%s "
+                "(may leave later slots bookable on this sibling)",
+                booking_uid, username, slug,
             )
-            continue
-
-        try:
-            resp_data = json.loads(resp_body) if isinstance(resp_body, str) else resp_body
-            ph_uid = resp_data.get("data", {}).get("uid", "")
-        except (json.JSONDecodeError, AttributeError):
-            ph_uid = ""
-
-        if ph_uid:
-            PlaceholderBooking.objects.create(
-                original_booking_uid=booking_uid,
-                placeholder_booking_uid=ph_uid,
+        elif sibling_length is None:
+            logger.warning(
+                "Could not fetch length for %s/%s; placing single placeholder "
+                "(may leave later slots bookable on this sibling)",
+                username, slug,
             )
-            created_count += 1
 
-            ph_status = resp_data.get("data", {}).get("status", "")
-            if ph_status == "pending":
-                confirm_calcom_booking(ph_uid)
-        else:
-            logger.warning("Placeholder booking on %s/%s returned no UID", username, slug)
+        for ph_start_dt in placeholder_starts:
+            ph_start_iso = _format_cal_iso(ph_start_dt)
+            body = {
+                "start": ph_start_iso,
+                "eventTypeSlug": slug,
+                "username": username,
+                "attendee": {
+                    "name": _PLACEHOLDER_ATTENDEE_NAME,
+                    "email": placeholder_email,
+                    "timeZone": _PLACEHOLDER_TIMEZONE,
+                    "language": "en",
+                },
+                "metadata": {
+                    "placeholder": "true",
+                    "originalBookingUid": booking_uid,
+                },
+            }
+
+            ok, resp_body = _calcom_api_post("/v2/bookings", body)
+            if not ok:
+                # Some placeholder slots may be outside the sibling's schedule
+                # (e.g. the tail end of a pop-up clinic's hours) — Cal.com
+                # rejects those and we simply skip; the slot wasn't bookable
+                # there anyway.
+                logger.warning(
+                    "Failed to create placeholder on %s/%s at %s for booking %s: %s",
+                    username, slug, ph_start_iso, booking_uid, resp_body,
+                )
+                continue
+
+            try:
+                resp_data = json.loads(resp_body) if isinstance(resp_body, str) else resp_body
+                ph_uid = resp_data.get("data", {}).get("uid", "")
+            except (json.JSONDecodeError, AttributeError):
+                resp_data = {}
+                ph_uid = ""
+
+            if ph_uid:
+                PlaceholderBooking.objects.create(
+                    original_booking_uid=booking_uid,
+                    placeholder_booking_uid=ph_uid,
+                )
+                created_count += 1
+
+                ph_status = resp_data.get("data", {}).get("status", "")
+                if ph_status == "pending":
+                    confirm_calcom_booking(ph_uid)
+            else:
+                logger.warning(
+                    "Placeholder booking on %s/%s at %s returned no UID",
+                    username, slug, ph_start_iso,
+                )
 
     logger.info(
-        "Created %d placeholder booking(s) for original uid=%s at %s",
-        created_count, booking_uid, inferred_location,
+        "Created %d placeholder booking(s) for original uid=%s at %s (range %s → %s)",
+        created_count, booking_uid, inferred_location, start_time, end_time or "?",
     )
 
 
@@ -818,6 +991,7 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     booking_uid = payload.get("uid", "")
     reschedule_uid = payload.get("rescheduleUid", "") or payload.get("rescheduleuid", "")
     start_time = payload.get("startTime", "")
+    end_time = payload.get("endTime", "")
     event_title = payload.get("eventTitle", "") or payload.get("title", "")
     appointment_date = _parse_appointment_date(start_time)
     booked_cal_url = _extract_cal_url_from_payload(payload)
@@ -918,7 +1092,7 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
         try:
             _create_placeholder_bookings(
                 booking_uid, start_time, event_title, inferred_location,
-                booked_cal_url=booked_cal_url,
+                booked_cal_url=booked_cal_url, end_time=end_time,
             )
         except Exception:
             logger.exception(
@@ -1027,6 +1201,7 @@ def _handle_booking_rescheduled(payload):
         return
 
     new_start = payload.get("startTime", "")
+    new_end = payload.get("endTime", "")
     new_date = _parse_appointment_date(new_start)
     new_title = payload.get("eventTitle", "") or payload.get("title", "")
 
@@ -1088,7 +1263,7 @@ def _handle_booking_rescheduled(payload):
         try:
             _create_placeholder_bookings(
                 booking_uid, new_start, new_title, inferred_location,
-                booked_cal_url=booked_cal_url,
+                booked_cal_url=booked_cal_url, end_time=new_end,
             )
         except Exception:
             logger.exception(
