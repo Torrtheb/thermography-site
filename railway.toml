@@ -3,8 +3,12 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/"
+# /healthz is a DB-free liveness probe (see thermography_site/urls.py).
+# Using "/" caused outages when Neon was cold: the homepage hit the DB,
+# timed out, the healthcheck failed, and Railway exhausted its restart
+# retries — at which point the site stayed dead until manually redeployed.
+healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 10
 startCommand = "bash start.sh"

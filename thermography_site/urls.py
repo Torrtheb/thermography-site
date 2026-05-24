@@ -22,7 +22,16 @@ def robots_txt(request):
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
+def healthz(request):
+    # Cheap liveness probe for Railway's healthcheck. Deliberately does NOT
+    # touch the database — we only want to know if the WSGI process can
+    # respond, so a Neon cold start can't take the whole service offline by
+    # making the healthcheck time out and exhausting the restart retries.
+    return HttpResponse("ok", content_type="text/plain")
+
+
 urlpatterns = [
+    path("healthz", healthz, name="healthz"),
     path("robots.txt", robots_txt, name="robots_txt"),
     path("sitemap.xml", sitemap, name="sitemap"),
     path("django-admin/", admin.site.urls),
