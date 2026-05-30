@@ -1,0 +1,34 @@
+# Railway config for a DEDICATED cron service that runs the deposit-expiry
+# sweep on a schedule and then exits. This is the permanent replacement for
+# the external cron-job.org HTTP trigger, which timed out because the work
+# makes many slow, blocking Cal.com / Brevo API calls inside a single request.
+#
+# How to wire this up (one-time, in the Railway dashboard):
+#   1. In your existing Railway project, click "New" → "GitHub Repo" and pick
+#      this same repository to add a SECOND service (e.g. name it
+#      "thermography-cron"). It shares the same code/image as the web service.
+#   2. Open the new service → Settings → "Config-as-code" and set the config
+#      file path to:  /railway.cron.toml
+#   3. Give the cron service the SAME environment variables as the web service
+#      (DATABASE_URL, BREVO_API_KEY, CAL_API_KEY, DJANGO_SECRET_KEY, etc.).
+#      The easiest way is shared/reference variables, or copy them over.
+#   4. Deploy. Railway will run the start command below on the cron schedule
+#      and the container will exit when the command finishes.
+#   5. Disable (or delete) the cron-job.org job hitting
+#      /api/cron/expire-deposits/ — it is no longer needed.
+#
+# Notes:
+#   - cronSchedule is evaluated in UTC. "0 * * * *" = top of every hour.
+#   - restartPolicyType = "never": a cron run that errors must NOT restart-loop;
+#     it simply runs again on the next schedule.
+#   - No healthcheck: this is a short-lived task, not a web server.
+#   - DJANGO_SETTINGS_MODULE=production is already baked into the Dockerfile.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python manage.py expire_unpaid_deposits --apply"
+cronSchedule = "0 * * * *"
+restartPolicyType = "never"

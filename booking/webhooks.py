@@ -51,6 +51,7 @@ import hmac
 import json
 import logging
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -1455,6 +1456,57 @@ def calcom_webhook_view(request):
 # Cron endpoint — expire unpaid deposits every hour
 # ──────────────────────────────────────────────────────────
 
+# Guards against overlapping runs: each phase below makes many slow, blocking
+# external calls (Cal.com cancellations + Brevo emails, ~15s timeout each plus
+# rate-limit backoff). A run can outlast the hourly trigger interval, so we skip
+# new triggers while one is still in flight rather than stacking threads.
+_expiry_job_lock = threading.Lock()
+
+
+def _run_deposit_expiry_job():
+    """Run the full deposit-expiry sweep in a background thread.
+
+    The work is dozens of slow, blocking Cal.com / Brevo API calls. Doing it
+    inside the cron HTTP request reliably blew past the cron service's and
+    Railway's edge-proxy request timeouts, so the trigger reported failure even
+    when the work was (partially) succeeding. We run it detached from the
+    request and let the external cron service simply fire-and-forget.
+
+    Each phase is isolated so one failing phase doesn't abort the others.
+    """
+    from django.db import close_old_connections
+
+    try:
+        try:
+            warn_count = send_deposit_expiry_warnings(hours=48)
+        except Exception:
+            logger.exception("Deposit expiry job: send_deposit_expiry_warnings failed")
+            warn_count = 0
+
+        try:
+            count = expire_pending_deposits(hours=72)
+        except Exception:
+            logger.exception("Deposit expiry job: expire_pending_deposits failed")
+            count = 0
+
+        try:
+            stale = cleanup_stale_placeholders(max_age_hours=96)
+        except Exception:
+            logger.exception("Deposit expiry job: cleanup_stale_placeholders failed")
+            stale = 0
+
+        logger.info(
+            "Deposit expiry job complete: warnings_sent=%s forfeited=%s "
+            "stale_placeholders_cleaned=%s",
+            warn_count, count, stale,
+        )
+    finally:
+        # Release the thread-local DB connection so a long-lived worker thread
+        # doesn't hold a Neon connection open, then allow the next trigger.
+        close_old_connections()
+        _expiry_job_lock.release()
+
+
 @csrf_exempt
 @require_POST
 def cron_expire_deposits_view(request):
@@ -1464,14 +1516,13 @@ def cron_expire_deposits_view(request):
     Protected by CRON_SECRET — an external cron service (e.g. cron-job.org)
     POSTs to this URL every hour with the secret in the Authorization header.
 
-    What happens when this runs:
-      1. Sends a warning email to clients whose deposits have been pending
-         for 48 hours (24 hours before the 72-hour cancellation).
-      2. Finds all deposits still "pending" after 72 hours.
-      3. Cancels their Cal.com bookings (frees the slot).
-      4. Emails each client about the cancellation.
-      5. Emails the owner a summary.
-      6. Marks the deposits as "forfeited".
+    The actual work (warning emails, forfeiting expired deposits, cancelling
+    Cal.com bookings, cleaning up orphaned placeholders) makes many slow,
+    blocking external API calls and can take far longer than the cron
+    service's / Railway edge proxy's request timeout. To avoid spurious
+    "Timeout" failures, we launch the work in a background thread and return
+    immediately — the cron service only needs to *trigger* the job, not wait
+    for it to finish.
 
     Header format:  Authorization: Bearer <CRON_SECRET>
     """
@@ -1487,11 +1538,16 @@ def cron_expire_deposits_view(request):
     if not hmac.compare_digest(token, expected_secret):
         return JsonResponse({"error": "unauthorized"}, status=403)
 
-    warn_count = send_deposit_expiry_warnings(hours=48)
-    count = expire_pending_deposits(hours=72)
-    stale = cleanup_stale_placeholders(max_age_hours=96)
+    # If a previous run is still working through a backlog, don't pile another
+    # thread on top of it — just acknowledge this trigger.
+    if not _expiry_job_lock.acquire(blocking=False):
+        logger.info("Deposit expiry job already running — skipping this trigger")
+        return JsonResponse({"ok": True, "status": "already_running"}, status=202)
 
-    return JsonResponse({
-        "ok": True, "warnings_sent": warn_count,
-        "forfeited": count, "stale_placeholders_cleaned": stale,
-    })
+    threading.Thread(
+        target=_run_deposit_expiry_job,
+        name="deposit-expiry",
+        daemon=True,
+    ).start()
+
+    return JsonResponse({"ok": True, "status": "started"}, status=202)

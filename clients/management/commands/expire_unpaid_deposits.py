@@ -11,6 +11,12 @@ When --apply is used, this command:
   3. Emails each client about the cancellation
   4. Emails the owner a summary
   5. Marks deposits as "forfeited"
+  6. Cleans up orphaned Cal.com placeholder ("slot hold") bookings
+
+This is the single source of truth for the scheduled deposit-expiry sweep.
+It is run on a schedule by a dedicated Railway cron service (see
+``railway.cron.toml``); the HTTP cron endpoint in ``booking/webhooks.py``
+performs the same work and remains available as a manual/backup trigger.
 """
 
 import logging
@@ -83,16 +89,23 @@ class Command(BaseCommand):
             ))
             return
 
-        from booking.webhooks import send_deposit_expiry_warnings, expire_pending_deposits
+        from booking.webhooks import (
+            send_deposit_expiry_warnings,
+            expire_pending_deposits,
+            cleanup_stale_placeholders,
+        )
         warned = send_deposit_expiry_warnings(hours=WARNING_HOURS)
         forfeited = expire_pending_deposits(hours=hours)
+        stale = cleanup_stale_placeholders()
 
         self.stdout.write(self.style.SUCCESS(
             f"\nSent {warned} warning email(s), "
             f"forfeited {forfeited} deposit(s), cancelled their Cal.com bookings, "
-            "and notified clients + owner."
+            f"notified clients + owner, and cleaned up {stale} orphaned "
+            "placeholder booking(s)."
         ))
         logger.info(
-            "expire_unpaid_deposits: warned %d, forfeited %d deposit(s) older than %d hours",
-            warned, forfeited, hours,
+            "expire_unpaid_deposits: warned %d, forfeited %d deposit(s) older than "
+            "%d hours, cleaned %d stale placeholder(s)",
+            warned, forfeited, hours, stale,
         )
