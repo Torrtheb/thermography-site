@@ -104,6 +104,12 @@ WSGI_APPLICATION = "thermography_site.wsgi.application"
 BREVO_API_KEY = ""
 BREVO_LIST_ID = ""
 
+# Max newsletter emails to send per day. Brevo's free plan caps the whole
+# account at 300 emails/day, so large lists are drained over several days by
+# the `send_pending_newsletters` cron command. Keep this safely under 300 to
+# leave headroom for welcome/transactional emails.
+NEWSLETTER_DAILY_SEND_LIMIT = int(os.environ.get("NEWSLETTER_DAILY_SEND_LIMIT", "250"))
+
 # Owner notification email — receives booking alerts, deposit expiry notices, etc.
 # Defaults to DEFAULT_FROM_EMAIL if not set. Use a different address to avoid
 # sending from and to the same email (which can trigger spam filters).

@@ -44,6 +44,7 @@ class NewsletterCampaign(models.Model):
 
     STATUS_CHOICES = [
         ("draft", "Draft"),
+        ("queued", "Queued"),
         ("sending", "Sending"),
         ("sent", "Sent"),
         ("partial", "Partially Sent"),
@@ -58,6 +59,11 @@ class NewsletterCampaign(models.Model):
         help_text="Closing text appended after the body.",
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="draft")
+    queued_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the campaign was enqueued for throttled sending.",
+    )
     recipients_count = models.PositiveIntegerField(default=0)
     sent_count = models.PositiveIntegerField(default=0)
     failed_count = models.PositiveIntegerField(default=0)
@@ -86,6 +92,7 @@ class NewsletterCampaign(models.Model):
 
         colours = {
             "draft": "#6b7280",
+            "queued": "#3b82f6",
             "sending": "#f59e0b",
             "sent": "#10b981",
             "partial": "#f97316",
@@ -100,6 +107,62 @@ class NewsletterCampaign(models.Model):
         )
 
     status_badge.short_description = "Status"
+
+    @property
+    def pending_count(self):
+        """Number of deliveries still waiting to be sent."""
+        return self.deliveries.filter(status="pending").count()
+
+
+class NewsletterDelivery(models.Model):
+    """
+    One row per (campaign, subscriber) — the per-recipient send queue.
+
+    This makes a campaign send resumable and idempotent: the daily cron
+    drains 'pending' rows up to the daily quota, so an 866-person list is
+    delivered over several days without ever exceeding Brevo's free
+    300-emails/day cap, and without re-sending to anyone.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("sent", "Sent"),
+        ("failed", "Failed"),
+        ("skipped", "Skipped (unsubscribed)"),
+    ]
+
+    campaign = models.ForeignKey(
+        "NewsletterCampaign",
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    subscriber = models.ForeignKey(
+        "NewsletterSubscriber",
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Newsletter delivery"
+        verbose_name_plural = "Newsletter deliveries"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["campaign", "subscriber"],
+                name="unique_campaign_subscriber",
+            ),
+        ]
+        indexes = [
+            # Fast lookup of the next batch to send, and of today's sent count.
+            models.Index(fields=["status", "campaign"]),
+            models.Index(fields=["status", "sent_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.campaign_id} → {self.subscriber_id} ({self.status})"
 
 
 class SubscribeRateLimit(models.Model):

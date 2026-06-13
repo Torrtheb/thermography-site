@@ -20,6 +20,15 @@
     </span>
 </div>
 
+{% if active_subscriber_count > daily_send_limit %}
+<div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+    <strong>Throttled delivery.</strong> To stay within the email plan's daily limit,
+    this newsletter will be queued and sent at up to <strong>{{ daily_send_limit }}/day</strong>,
+    finishing in roughly <strong>{{ estimated_send_days }} day{{ estimated_send_days|pluralize }}</strong>.
+    Sending starts automatically on the next scheduled run — you don't need to keep this page open.
+</div>
+{% endif %}
+
 {% if active_subscriber_count == 0 %}
 <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
     <strong>No active subscribers yet.</strong> You can still compose a draft, but it won't be sent until people subscribe.
@@ -75,7 +84,7 @@
         <button type="submit" class="button action-save button--icon"
                 {% if active_subscriber_count == 0 %}disabled title="No active subscribers"{% endif %}>
             {% icon name="mail" %}
-            Send Newsletter ({{ active_subscriber_count }} subscriber{{ active_subscriber_count|pluralize }})
+            {% if active_subscriber_count > daily_send_limit %}Queue{% else %}Send{% endif %} Newsletter ({{ active_subscriber_count }} subscriber{{ active_subscriber_count|pluralize }})
         </button>
     </footer>
 </form>

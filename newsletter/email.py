@@ -19,9 +19,14 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import NewsletterCampaign, NewsletterSubscriber
+from .models import NewsletterCampaign, NewsletterDelivery, NewsletterSubscriber
 
 logger = logging.getLogger(__name__)
+
+# Brevo's free plan allows 300 emails/day across the whole account. We default
+# to a lower budget so welcome/transactional emails still have headroom; the
+# remainder of a large list is delivered automatically over subsequent days.
+DEFAULT_DAILY_SEND_LIMIT = 250
 
 
 def _redact_email(email: str) -> str:
@@ -120,85 +125,277 @@ def send_welcome_email(email: str) -> bool:
         return False
 
 
-def send_newsletter(campaign: NewsletterCampaign) -> tuple[int, int]:
+def enqueue_newsletter(campaign: NewsletterCampaign) -> int:
     """
-    Send a newsletter campaign to all active subscribers.
+    Queue a campaign for throttled, multi-day delivery.
 
-    Uses send_mail per-recipient so failures are isolated and each
-    recipient gets their own unsubscribe link.
-    Returns (sent_count, failed_count).
+    Snapshots the current active subscribers into NewsletterDelivery rows
+    (status="pending") and marks the campaign "queued". No email is sent
+    here — the ``send_pending_newsletters`` management command (run daily by
+    cron) drains the queue up to the daily quota.
+
+    Returns the number of recipients queued.
     """
-    subscribers = NewsletterSubscriber.objects.filter(is_active=True).values_list(
-        "email", "token",
+    subscriber_ids = list(
+        NewsletterSubscriber.objects.filter(is_active=True).values_list("id", flat=True)
     )
-    subscriber_list = list(subscribers)
-    total = len(subscriber_list)
+    total = len(subscriber_ids)
 
     if total == 0:
         campaign.status = "failed"
         campaign.recipients_count = 0
         campaign.save(update_fields=["status", "recipients_count"])
-        return 0, 0
+        return 0
 
-    campaign.status = "sending"
+    NewsletterDelivery.objects.bulk_create(
+        [
+            NewsletterDelivery(campaign=campaign, subscriber_id=sid, status="pending")
+            for sid in subscriber_ids
+        ],
+        ignore_conflicts=True,
+        batch_size=500,
+    )
+
+    campaign.status = "queued"
     campaign.recipients_count = total
-    campaign.save(update_fields=["status", "recipients_count"])
+    campaign.queued_at = timezone.now()
+    campaign.save(update_fields=["status", "recipients_count", "queued_at"])
 
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
-    site_name = getattr(settings, "WAGTAIL_SITE_NAME", "Thermography")
+    logger.info("Newsletter campaign %s queued for %d recipients.", campaign.pk, total)
+    return total
+
+
+def retry_failed_deliveries(max_attempts: int = 3) -> int:
+    """
+    Re-queue failed deliveries so the next drain run retries them.
+
+    Only deliveries whose attempt count is below ``max_attempts`` are reset,
+    so a hard bounce that keeps failing won't be retried forever. Any campaign
+    that had already been finalized is re-opened to "sending" so the drainer
+    picks its rows back up.
+
+    Returns the number of deliveries re-queued.
+    """
+    qs = NewsletterDelivery.objects.filter(
+        status="failed", attempts__lt=max_attempts
+    )
+    campaign_ids = list(qs.values_list("campaign_id", flat=True).distinct())
+    requeued = qs.update(status="pending", last_error="")
+
+    if requeued:
+        NewsletterCampaign.objects.filter(
+            id__in=campaign_ids, status__in=["sent", "partial", "failed"]
+        ).update(status="sending")
+        logger.info("Re-queued %d failed deliveries for retry.", requeued)
+
+    return requeued
+
+
+def _campaign_html(campaign: NewsletterCampaign, site_name: str, unsubscribe_url: str):
+    """Render the HTML body for a campaign (falls back to plain text)."""
+    from django.utils.html import escape
+
+    body_html = "".join(
+        f"<p>{escape(para)}</p>"
+        for para in campaign.body.split("\n\n")
+        if para.strip()
+    )
+    try:
+        return render_to_string(
+            "newsletter/emails/campaign.html",
+            {
+                "site_name": site_name,
+                "body_html": body_html,
+                "sign_off": campaign.sign_off or "",
+                "unsubscribe_url": unsubscribe_url,
+            },
+        )
+    except Exception:
+        return None
+
+
+def _send_delivery(delivery: NewsletterDelivery, from_email: str, site_name: str) -> str:
+    """
+    Attempt to send one queued delivery. Updates the row in place.
+
+    Returns the resulting status: "sent", "failed", or "skipped".
+    """
+    subscriber = delivery.subscriber
+
+    # Respect unsubscribes that happened after the campaign was queued.
+    if not subscriber.is_active:
+        delivery.status = "skipped"
+        delivery.save(update_fields=["status"])
+        return "skipped"
+
+    campaign = delivery.campaign
+    unsubscribe_url = _get_unsubscribe_url(subscriber.token)
 
     full_body = campaign.body
     if campaign.sign_off:
         full_body = f"{campaign.body}\n\n{campaign.sign_off}"
+    personalised_body = f"{full_body}\n\n---\nTo unsubscribe, visit: {unsubscribe_url}"
 
-    # Convert plain-text body to simple HTML (preserve paragraphs).
-    # Escape each paragraph to prevent HTML injection via admin input.
-    from django.utils.html import escape
-    body_html = "".join(
-        f"<p>{escape(para)}</p>" for para in campaign.body.split("\n\n") if para.strip()
+    html_message = _campaign_html(campaign, site_name, unsubscribe_url)
+
+    delivery.attempts += 1
+    try:
+        msg = _build_message(
+            campaign.subject, personalised_body, html_message,
+            from_email, subscriber.email, unsubscribe_url,
+        )
+        msg.send(fail_silently=False)
+        delivery.status = "sent"
+        delivery.sent_at = timezone.now()
+        delivery.last_error = ""
+        delivery.save(update_fields=["status", "sent_at", "attempts", "last_error"])
+        return "sent"
+    except Exception as exc:
+        logger.exception(
+            "Failed to send newsletter to %s", _redact_email(subscriber.email)
+        )
+        delivery.status = "failed"
+        delivery.last_error = str(exc)[:500]
+        delivery.save(update_fields=["status", "attempts", "last_error"])
+        return "failed"
+
+
+def _refresh_campaign_counts(campaign: NewsletterCampaign) -> None:
+    """Recompute a campaign's aggregate counts and finalize its status."""
+    from django.db.models import Count, Q
+
+    agg = campaign.deliveries.aggregate(
+        sent=Count("pk", filter=Q(status="sent")),
+        failed=Count("pk", filter=Q(status="failed")),
+        pending=Count("pk", filter=Q(status="pending")),
     )
+    campaign.sent_count = agg["sent"]
+    campaign.failed_count = agg["failed"]
 
-    sent = 0
-    failed = 0
+    update_fields = ["sent_count", "failed_count"]
 
-    for email_addr, token in subscriber_list:
-        unsubscribe_url = _get_unsubscribe_url(token)
+    if agg["pending"] == 0:
+        # Queue fully drained — finalize status.
+        if agg["sent"] and not agg["failed"]:
+            campaign.status = "sent"
+        elif agg["sent"]:
+            campaign.status = "partial"
+        else:
+            campaign.status = "failed"
+        campaign.sent_at = timezone.now()
+        update_fields += ["status", "sent_at"]
+    elif campaign.status != "sending":
+        campaign.status = "sending"
+        update_fields.append("status")
 
-        personalised_body = (
-            f"{full_body}\n\n---\n"
-            f"To unsubscribe, visit: {unsubscribe_url}"
+    campaign.save(update_fields=update_fields)
+
+
+def send_pending_newsletters(daily_limit: int | None = None, on_event=None) -> dict:
+    """
+    Drain queued newsletter deliveries, respecting the daily send budget.
+
+    Sends up to ``daily_limit`` emails today *in total* (counting anything
+    already sent today, so the command is safe to run multiple times per day).
+    Processes the oldest queued campaign first. Returns a summary dict.
+
+    ``on_event`` is an optional callable(str) used for logging progress
+    (e.g. the management command's stdout writer).
+    """
+    if daily_limit is None:
+        daily_limit = getattr(
+            settings, "NEWSLETTER_DAILY_SEND_LIMIT", DEFAULT_DAILY_SEND_LIMIT
         )
 
-        try:
-            html_message = render_to_string(
-                "newsletter/emails/campaign.html",
-                {
-                    "site_name": site_name,
-                    "body_html": body_html,
-                    "sign_off": campaign.sign_off or "",
-                    "unsubscribe_url": unsubscribe_url,
-                },
-            )
-        except Exception:
-            html_message = None
+    def emit(msg):
+        logger.info(msg)
+        if on_event:
+            on_event(msg)
 
-        try:
-            msg = _build_message(
-                campaign.subject, personalised_body, html_message,
-                from_email, email_addr, unsubscribe_url,
-            )
-            msg.send(fail_silently=False)
-            sent += 1
-        except Exception:
-            logger.exception("Failed to send newsletter to %s", _redact_email(email_addr))
-            failed += 1
+    today = timezone.localdate()
+    already_sent_today = NewsletterDelivery.objects.filter(
+        status="sent", sent_at__date=today
+    ).count()
+    budget = max(0, daily_limit - already_sent_today)
 
-    campaign.sent_count = sent
-    campaign.failed_count = failed
-    campaign.sent_at = timezone.now()
-    campaign.status = "sent" if failed == 0 else ("failed" if sent == 0 else "partial")
-    campaign.save(update_fields=[
-        "sent_count", "failed_count", "sent_at", "status",
-    ])
+    summary = {
+        "daily_limit": daily_limit,
+        "already_sent_today": already_sent_today,
+        "budget": budget,
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "campaigns": [],
+    }
 
-    return sent, failed
+    if budget == 0:
+        emit(
+            f"Daily send budget exhausted ({already_sent_today}/{daily_limit} "
+            f"already sent today). Nothing to do."
+        )
+        return summary
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+    site_name = getattr(settings, "WAGTAIL_SITE_NAME", "Thermography")
+
+    campaigns = NewsletterCampaign.objects.filter(
+        status__in=["queued", "sending"]
+    ).order_by("created_at")
+
+    for campaign in campaigns:
+        if budget <= 0:
+            break
+
+        # Mark as in-progress as soon as we start sending.
+        if campaign.status == "queued":
+            campaign.status = "sending"
+            campaign.save(update_fields=["status"])
+
+        pending = (
+            campaign.deliveries.filter(status="pending")
+            .select_related("subscriber")
+            .order_by("pk")[:budget]
+        )
+
+        c_sent = c_failed = c_skipped = 0
+        for delivery in pending:
+            if budget <= 0:
+                break
+            result = _send_delivery(delivery, from_email, site_name)
+            if result == "sent":
+                c_sent += 1
+                budget -= 1  # skips/failures don't consume Brevo quota
+            elif result == "failed":
+                c_failed += 1
+                budget -= 1  # a failed attempt still hit the API
+            else:
+                c_skipped += 1
+
+        _refresh_campaign_counts(campaign)
+        campaign.refresh_from_db(fields=["status"])
+
+        summary["sent"] += c_sent
+        summary["failed"] += c_failed
+        summary["skipped"] += c_skipped
+        summary["campaigns"].append(
+            {
+                "id": campaign.pk,
+                "subject": campaign.subject,
+                "sent": c_sent,
+                "failed": c_failed,
+                "skipped": c_skipped,
+                "status": campaign.status,
+                "remaining": campaign.pending_count,
+            }
+        )
+        emit(
+            f"Campaign #{campaign.pk} '{campaign.subject}': "
+            f"sent {c_sent}, failed {c_failed}, skipped {c_skipped}, "
+            f"remaining {campaign.pending_count} (status={campaign.status})."
+        )
+
+    emit(
+        f"Done. Sent {summary['sent']} this run "
+        f"({already_sent_today + summary['sent']}/{daily_limit} today)."
+    )
+    return summary

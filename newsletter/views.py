@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,7 +14,7 @@ from wagtail.admin.auth import require_admin_access
 from .brevo import add_contact_to_brevo, remove_contact_from_brevo, unblock_contact_in_brevo
 from .forms import ComposeNewsletterForm, NewsletterForm
 from .models import NewsletterCampaign, NewsletterSubscriber, SubscribeRateLimit
-from .email import send_newsletter, send_welcome_email
+from .email import enqueue_newsletter, send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -121,13 +122,19 @@ class ComposeNewsletterView(View):
     template_name = "newsletter/admin/compose_newsletter.html"
 
     def _get_context(self, form):
+        import math
+
         active_count = NewsletterSubscriber.objects.filter(is_active=True).count()
         recent_campaigns = NewsletterCampaign.objects.all()[:10]
+        daily_limit = getattr(settings, "NEWSLETTER_DAILY_SEND_LIMIT", 250)
+        estimated_days = max(1, math.ceil(active_count / daily_limit)) if active_count else 0
         return {
             "form": form,
             "page_title": "Send Newsletter",
             "active_subscriber_count": active_count,
             "recent_campaigns": recent_campaigns,
+            "daily_send_limit": daily_limit,
+            "estimated_send_days": estimated_days,
         }
 
     def get(self, request):
@@ -143,18 +150,20 @@ class ComposeNewsletterView(View):
                 sign_off=form.cleaned_data["sign_off"],
             )
 
-            sent, failed = send_newsletter(campaign)
+            queued = enqueue_newsletter(campaign)
+            daily_limit = getattr(settings, "NEWSLETTER_DAILY_SEND_LIMIT", 250)
 
-            if sent:
+            if queued:
+                import math
+
+                days = max(1, math.ceil(queued / daily_limit))
+                day_word = "day" if days == 1 else "days"
                 messages.success(
                     request,
-                    f"Newsletter sent to {sent} subscriber(s)!"
-                    + (f" ({failed} failed)" if failed else ""),
-                )
-            elif failed:
-                messages.error(
-                    request,
-                    f"Newsletter sending failed for all {failed} recipient(s).",
+                    f"Newsletter queued for {queued} subscriber(s). "
+                    f"To stay within the email plan's daily limit, it will be "
+                    f"sent at up to {daily_limit}/day over roughly {days} {day_word}, "
+                    f"starting at the next scheduled send.",
                 )
             else:
                 messages.warning(request, "No active subscribers to send to.")

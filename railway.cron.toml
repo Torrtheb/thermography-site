@@ -1,7 +1,15 @@
-# Railway config for a DEDICATED cron service that runs the deposit-expiry
-# sweep on a schedule and then exits. This is the permanent replacement for
-# the external cron-job.org HTTP trigger, which timed out because the work
-# makes many slow, blocking Cal.com / Brevo API calls inside a single request.
+# Railway config for a DEDICATED cron service that runs scheduled maintenance
+# tasks and then exits. It does two things every hour:
+#   1. expire_unpaid_deposits  — sweep/cancel bookings whose deposit lapsed.
+#   2. send_pending_newsletters — drain the newsletter send queue, throttled to
+#      NEWSLETTER_DAILY_SEND_LIMIT (default 250) emails/day so a large list is
+#      delivered over several days without exceeding Brevo's free 300/day cap.
+#      Running hourly is safe: the command counts what was already sent today,
+#      so once the daily budget is reached the remaining runs are no-ops.
+#
+# This is the permanent replacement for the external cron-job.org HTTP trigger,
+# which timed out because the work makes many slow, blocking Cal.com / Brevo
+# API calls inside a single request.
 #
 # How to wire this up (one-time, in the Railway dashboard):
 #   1. In your existing Railway project, click "New" → "GitHub Repo" and pick
@@ -29,6 +37,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "python manage.py expire_unpaid_deposits --apply"
+# Run both tasks each hour. Use ';' (not '&&') so the newsletter queue still
+# drains even if the deposit sweep errors out.
+startCommand = "python manage.py expire_unpaid_deposits --apply; python manage.py send_pending_newsletters"
 cronSchedule = "0 * * * *"
 restartPolicyType = "never"
