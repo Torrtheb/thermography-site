@@ -4,10 +4,10 @@ Drain the newsletter send queue, throttled to the daily email budget.
 This is the throttled replacement for sending a whole campaign at once.
 Brevo's free plan caps the account at 300 emails/day, so a large list is
 delivered over several days: each run sends up to NEWSLETTER_DAILY_SEND_LIMIT
-emails (default 250, leaving headroom for welcome/transactional mail) and then
-exits. It counts anything already sent today, so it is safe to run on an
-hourly cron — once the daily budget is reached, further runs are no-ops until
-the next day.
+emails (default: the daily cap minus a transactional reserve, so deposit and
+booking mail always has headroom) and then exits. It counts anything already
+sent today, so it is safe to run on an hourly cron — once the daily budget is
+reached, further runs are no-ops until the next day.
 
 Usage:
     python manage.py send_pending_newsletters

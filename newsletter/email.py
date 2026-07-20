@@ -23,10 +23,12 @@ from .models import NewsletterCampaign, NewsletterDelivery, NewsletterSubscriber
 
 logger = logging.getLogger(__name__)
 
-# Brevo's free plan allows 300 emails/day across the whole account. We default
-# to a lower budget so welcome/transactional emails still have headroom; the
+# Fallback used only if NEWSLETTER_DAILY_SEND_LIMIT is somehow unset. Brevo's
+# free plan allows 300 emails/day across the whole account, so we default to a
+# lower budget that leaves headroom for welcome/transactional emails; the
 # remainder of a large list is delivered automatically over subsequent days.
-DEFAULT_DAILY_SEND_LIMIT = 250
+# The real value normally comes from settings (cap minus transactional reserve).
+DEFAULT_DAILY_SEND_LIMIT = 200
 
 
 def _redact_email(email: str) -> str:

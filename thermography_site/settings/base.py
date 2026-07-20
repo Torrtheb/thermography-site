@@ -104,11 +104,28 @@ WSGI_APPLICATION = "thermography_site.wsgi.application"
 BREVO_API_KEY = ""
 BREVO_LIST_ID = ""
 
-# Max newsletter emails to send per day. Brevo's free plan caps the whole
-# account at 300 emails/day, so large lists are drained over several days by
-# the `send_pending_newsletters` cron command. Keep this safely under 300 to
-# leave headroom for welcome/transactional emails.
-NEWSLETTER_DAILY_SEND_LIMIT = int(os.environ.get("NEWSLETTER_DAILY_SEND_LIMIT", "250"))
+# Brevo's free plan caps the WHOLE account at 300 emails/day, shared across
+# newsletter campaigns AND transactional mail (deposit requests, booking
+# alerts, contact-form notifications, newsletter welcome emails). The
+# newsletter drain (`send_pending_newsletters`, run hourly) must never be
+# allowed to consume that whole cap, or deposit/transactional emails sent
+# later in the day silently hit the limit and fail.
+#
+# We therefore reserve a slice of the daily cap for transactional mail and let
+# the newsletter use only the remainder. All three values are env-overridable.
+BREVO_DAILY_EMAIL_CAP = int(os.environ.get("BREVO_DAILY_EMAIL_CAP", "300"))
+# Emails kept in reserve each day for booking/deposit/contact/welcome mail.
+TRANSACTIONAL_EMAIL_DAILY_RESERVE = int(
+    os.environ.get("TRANSACTIONAL_EMAIL_DAILY_RESERVE", "100")
+)
+# Max newsletter emails per day (defaults to the cap minus the reserve, so a
+# large list is drained over several days without starving transactional mail).
+NEWSLETTER_DAILY_SEND_LIMIT = int(
+    os.environ.get(
+        "NEWSLETTER_DAILY_SEND_LIMIT",
+        str(max(1, BREVO_DAILY_EMAIL_CAP - TRANSACTIONAL_EMAIL_DAILY_RESERVE)),
+    )
+)
 
 # Owner notification email — receives booking alerts, deposit expiry notices, etc.
 # Defaults to DEFAULT_FROM_EMAIL if not set. Use a different address to avoid

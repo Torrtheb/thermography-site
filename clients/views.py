@@ -44,12 +44,33 @@ def _send_email_async(func, *args, **kwargs):
 
     Prevents slow Brevo API calls from blocking the admin HTTP response
     and triggering Railway's "Application failed to respond" timeout.
+
+    The worker manages its own DB connection: this runs in a fresh thread
+    that opens its own connection, and Neon's free tier has a low connection
+    cap. If we never close it, connections leak until GC — and enough leaked
+    connections make later DB queries (including the SiteSettings/ServicePage
+    lookups this very function runs *before* send_mail) fail with "too many
+    connections", silently dropping the email. This mirrors the connection
+    hygiene the deposit-expiry cron already uses.
     """
     def _worker():
+        from django.db import close_old_connections
+
+        close_old_connections()
         try:
             func(*args, **kwargs)
         except Exception:
-            logger.exception("Background email send failed: %s", func.__name__)
+            # Log loudly: the admin already saw an optimistic "is being sent"
+            # message, so this log is the only signal that the client was NOT
+            # actually emailed. Common causes: Brevo's daily send cap was
+            # reached, or BREVO_API_KEY is missing / lacks transactional-send
+            # permission.
+            logger.exception(
+                "Background email send FAILED (%s) — client was NOT emailed",
+                getattr(func, "__name__", "send"),
+            )
+        finally:
+            close_old_connections()
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
