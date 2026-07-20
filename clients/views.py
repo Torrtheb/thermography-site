@@ -76,6 +76,43 @@ def _send_email_async(func, *args, **kwargs):
     t.start()
 
 
+def _send_deposit_request_tracked(deposit_id, amount, appointment_date, service_name):
+    """Send the deposit request email and record the outcome on the Deposit.
+
+    Runs inside the background thread spawned by ``_send_email_async`` so the
+    result is persisted: on failure the Deposit is flagged (surfacing a red
+    "Email failed to send" badge + Resend button in the admin) instead of the
+    error vanishing; on success the flag is cleared. Re-raises so the async
+    wrapper still logs the full traceback.
+    """
+    from django.utils import timezone
+
+    try:
+        deposit = Deposit.objects.select_related("client").get(pk=deposit_id)
+    except Deposit.DoesNotExist:
+        logger.warning("Deposit pk=%s no longer exists — skipping email", deposit_id)
+        return
+
+    try:
+        send_deposit_request(
+            deposit.client, amount,
+            appointment_date=appointment_date, service_name=service_name,
+        )
+    except Exception as exc:
+        Deposit.objects.filter(pk=deposit_id).update(
+            email_send_failed=True,
+            email_send_error=str(exc)[:300],
+            updated_at=timezone.now(),
+        )
+        raise
+    else:
+        Deposit.objects.filter(pk=deposit_id).update(
+            email_send_failed=False,
+            email_send_error="",
+            updated_at=timezone.now(),
+        )
+
+
 def _paginate(request, items, per_page=CLIENTS_PER_PAGE):
     """Return a Page object from a list of items."""
     paginator = Paginator(items, per_page)
@@ -495,8 +532,8 @@ def _send_deposit_request_action(request, deposit_id):
     deposit.save(update_fields=["deposit_request_sent", "updated_at"])
 
     _send_email_async(
-        send_deposit_request, client, deposit.amount,
-        appointment_date=date_str, service_name=deposit.service_name,
+        _send_deposit_request_tracked, deposit.pk, deposit.amount,
+        date_str, deposit.service_name,
     )
     messages.success(request, f"Deposit request email is being sent to {client.name}.")
 
@@ -575,8 +612,8 @@ def _approve_deposit_action(request, deposit_id):
     deposit.save(update_fields=["status", "deposit_request_sent", "approved_at", "updated_at"])
 
     _send_email_async(
-        send_deposit_request, client, deposit.amount,
-        appointment_date=date_str, service_name=deposit.service_name,
+        _send_deposit_request_tracked, deposit.pk, deposit.amount,
+        date_str, deposit.service_name,
     )
     messages.success(request, f"Approved! Deposit request email is being sent to {client.name}.")
 

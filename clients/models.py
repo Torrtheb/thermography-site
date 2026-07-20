@@ -341,6 +341,21 @@ class Deposit(index.Indexed, models.Model):
         help_text="Whether the 48-hour warning email has been sent (24 hours before cancellation).",
     )
 
+    email_send_failed = models.BooleanField(
+        default=False,
+        help_text="Set automatically if the deposit request email failed to send "
+                  "(e.g. Brevo daily cap reached or API error). Use the Resend "
+                  "button in the Deposits list to try again.",
+    )
+
+    email_send_error = models.CharField(
+        max_length=300,
+        blank=True,
+        default="",
+        editable=False,
+        help_text="Reason the last deposit email failed (for troubleshooting).",
+    )
+
     approved_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -390,6 +405,7 @@ class Deposit(index.Indexed, models.Model):
             [
                 FieldPanel("deposit_request_sent"),
                 FieldPanel("deposit_confirmed_sent"),
+                FieldPanel("email_send_failed"),
             ],
             heading="Email Status",
         ),
@@ -403,6 +419,7 @@ class Deposit(index.Indexed, models.Model):
         index.FilterField("payment_method"),
         index.FilterField("received_date"),
         index.FilterField("deposit_request_sent"),
+        index.FilterField("email_send_failed"),
     ]
 
     class Meta:
@@ -498,12 +515,37 @@ class Deposit(index.Indexed, models.Model):
                 "✅ Confirm &amp; Notify", "#059669",
             )
 
-        if actions:
-            return mark_safe(
-                f'<div style="display:flex; flex-direction:column; gap:6px;">'
-                f'{badge}<div style="display:flex; flex-wrap:wrap; gap:4px;">{actions}</div></div>'
+        # Surface a failed deposit-request email so it doesn't silently vanish:
+        # a red warning badge plus a one-click Resend button.
+        email_alert = ""
+        if self.email_send_failed:
+            resend_btn = _post_button(
+                f"/admin/deposits/{self.pk}/send-request/",
+                "🔄 Resend Email", "#dc2626",
+                confirm_msg="Retry sending the deposit request email to this client?",
             )
-        return mark_safe(badge)
+            email_alert = (
+                '<span title="The deposit request email did not send. '
+                'Check the email plan\'s daily limit / API key, then Resend." '
+                'style="color:#721c24; background:#f8d7da; padding:2px 8px; '
+                'border-radius:4px; font-size:0.8rem; font-weight:600; '
+                'white-space:nowrap;">⚠️ Email failed to send</span>'
+                f'<div style="display:flex; flex-wrap:wrap; gap:4px;">{resend_btn}</div>'
+            )
+
+        blocks = [badge]
+        if actions:
+            blocks.append(
+                f'<div style="display:flex; flex-wrap:wrap; gap:4px;">{actions}</div>'
+            )
+        if email_alert:
+            blocks.append(email_alert)
+
+        return mark_safe(
+            '<div style="display:flex; flex-direction:column; gap:6px;">'
+            + "".join(blocks)
+            + "</div>"
+        )
     status_and_actions.short_description = "Status"
 
 

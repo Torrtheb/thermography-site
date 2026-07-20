@@ -81,6 +81,7 @@ class DepositViewSet(SnippetViewSet):
         "payment_method",
         "appointment_date",
         "deposit_request_sent",
+        "email_send_failed",
     ]
     ordering = ["-created_at"]
 
