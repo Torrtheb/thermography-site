@@ -519,17 +519,26 @@ class Deposit(index.Indexed, models.Model):
         # a red warning badge plus a one-click Resend button.
         email_alert = ""
         if self.email_send_failed:
+            from django.utils.html import escape
+
             resend_btn = _post_button(
                 f"/admin/deposits/{self.pk}/send-request/",
                 "🔄 Resend Email", "#dc2626",
                 confirm_msg="Retry sending the deposit request email to this client?",
             )
+            reason = (self.email_send_error or "").strip()
+            reason_html = (
+                f'<div style="color:#721c24; font-size:0.72rem; '
+                f'max-width:260px; white-space:normal;">Reason: {escape(reason)}</div>'
+                if reason else ""
+            )
             email_alert = (
                 '<span title="The deposit request email did not send. '
-                'Check the email plan\'s daily limit / API key, then Resend." '
+                'See the reason below, then Resend once fixed." '
                 'style="color:#721c24; background:#f8d7da; padding:2px 8px; '
                 'border-radius:4px; font-size:0.8rem; font-weight:600; '
                 'white-space:nowrap;">⚠️ Email failed to send</span>'
+                f'{reason_html}'
                 f'<div style="display:flex; flex-wrap:wrap; gap:4px;">{resend_btn}</div>'
             )
 

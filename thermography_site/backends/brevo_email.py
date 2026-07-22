@@ -22,6 +22,27 @@ logger = logging.getLogger(__name__)
 _ADDRESS_RE = re.compile(r"^(.+?)\s*<(.+?)>\s*$")
 
 
+def describe_send_failure(exc) -> str:
+    """Turn a Brevo SDK exception into a short, human-readable reason.
+
+    ``brevo``'s ``ApiError`` has an unhelpful ``repr`` (just ``ApiError()``),
+    so failures used to surface as blank. Pull the HTTP status and Brevo's
+    error message out so the reason is visible in logs, the admin, and the
+    diagnostic command — e.g. "Brevo HTTP 401: Key not found" or
+    "Brevo HTTP 400: sender ... is not valid".
+    """
+    status = getattr(exc, "status_code", None)
+    body = getattr(exc, "body", None)
+    if status is not None:
+        reason = ""
+        if isinstance(body, dict):
+            reason = body.get("message") or body.get("code") or ""
+        elif body:
+            reason = str(body)
+        return f"Brevo HTTP {status}: {reason or 'no detail returned'}"
+    return (str(exc) or type(exc).__name__).strip()[:300]
+
+
 def _parse_address(address: str) -> dict:
     """Parse ``'Name <email>'`` into ``{'name': ..., 'email': ...}``."""
     match = _ADDRESS_RE.match(address)
@@ -70,14 +91,20 @@ class BrevoAPIBackend(BaseEmailBackend):
             try:
                 self._send_one(client, message)
                 sent_count += 1
-            except Exception:
-                logger.exception(
-                    "Brevo API: failed to send '%s' to %s",
+            except Exception as exc:
+                detail = describe_send_failure(exc)
+                logger.error(
+                    "Brevo API: FAILED to send '%s' to %s — %s",
                     message.subject,
                     message.to,
+                    detail,
+                    exc_info=True,
                 )
                 if not self.fail_silently:
-                    raise
+                    # Raise with the human-readable reason so it propagates to
+                    # the admin "Email failed" badge and the test/diagnose
+                    # commands (the raw ApiError's message is blank).
+                    raise RuntimeError(detail) from exc
 
         return sent_count
 
