@@ -23,9 +23,19 @@ Wagtail → Cal.com actions:
 Cross-event-type slot blocking:
   Cal.com has a known bug (#23069) where unconfirmed bookings only block
   slots within the same event type. To work around this, when a
-  BOOKING_REQUESTED webhook arrives, we create placeholder bookings on all
-  sibling event types at the same location for the same time slot. These
-  are automatically cancelled when the original booking is resolved.
+  BOOKING_REQUESTED webhook arrives, we create "SLOT HOLD" placeholder
+  bookings for the same time slot. These are automatically cancelled when
+  the original booking is resolved.
+
+  Two hold strategies are supported:
+    * Preferred (CAL_HOLD_EVENT_USERNAME + CAL_HOLD_EVENT_SLUG set):
+      place a single hold on a dedicated "slot hold" event type whose
+      destination is a separate "Booking Holds" calendar that Cal.com checks
+      for conflicts. This blocks every service via conflict-checking and
+      keeps the holds off the owner's main calendar.
+    * Legacy fallback (settings unset): tile a placeholder on every sibling
+      event type at the same location. These holds appear on whatever
+      calendar the service event types write to.
 
 Setup (one-time):
   1. In Cal.com → Settings → Developer → Webhooks, create a new webhook:
@@ -537,10 +547,28 @@ def _create_placeholder_bookings(
     if not booking_uid or not start_time:
         return
 
-    siblings = _get_sibling_event_slugs(event_title, inferred_location, booked_cal_url=booked_cal_url)
-    if not siblings:
-        logger.info("No sibling event types found for '%s' — no placeholders needed", event_title)
-        return
+    hold_user = (getattr(settings, "CAL_HOLD_EVENT_USERNAME", "") or "").strip()
+    hold_slug = (getattr(settings, "CAL_HOLD_EVENT_SLUG", "") or "").strip()
+
+    if hold_user and hold_slug:
+        # Preferred approach: place the hold on a single dedicated "slot hold"
+        # event type whose destination is a separate "Booking Holds" calendar
+        # that Cal.com checks for conflicts. One hold there blocks *every*
+        # service at that time via conflict-checking, and — because that
+        # calendar is not the owner's main calendar — the "SLOT HOLD" entries
+        # never appear on the appointments she actually looks at.
+        targets = [(hold_user, hold_slug)]
+    else:
+        # Legacy fallback (used until the dedicated hold event type is
+        # configured): tile a placeholder onto each sibling service at the same
+        # location. These holds DO show up on whatever calendar the service
+        # event types write to.
+        targets = _get_sibling_event_slugs(
+            event_title, inferred_location, booked_cal_url=booked_cal_url,
+        )
+        if not targets:
+            logger.info("No sibling event types found for '%s' — no placeholders needed", event_title)
+            return
 
     original_start_dt = _parse_iso_datetime(start_time)
     original_end_dt = _parse_iso_datetime(end_time) if end_time else None
@@ -556,7 +584,7 @@ def _create_placeholder_bookings(
 
     created_count = 0
     first_post = True
-    for username, slug in siblings:
+    for username, slug in targets:
         sibling_length = _fetch_event_type_length_minutes(username, slug)
         placeholder_starts = _compute_placeholder_starts(
             original_start_dt, original_end_dt, sibling_length,
