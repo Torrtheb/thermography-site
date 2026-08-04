@@ -467,6 +467,55 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
             3,
         )
 
+    def test_dedicated_hold_event_type_is_used_when_configured(self):
+        """When CAL_HOLD_EVENT_* is set, holds go on the single dedicated event
+        type (destination = separate "Booking Holds" calendar) instead of being
+        tiled across each sibling service. This keeps SLOT HOLDs off the owner's
+        main calendar. The time range must still be fully tiled.
+        """
+        from booking.webhooks import _create_placeholder_bookings
+        from booking.models import PlaceholderBooking
+
+        calls = []
+
+        def fake_post(path, body=None):
+            calls.append((path, body))
+            if path == "/v2/bookings":
+                return True, json.dumps({
+                    "data": {"uid": f"ph-{len(calls)}", "status": "accepted"},
+                })
+            return True, "{}"
+
+        def fake_length(username, slug):
+            return 30
+
+        with self.settings(
+            CAL_HOLD_EVENT_USERNAME="you",
+            CAL_HOLD_EVENT_SLUG="slot-hold",
+        ), mock.patch("booking.webhooks._calcom_api_post", side_effect=fake_post), \
+             mock.patch("booking.webhooks._fetch_event_type_length_minutes",
+                        side_effect=fake_length):
+            _create_placeholder_bookings(
+                booking_uid="orig-hold",
+                start_time="2026-05-12T23:00:00.000Z",
+                event_title="Full Body — Main Clinic",
+                inferred_location="Main Clinic",
+                booked_cal_url="https://cal.com/you/full-body-main",
+                end_time="2026-05-13T00:30:00.000Z",
+            )
+
+        booking_posts = [c for c in calls if c[0] == "/v2/bookings"]
+        # 90-min range tiled at the hold event type's 30-min length → 3 holds,
+        # all on the dedicated "slot-hold" event type (never a service slug).
+        self.assertEqual(len(booking_posts), 3)
+        self.assertTrue(all(c[1]["eventTypeSlug"] == "slot-hold" for c in booking_posts))
+        self.assertTrue(all(c[1]["username"] == "you" for c in booking_posts))
+
+        self.assertEqual(
+            PlaceholderBooking.objects.filter(original_booking_uid="orig-hold").count(),
+            3,
+        )
+
     def test_slot_already_blocked_by_calcom_is_treated_as_success(self):
         """When Cal.com returns 400 'User either already has booking at this
         time or is not available', the organizer's slot is already blocked
