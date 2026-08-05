@@ -59,6 +59,25 @@ if os.environ.get("DATABASE_URL"):
         )
     }
 
+    # Cold-start resilience for Neon's "scale to zero".
+    # When the database has been idle it suspends its compute to save cost. The
+    # first connection afterwards has to wake it, which takes a moment. Without
+    # tuning, that first request could error out ("site didn't work") instead of
+    # waiting. These options make the wake graceful:
+    #   - connect_timeout: wait up to 15s for the compute to wake (a normal wake
+    #     is well under this) rather than failing instantly.
+    #   - TCP keepalives: detect and recycle half-open connections that Neon
+    #     dropped while it was asleep, so a stale persistent connection is never
+    #     reused for a live request.
+    # Combined with conn_health_checks above, the worst case for the first
+    # visitor after an idle period is a brief (~1–3s) wait, not an error.
+    _neon_options = DATABASES["default"].setdefault("OPTIONS", {})
+    _neon_options.setdefault("connect_timeout", 15)
+    _neon_options.setdefault("keepalives", 1)
+    _neon_options.setdefault("keepalives_idle", 30)
+    _neon_options.setdefault("keepalives_interval", 10)
+    _neon_options.setdefault("keepalives_count", 5)
+
 # ──────────────────────────────────────────────────────────
 # Caching — DB-backed cache shared across all Gunicorn workers.
 # LocMemCache is per-process (each worker has its own), so template
