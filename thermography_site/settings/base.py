@@ -140,18 +140,6 @@ CAL_WEBHOOK_SECRET = os.environ.get("CAL_WEBHOOK_SECRET", "")
 # Get from Cal.com → Settings → Developer → API Keys
 CAL_API_KEY = os.environ.get("CAL_API_KEY", "")
 
-# Cal.com dedicated "slot hold" event type (optional but recommended).
-# When set, an incoming booking request places its cross-service double-booking
-# hold on THIS single event type — whose "Add to calendar" destination is a
-# separate "Booking Holds" calendar that Cal.com checks for conflicts — instead
-# of tiling a placeholder onto every sibling service. A hold on that calendar
-# blocks all services via conflict-checking without cluttering the owner's main
-# calendar. Leave both blank to fall back to the legacy per-sibling behaviour.
-# Values are the username and event slug from the hold event type's Cal.com URL:
-# cal.com/<username>/<slug>.
-CAL_HOLD_EVENT_USERNAME = os.environ.get("CAL_HOLD_EVENT_USERNAME", "")
-CAL_HOLD_EVENT_SLUG = os.environ.get("CAL_HOLD_EVENT_SLUG", "")
-
 # Cron secret — protects the /api/cron/expire-deposits/ endpoint
 # An external cron service (e.g. cron-job.org) calls this URL every hour
 # with this secret in the Authorization: Bearer header.

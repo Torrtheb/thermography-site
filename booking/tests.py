@@ -320,22 +320,22 @@ class CleanupStalePlaceholdersTests(TestCase):
         )
 
     def test_orphaned_placeholder_is_cancelled(self):
-        """A placeholder whose deposit was forfeited should be released."""
+        """A placeholder whose deposit was forfeited should be released (declined)."""
         from booking.webhooks import cleanup_stale_placeholders
         from booking.models import PlaceholderBooking
 
         self._make_deposit("orig-forfeited", "forfeited")
         self._make_placeholder("orig-forfeited", "ph-orphan", hours_old=24)
 
-        cancel_calls = []
+        decline_calls = []
         with mock.patch(
-            "booking.webhooks.cancel_calcom_booking",
-            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+            "booking.webhooks.decline_calcom_booking",
+            side_effect=lambda uid, reason="": decline_calls.append(uid) or True,
         ):
             cleaned = cleanup_stale_placeholders()
 
         self.assertEqual(cleaned, 1)
-        self.assertEqual(cancel_calls, ["ph-orphan"])
+        self.assertEqual(decline_calls, ["ph-orphan"])
         self.assertFalse(
             PlaceholderBooking.objects.filter(placeholder_booking_uid="ph-orphan").exists()
         )
@@ -347,15 +347,15 @@ class CleanupStalePlaceholdersTests(TestCase):
 
         self._make_placeholder("never-existed", "ph-missing", hours_old=24)
 
-        cancel_calls = []
+        decline_calls = []
         with mock.patch(
-            "booking.webhooks.cancel_calcom_booking",
-            side_effect=lambda uid, reason="": cancel_calls.append(uid) or True,
+            "booking.webhooks.decline_calcom_booking",
+            side_effect=lambda uid, reason="": decline_calls.append(uid) or True,
         ):
             cleaned = cleanup_stale_placeholders()
 
         self.assertEqual(cleaned, 1)
-        self.assertEqual(cancel_calls, ["ph-missing"])
+        self.assertEqual(decline_calls, ["ph-missing"])
 
     def test_young_placeholders_are_skipped_to_avoid_webhook_races(self):
         """A placeholder created <1 h ago is left alone even if orphaned."""
@@ -467,11 +467,10 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
             3,
         )
 
-    def test_dedicated_hold_event_type_is_used_when_configured(self):
-        """When CAL_HOLD_EVENT_* is set, holds go on the single dedicated event
-        type (destination = separate "Booking Holds" calendar) instead of being
-        tiled across each sibling service. This keeps SLOT HOLDs off the owner's
-        main calendar. The time range must still be fully tiled.
+    def test_holds_are_created_unconfirmed_not_confirmed(self):
+        """Holds must be left UNCONFIRMED so they block the sibling slot without
+        being written to the owner's Google Calendar. Even when Cal.com returns
+        a 'pending' status, we must NOT call the confirm endpoint.
         """
         from booking.webhooks import _create_placeholder_bookings
         from booking.models import PlaceholderBooking
@@ -481,22 +480,21 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
         def fake_post(path, body=None):
             calls.append((path, body))
             if path == "/v2/bookings":
+                # Cal.com returns 'pending' for requires-confirmation event types
                 return True, json.dumps({
-                    "data": {"uid": f"ph-{len(calls)}", "status": "accepted"},
+                    "data": {"uid": f"ph-{len([c for c in calls if c[0] == '/v2/bookings'])}",
+                             "status": "pending"},
                 })
             return True, "{}"
 
         def fake_length(username, slug):
             return 30
 
-        with self.settings(
-            CAL_HOLD_EVENT_USERNAME="you",
-            CAL_HOLD_EVENT_SLUG="slot-hold",
-        ), mock.patch("booking.webhooks._calcom_api_post", side_effect=fake_post), \
+        with mock.patch("booking.webhooks._calcom_api_post", side_effect=fake_post), \
              mock.patch("booking.webhooks._fetch_event_type_length_minutes",
                         side_effect=fake_length):
             _create_placeholder_bookings(
-                booking_uid="orig-hold",
+                booking_uid="orig-pending",
                 start_time="2026-05-12T23:00:00.000Z",
                 event_title="Full Body — Main Clinic",
                 inferred_location="Main Clinic",
@@ -504,16 +502,41 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
                 end_time="2026-05-13T00:30:00.000Z",
             )
 
-        booking_posts = [c for c in calls if c[0] == "/v2/bookings"]
-        # 90-min range tiled at the hold event type's 30-min length → 3 holds,
-        # all on the dedicated "slot-hold" event type (never a service slug).
-        self.assertEqual(len(booking_posts), 3)
-        self.assertTrue(all(c[1]["eventTypeSlug"] == "slot-hold" for c in booking_posts))
-        self.assertTrue(all(c[1]["username"] == "you" for c in booking_posts))
-
+        # Holds are created …
         self.assertEqual(
-            PlaceholderBooking.objects.filter(original_booking_uid="orig-hold").count(),
+            PlaceholderBooking.objects.filter(original_booking_uid="orig-pending").count(),
             3,
+        )
+        # … but NONE of them are confirmed (no /confirm call), so they never
+        # sync to the owner's calendar.
+        confirm_calls = [c for c in calls if c[0].endswith("/confirm")]
+        self.assertEqual(confirm_calls, [])
+
+    def test_cancel_placeholder_bookings_declines_unconfirmed_holds(self):
+        """Releasing a hold must use decline (unconfirmed), falling back to
+        cancel only if decline fails (legacy confirmed holds).
+        """
+        from booking.webhooks import cancel_placeholder_bookings
+        from booking.models import PlaceholderBooking
+
+        PlaceholderBooking.objects.create(
+            original_booking_uid="orig-release",
+            placeholder_booking_uid="ph-release-1",
+        )
+
+        decline_calls = []
+        cancel_calls = []
+
+        with mock.patch("booking.webhooks.decline_calcom_booking",
+                        side_effect=lambda uid, reason="": decline_calls.append(uid) or True), \
+             mock.patch("booking.webhooks.cancel_calcom_booking",
+                        side_effect=lambda uid, reason="": cancel_calls.append(uid) or True):
+            cancel_placeholder_bookings("orig-release")
+
+        self.assertEqual(decline_calls, ["ph-release-1"])
+        self.assertEqual(cancel_calls, [])  # decline succeeded → no cancel fallback
+        self.assertFalse(
+            PlaceholderBooking.objects.filter(original_booking_uid="orig-release").exists()
         )
 
     def test_slot_already_blocked_by_calcom_is_treated_as_success(self):
