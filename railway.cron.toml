@@ -1,11 +1,19 @@
 # Railway config for a DEDICATED cron service that runs scheduled maintenance
-# tasks and then exits. It does two things every hour:
+# tasks and then exits. It does two things every 6 hours:
 #   1. expire_unpaid_deposits  — sweep/cancel bookings whose deposit lapsed.
 #   2. send_pending_newsletters — drain the newsletter send queue, throttled to
 #      NEWSLETTER_DAILY_SEND_LIMIT (default 250) emails/day so a large list is
 #      delivered over several days without exceeding Brevo's free 300/day cap.
-#      Running hourly is safe: the command counts what was already sent today,
-#      so once the daily budget is reached the remaining runs are no-ops.
+#      Running every 6 hours is safe: the command counts what was already sent
+#      today, so once the daily budget is reached the remaining runs are no-ops.
+#
+# Cadence note: a 6-hour schedule (instead of hourly) is a deliberate cost
+# optimisation. Each cron run wakes the Neon database, and Neon bills compute
+# only while the database is awake; running 4×/day instead of 24×/day keeps the
+# database asleep far longer. The trade-off is that a lapsed deposit is swept
+# up to ~6 hours after the 72-hour mark (i.e. within ~72–78h) and the 48-hour
+# warning email may be up to ~6h late — both well within tolerance for the
+# deposit-hold policy.
 #
 # This is the permanent replacement for the external cron-job.org HTTP trigger,
 # which timed out because the work makes many slow, blocking Cal.com / Brevo
@@ -26,7 +34,8 @@
 #      /api/cron/expire-deposits/ — it is no longer needed.
 #
 # Notes:
-#   - cronSchedule is evaluated in UTC. "0 * * * *" = top of every hour.
+#   - cronSchedule is evaluated in UTC. "0 */6 * * *" = every 6 hours
+#     (00:00, 06:00, 12:00, 18:00 UTC).
 #   - restartPolicyType = "never": a cron run that errors must NOT restart-loop;
 #     it simply runs again on the next schedule.
 #   - No healthcheck: this is a short-lived task, not a web server.
@@ -37,8 +46,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Run both tasks each hour. Use ';' (not '&&') so the newsletter queue still
-# drains even if the deposit sweep errors out.
+# Run both tasks every 6 hours. Use ';' (not '&&') so the newsletter queue
+# still drains even if the deposit sweep errors out.
 startCommand = "python manage.py expire_unpaid_deposits --apply; python manage.py send_pending_newsletters"
-cronSchedule = "0 * * * *"
+cronSchedule = "0 */6 * * *"
 restartPolicyType = "never"
