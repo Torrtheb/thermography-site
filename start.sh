@@ -5,10 +5,6 @@ echo "=== Running migrations ==="
 python manage.py migrate --noinput
 echo "=== Migrations complete ==="
 
-echo "=== Creating cache table (if needed) ==="
-python manage.py createcachetable --database default 2>/dev/null || true
-echo "=== Cache table ready ==="
-
 echo "=== Starting gunicorn on port ${PORT:-8000} ==="
 # Gunicorn flags chosen for Railway + Neon (free tier) realities:
 #   --timeout 30           Railway's edge proxy gives up at ~15s, so longer here

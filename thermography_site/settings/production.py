@@ -53,7 +53,7 @@ if _railway_domain:
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
         "default": dj_database_url.config(
-            conn_max_age=600,
+            conn_max_age=0,
             conn_health_checks=True,
             ssl_require=True,  # Neon requires SSL connections
         )
@@ -79,27 +79,25 @@ if os.environ.get("DATABASE_URL"):
     _neon_options.setdefault("keepalives_count", 5)
 
 # ──────────────────────────────────────────────────────────
-# Caching — DB-backed cache shared across all Gunicorn workers.
-# LocMemCache is per-process (each worker has its own), so template
-# fragment caches were duplicated and not shared. DatabaseCache
-# is shared and needs no external service (Redis, Memcached).
-# We do NOT use Django's per-site cache middleware (UpdateCache /
-# FetchFromCache) because it can cache responses that include
-# CSRF tokens and interfere with Wagtail's admin publish flow
-# (symptom: needing to click Publish twice).
+# Caching — file-based cache shared across all Gunicorn workers.
+# FileBasedCache avoids DB queries that DatabaseCache would generate
+# on every request (which keeps the Neon compute awake unnecessarily).
+# Railway's ephemeral filesystem is fine — cache simply starts cold
+# after each deploy, which is expected cache behaviour.
 # ──────────────────────────────────────────────────────────
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "django_cache_table",
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": "/tmp/django_cache",
         "TIMEOUT": 600,  # 10 minutes
     }
 }
 
-# Persistent DB connections — avoids reconnecting on every request
-# (Railway europe-west4 → Neon eu-central-1, ~5-10ms).
+# Close DB connections after each request so Neon can detect idle and
+# suspend sooner. The ~5-10ms reconnection cost per request is negligible
+# for a low-traffic site and dramatically reduces compute hours.
 if DATABASES.get("default"):
-    DATABASES["default"]["CONN_MAX_AGE"] = 600
+    DATABASES["default"]["CONN_MAX_AGE"] = 0
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 # ──────────────────────────────────────────────────────────
