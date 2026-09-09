@@ -358,7 +358,7 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
         if policy_lines:
             plain_message += "\n\n---\n\n" + "\n\n".join(policy_lines)
 
-    subject = "Booking Deposit Required — Payment Instructions"
+    subject = "Action Required: Deposit Needed to Confirm Your Appointment"
 
     send_mail(
         subject=subject,
@@ -466,10 +466,13 @@ def send_deposit_expired_cancellation(client, amount, appointment_date="", servi
 
 def send_owner_new_booking_notice(client, deposit):
     """
-    Notify the owner that a new booking arrived and needs review.
+    Notify the owner that a new booking arrived and the deposit request was
+    automatically sent to the client.
 
-    Sent immediately when the Cal.com webhook creates a deposit in
-    'awaiting_review' status so the owner knows to check Wagtail admin.
+    Sent immediately when the Cal.com webhook creates a deposit. The deposit
+    request email is auto-sent to the client, so this notice is purely
+    informational — the owner's only remaining step is to watch for the
+    e-transfer and click 'Mark Received'.
     """
     owner_email = _get_owner_email()
     if not owner_email:
@@ -480,19 +483,20 @@ def send_owner_new_booking_notice(client, deposit):
     date_str = deposit.appointment_date.strftime("%B %d, %Y") if deposit.appointment_date else "no date set"
     service = deposit.service_name or "Unknown service"
 
-    subject = f"[Action Required] New booking from {client_name}"
+    subject = f"New booking from {client_name} — deposit request sent"
     body = (
-        f"A new booking has arrived and needs your review:\n\n"
+        f"A new booking has arrived and a deposit request has been "
+        f"automatically emailed to the client:\n\n"
         f"  Client:  {client_name}\n"
         f"  Email:   {client_email_addr}\n"
         f"  Service: {service}\n"
         f"  Date:    {date_str}\n"
         f"  Amount:  ${deposit.amount}\n\n"
-        f"Please log in to Wagtail admin → Deposits to review this "
-        f"booking and click 'Approve & Send Deposit Request' if everything "
-        f"looks good.\n\n"
-        f"The deposit request email will NOT be sent to the client until "
-        f"you approve it.\n"
+        f"No action is needed right now. Once the client pays the deposit, "
+        f"log in to Wagtail admin → Deposits and click 'Mark Received' to "
+        f"confirm the booking.\n\n"
+        f"If this booking isn't a good fit, you can 'Reject' it (cancels in "
+        f"Cal.com) or 'Waive' the fee to confirm without a deposit.\n"
     )
 
     send_mail(

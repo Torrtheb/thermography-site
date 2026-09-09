@@ -1232,16 +1232,26 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
 
     deposit_amount = _get_deposit_amount(location_name=inferred_location)
 
+    # Auto-send flow: the deposit request goes straight to the client the
+    # moment they book, without waiting for the owner to review and approve.
+    # The deposit is created as "pending" (request sent, awaiting payment)
+    # with approved_at set now so the 72-hour expiry / 48-hour warning clocks
+    # start immediately. The owner keeps control via the Reject / Waive
+    # buttons and the manual "Mark Received" step once the e-transfer arrives.
+    from django.utils import timezone as djtz
+
     deposit = Deposit.objects.create(
         client=client,
         amount=deposit_amount,
         appointment_date=appointment_date,
         service_name=event_title,
         cal_booking_uid=booking_uid,
-        status="awaiting_review",
+        status="pending",
+        deposit_request_sent=True,
+        approved_at=djtz.now(),
     )
     logger.warning(
-        "Created deposit pk=%s (awaiting_review) for client pk=%s (cal uid=%s)",
+        "Created deposit pk=%s (pending, auto-sent) for client pk=%s (cal uid=%s)",
         deposit.pk, client.pk, booking_uid,
     )
 
@@ -1261,7 +1271,24 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
                 booking_uid,
             )
 
-    # Notify the owner so they know to review and approve (background — non-critical)
+    # Auto-send the deposit request email straight to the client. Runs in a
+    # background thread (via the shared tracked sender) so a slow Brevo call
+    # can't block the webhook response — and so a failed send is recorded on
+    # the deposit, surfacing the red "Email failed" badge + Resend button in
+    # the admin instead of silently vanishing.
+    from clients.views import _send_email_async, _send_deposit_request_tracked
+
+    date_str = appointment_date.strftime("%B %d, %Y") if appointment_date else ""
+    try:
+        _send_email_async(
+            _send_deposit_request_tracked, deposit.pk, deposit.amount,
+            date_str, deposit.service_name,
+        )
+    except Exception:
+        logger.exception("Failed to dispatch deposit request email for deposit pk=%s", deposit.pk)
+
+    # Notify the owner that a booking arrived and the request was auto-sent
+    # (background — non-critical, purely informational).
     from clients.email import send_owner_new_booking_notice
     try:
         send_owner_new_booking_notice(client, deposit)
