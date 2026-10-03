@@ -66,6 +66,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Short-circuit automated scanner/exploit probes with a DB-free 404 before
+    # they reach Wagtail's page lookup + RedirectMiddleware (both hit the DB).
+    "thermography_site.middleware.BlockScannersMiddleware",
     "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

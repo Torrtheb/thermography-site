@@ -60,6 +60,8 @@ class ContactRateLimitTests(TestCase):
         ip_hash = ContactSubmissionRateLimit.hash_ip("127.0.0.1")
         window_key = ContactSubmissionRateLimit.current_window_key()
         self.assertEqual(
-            ContactSubmissionRateLimit.get_count(ip_hash, window_key),
+            ContactSubmissionRateLimit.objects.get(
+                ip_hash=ip_hash, window_key=window_key
+            ).submission_count,
             CONTACT_RATE_LIMIT,
         )

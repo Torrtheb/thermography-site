@@ -125,6 +125,14 @@ class Location(ClusterableModel):
                   "e.g. 'Call Monday–Friday, 9am – 4pm to schedule.'",
     )
 
+    booking_website_url = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text="Optional website link for this clinic (e.g. the partner "
+                  "clinic's own website or booking page). Shown with the phone "
+                  "number on call-to-book locations.",
+    )
+
     featured_on_homepage = models.BooleanField(
         default=False,
         help_text="Show this location on the homepage (e.g., as an upcoming pop-up).",
@@ -162,6 +170,7 @@ class Location(ClusterableModel):
                 FieldPanel("booking_type"),
                 FieldPanel("booking_phone"),
                 FieldPanel("booking_phone_note"),
+                FieldPanel("booking_website_url"),
             ],
             heading="How clients book",
             help_text="Choose 'Online' to use the per-service Cal.com calendars below, "
@@ -606,6 +615,7 @@ class BookingPage(Page):
                 "booking_type": loc.booking_type,
                 "booking_phone": loc.booking_phone,
                 "booking_phone_note": loc.booking_phone_note,
+                "booking_website_url": loc.booking_website_url,
             }
         context["location_service_map"] = location_service_map
 

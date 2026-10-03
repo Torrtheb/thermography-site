@@ -145,6 +145,16 @@
             <a id="call-phone-link" href="#"
                class="inline-block text-3xl font-bold text-brand-700 hover:text-brand-800 transition my-3"></a>
             <p id="call-phone-note" class="hidden text-sm text-gray-500 mt-2"></p>
+            <p id="call-website" class="hidden mt-4">
+                <a id="call-website-link" href="#" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 text-brand-600 hover:text-brand-700 font-medium underline">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    Visit clinic website
+                </a>
+            </p>
             <div class="mt-6">
                 <button type="button" class="js-change-location text-brand-600 hover:text-brand-700 text-sm font-medium transition underline">
                     {{ page.change_location_text }}
@@ -428,6 +438,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const callLocName      = document.getElementById('call-location-name');
     const callPhoneLink    = document.getElementById('call-phone-link');
     const callPhoneNote    = document.getElementById('call-phone-note');
+    const callWebsite      = document.getElementById('call-website');
+    const callWebsiteLink  = document.getElementById('call-website-link');
     const step2LocName     = document.getElementById('step2-location-name');
     const summaryLocation  = document.getElementById('summary-location');
     const summaryService   = document.getElementById('summary-service');
@@ -494,6 +506,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 callPhoneNote.classList.remove('hidden');
             } else {
                 callPhoneNote.classList.add('hidden');
+            }
+
+            const website = (locData.booking_website_url || '').trim();
+            if (website && callWebsite && callWebsiteLink) {
+                callWebsiteLink.href = website;
+                callWebsite.classList.remove('hidden');
+            } else if (callWebsite) {
+                callWebsite.classList.add('hidden');
             }
 
             callToBook.classList.remove('hidden');
@@ -733,6 +753,7 @@ document.addEventListener('DOMContentLoaded', function () {
         stepCalendar.classList.add('hidden');
         locationDetails.classList.add('hidden');
         if (callToBook) callToBook.classList.add('hidden');
+        if (callWebsite) callWebsite.classList.add('hidden');
         selectedLocationId = null;
         pendingCalSlug = null;
 

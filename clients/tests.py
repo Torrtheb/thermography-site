@@ -168,3 +168,16 @@ class ClientAdminSearchTests(TestCase):
         content = resp.content.decode()
         self.assertIn("Grace Hopper", content)
         self.assertIn("Henry Ford", content)
+
+    def test_results_ajax_endpoint_search(self):
+        """The live-search AJAX 'results/' endpoint must not 500 (regression)."""
+        Client.objects.create(name="Ivy Partner", email="ivy@example.com")
+        Client.objects.create(name="Jack Other", email="jack@example.com")
+
+        resp = self.client.get(
+            "/admin/snippets/clients/client/results/", {"q": "ivy"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn("Ivy Partner", content)
+        self.assertNotIn("Jack Other", content)

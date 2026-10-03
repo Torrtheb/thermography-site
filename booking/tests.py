@@ -828,3 +828,74 @@ class BookingPhoneCaptureTests(TestCase):
         client = Client.find_by_email("nophone@example.com")
         self.assertIsNotNone(client)
         self.assertEqual(client.phone, "")
+
+
+class BlockScannersMiddlewareTests(SimpleTestCase):
+    """The scanner-blocking middleware must 404 bot junk but never touch
+    legitimate URLs, static/media, the admin, health check, etc."""
+
+    def setUp(self):
+        from thermography_site.middleware import BlockScannersMiddleware
+        # A sentinel 'get_response' so we can tell when a request was passed
+        # through (i.e. NOT blocked) vs short-circuited by the middleware.
+        self.passed = []
+
+        def _get_response(request):
+            self.passed.append(request.path)
+            return "PASSED_THROUGH"
+
+        self.mw = BlockScannersMiddleware(_get_response)
+
+    def _request(self, path):
+        from django.test import RequestFactory
+        return RequestFactory().get(path)
+
+    def test_blocks_known_scanner_paths(self):
+        blocked = [
+            "/wp-login.php",
+            "/wordpress/wp-admin/setup-config.php",
+            "/xmlrpc.php",
+            "/wp-content/plugins/foo/readme.txt",
+            "/wp-json/wp/v2/users",
+            "/.env",
+            "/.git/config",
+            "/phpmyadmin/index.php",
+            "/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php",
+            "/adminer.php",
+            "/backup.sql",
+            "/cgi-bin/test.cgi",
+            "/index.asp",
+        ]
+        for path in blocked:
+            resp = self.mw(self._request(path))
+            self.assertEqual(
+                getattr(resp, "status_code", None), 404,
+                msg=f"Expected {path} to be blocked with 404",
+            )
+        self.assertEqual(self.passed, [], "No blocked path should pass through")
+
+    def test_allows_legitimate_paths(self):
+        allowed = [
+            "/",
+            "/booking/",
+            "/services/full-body-thermography/",
+            "/resources/thyroid-connection/",
+            "/about/",
+            "/contact/",
+            "/faq/",
+            "/your-first-visit/",
+            "/search/?q=thermography",
+            "/sitemap.xml",
+            "/robots.txt",
+            "/healthz",
+            "/static/css/tailwind.css",
+            "/admin/snippets/clients/client/",
+            "/newsletter/subscribe/",
+            "/about-thermography.html",  # harmless old-URL probe, let Wagtail 404 it
+        ]
+        for path in allowed:
+            result = self.mw(self._request(path))
+            self.assertEqual(
+                result, "PASSED_THROUGH",
+                msg=f"Expected {path} to pass through untouched",
+            )
