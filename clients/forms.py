@@ -45,6 +45,50 @@ class ComposeEmailForm(forms.Form):
         return recipients
 
 
+class SendDepositForm(forms.Form):
+    """Form for sending a deposit request email to a single client.
+
+    Used for manual bookings (e.g. a client who booked by phone at the
+    call-to-book clinic, or any off-Cal.com booking). Creating/sending
+    here makes a new 'pending' Deposit and emails the client, which also
+    starts the standard 72-hour deposit clock.
+    """
+
+    client = forms.ModelChoiceField(
+        queryset=Client.objects.all().order_by("-created_at"),
+        help_text="Select the client to send the deposit request to.",
+    )
+
+    amount = forms.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        min_value=0,
+        help_text="Deposit amount ($).",
+    )
+
+    appointment_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional — the booked appointment date (shown in the email).",
+    )
+
+    service_name = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Full Body Scan"}),
+        help_text="Optional — the service booked (shown in the email).",
+    )
+
+    def clean_client(self):
+        client = self.cleaned_data["client"]
+        if not client.email:
+            raise forms.ValidationError(
+                "This client has no email address on file. Add one first, "
+                "then send the deposit request."
+            )
+        return client
+
+
 class ClientFilterForm(forms.Form):
     """Filter form used on both the client list and email compose page."""
 

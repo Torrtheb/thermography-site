@@ -501,11 +501,17 @@ class Deposit(index.Indexed, models.Model):
                 + " " + reject_btn
             )
         elif self.status == "pending":
+            resend_email_btn = _post_button(
+                f"/admin/deposits/{self.pk}/send-request/",
+                "📧 Send Deposit Email", "#0ea5e9",
+                confirm_msg="Send the deposit request email to this client again?",
+            )
             actions = (
                 _post_button(
                     f"/admin/deposits/{self.pk}/mark-received/",
                     "💰 Mark Received", "#2563eb",
                 )
+                + " " + resend_email_btn
                 + " " + waive_btn
                 + " " + reject_btn
             )

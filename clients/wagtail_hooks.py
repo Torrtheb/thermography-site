@@ -28,6 +28,7 @@ from .views import (
     deposit_export_view,
     mark_received_view,
     reject_deposit_view,
+    send_deposit_email_view,
     send_deposit_request_view,
     send_deposit_confirmation_view,
     waive_deposit_view,
@@ -101,6 +102,7 @@ def register_client_admin_urls():
         path("clients/export-csv/", csv_export_view, name="clients_csv_export"),
         path("clients/autocomplete/", autocomplete_view, name="clients_autocomplete"),
         path("deposits/export-csv/", deposit_export_view, name="deposits_csv_export"),
+        path("deposits/send-email/", send_deposit_email_view, name="deposit_send_email"),
         path("deposits/<int:deposit_id>/approve/", approve_deposit_view, name="deposit_approve"),
         path("deposits/<int:deposit_id>/reject/", reject_deposit_view, name="deposit_reject"),
         path("deposits/<int:deposit_id>/mark-received/", mark_received_view, name="deposit_mark_received"),
@@ -141,6 +143,7 @@ def register_contact_menu():
             construct_hook_name="",
             items=[
                 MenuItem("Send Email", reverse("clients_compose_email"), icon_name="mail", order=100),
+                MenuItem("Send Deposit Email", reverse("deposit_send_email"), icon_name="mail", order=150),
                 MenuItem("Send Newsletter", reverse("newsletter_compose"), icon_name="mail", order=200),
                 MenuItem("Contact Submissions", reverse("wagtailsnippets_contact_contactsubmission:list"), icon_name="form", order=300),
                 MenuItem("Subscribers", reverse("wagtailsnippets_newsletter_newslettersubscriber:list"), icon_name="group", order=400),

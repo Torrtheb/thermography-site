@@ -713,3 +713,118 @@ class CreatePlaceholderBookingsIntegrationTests(TestCase):
             PlaceholderBooking.objects.filter(original_booking_uid="orig-2").count(),
             1,
         )
+
+
+class ExtractAttendeePhoneTests(SimpleTestCase):
+    """Phone extraction must handle the several shapes Cal.com uses, and
+    never mistake a non-phone value for a number."""
+
+    def test_attendee_phone_number_field(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"attendees": [{"name": "A", "email": "a@x.com",
+                                   "phoneNumber": "+1 250 555 1234"}]}
+        self.assertEqual(_extract_attendee_phone(payload), "+1 250 555 1234")
+
+    def test_responses_bare_string(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"responses": {"phone": "250-555-9876"}}
+        self.assertEqual(_extract_attendee_phone(payload), "250-555-9876")
+
+    def test_responses_dict_value(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"responses": {"attendeePhoneNumber": {"value": "+1 (604) 555-0000",
+                                                          "label": "Phone"}}}
+        self.assertEqual(_extract_attendee_phone(payload), "+1 (604) 555-0000")
+
+    def test_location_phone_option(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"responses": {"location": {"value": "phone",
+                                              "optionValue": "+1 778 555 2222"}}}
+        self.assertEqual(_extract_attendee_phone(payload), "+1 778 555 2222")
+
+    def test_sms_reminder_number_fallback(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"smsReminderNumber": "+12505551234"}
+        self.assertEqual(_extract_attendee_phone(payload), "+12505551234")
+
+    def test_non_phone_value_is_ignored(self):
+        from booking.webhooks import _extract_attendee_phone
+        # Location type set to "integrations:daily" etc. must not be read as a phone
+        payload = {"responses": {"location": {"value": "integrations:daily"},
+                                 "notes": "please call me"}}
+        self.assertEqual(_extract_attendee_phone(payload), "")
+
+    def test_missing_phone_returns_empty(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"attendees": [{"name": "A", "email": "a@x.com"}]}
+        self.assertEqual(_extract_attendee_phone(payload), "")
+
+    def test_truncated_to_thirty_chars(self):
+        from booking.webhooks import _extract_attendee_phone
+        payload = {"responses": {"phone": "1" * 50}}
+        self.assertEqual(len(_extract_attendee_phone(payload)), 30)
+
+
+class BookingPhoneCaptureTests(TestCase):
+    """The client's phone from Cal.com must be saved to the Client record,
+    without breaking bookings that don't include a phone."""
+
+    def _run(self, payload):
+        from booking.webhooks import _handle_booking_created
+        # Isolate from email side effects — this feature only touches phone.
+        with mock.patch("clients.views._send_email_async"), \
+             mock.patch("clients.email.send_owner_new_booking_notice"):
+            _handle_booking_created(payload)
+
+    def test_phone_saved_on_new_client(self):
+        from clients.models import Client
+        self._run({
+            "uid": "ph-new-1",
+            "attendees": [{"email": "newclient@example.com", "name": "New Client",
+                           "phoneNumber": "+1 250 555 7777"}],
+            "startTime": "2026-06-01T17:00:00.000Z",
+            "eventTitle": "Full Body Scan",
+        })
+        client = Client.find_by_email("newclient@example.com")
+        self.assertIsNotNone(client)
+        self.assertEqual(client.phone, "+1 250 555 7777")
+
+    def test_phone_added_to_existing_client_without_one(self):
+        from clients.models import Client
+        client = Client.objects.create(name="Existing", email="existing@example.com")
+        self.assertEqual(client.phone, "")
+        self._run({
+            "uid": "ph-upd-1",
+            "attendees": [{"email": "existing@example.com", "name": "Existing",
+                           "phoneNumber": "604-555-3333"}],
+            "startTime": "2026-06-02T17:00:00.000Z",
+            "eventTitle": "Breast Thermography",
+        })
+        client.refresh_from_db()
+        self.assertEqual(client.phone, "604-555-3333")
+
+    def test_missing_phone_does_not_clear_existing(self):
+        from clients.models import Client
+        client = Client.objects.create(
+            name="Has Phone", email="hasphone@example.com", phone="250-555-0001",
+        )
+        self._run({
+            "uid": "ph-keep-1",
+            "attendees": [{"email": "hasphone@example.com", "name": "Has Phone"}],
+            "startTime": "2026-06-03T17:00:00.000Z",
+            "eventTitle": "Follow-Up",
+        })
+        client.refresh_from_db()
+        self.assertEqual(client.phone, "250-555-0001")
+
+    def test_booking_without_phone_still_creates_client(self):
+        from clients.models import Client
+        self._run({
+            "uid": "ph-none-1",
+            "attendees": [{"email": "nophone@example.com", "name": "No Phone"}],
+            "startTime": "2026-06-04T17:00:00.000Z",
+            "eventTitle": "Full Body Scan",
+        })
+        client = Client.find_by_email("nophone@example.com")
+        self.assertIsNotNone(client)
+        self.assertEqual(client.phone, "")

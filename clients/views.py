@@ -17,6 +17,7 @@ import json
 import logging
 import threading
 from datetime import date
+from decimal import Decimal
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import transaction
@@ -30,7 +31,7 @@ from django.views.decorators.http import require_POST
 
 from wagtail.admin.auth import require_admin_access
 
-from .forms import ClientFilterForm, ComposeEmailForm, CSVImportForm
+from .forms import ClientFilterForm, ComposeEmailForm, CSVImportForm, SendDepositForm
 from .models import Client, Deposit
 from .email import send_custom_email, send_deposit_request
 
@@ -276,6 +277,93 @@ class ComposeEmailView(View):
 
 
 compose_email_view = require_admin_access(ComposeEmailView.as_view())
+
+
+# ──────────────────────────────────────────────────────────
+# Send Deposit Email (manual bookings)
+# ──────────────────────────────────────────────────────────
+
+def _default_deposit_amount():
+    """Global default deposit amount from SiteSettings, or $25.00."""
+    try:
+        from wagtail.models import Site
+        from home.models import SiteSettings
+        site = Site.objects.get(is_default_site=True)
+        return SiteSettings.for_site(site).deposit_amount or Decimal("25.00")
+    except Exception:
+        return Decimal("25.00")
+
+
+class SendDepositEmailView(View):
+    """Create a 'pending' deposit for a selected client and email the request.
+
+    For manual / off-Cal.com bookings (e.g. the call-to-book clinic, or a
+    client who lost their original email and needs a fresh one with a new
+    deposit record). Reuses the exact same tracked, async send path as the
+    automatic Cal.com flow, so the 72-hour expiry clock and the admin
+    "Email failed / Resend" handling all behave identically.
+
+    Pre-select a client with ?client_id=<pk>.
+    """
+
+    template_name = "clients/admin/send_deposit.html"
+
+    def get(self, request):
+        initial = {"amount": _default_deposit_amount()}
+        client_id = request.GET.get("client_id")
+        if client_id:
+            try:
+                cid = int(client_id)
+                if Client.objects.filter(pk=cid).exists():
+                    initial["client"] = cid
+            except (ValueError, TypeError):
+                pass
+        form = SendDepositForm(initial=initial)
+        return render(request, self.template_name, {
+            "form": form,
+            "page_title": "Send Deposit Email",
+        })
+
+    def post(self, request):
+        form = SendDepositForm(request.POST)
+        if form.is_valid():
+            from django.utils import timezone
+
+            client = form.cleaned_data["client"]
+            amount = form.cleaned_data["amount"]
+            appointment_date = form.cleaned_data["appointment_date"]
+            service_name = form.cleaned_data["service_name"]
+
+            deposit = Deposit.objects.create(
+                client=client,
+                amount=amount,
+                appointment_date=appointment_date,
+                service_name=service_name,
+                status="pending",
+                deposit_request_sent=True,
+                approved_at=timezone.now(),
+                notes="Deposit request sent manually by owner (manual booking).",
+            )
+
+            date_str = appointment_date.strftime("%B %d, %Y") if appointment_date else ""
+            _send_email_async(
+                _send_deposit_request_tracked, deposit.pk, deposit.amount,
+                date_str, deposit.service_name,
+            )
+            messages.success(
+                request,
+                f"Deposit request email is being sent to {client.name}. "
+                "A new 'pending' deposit was created (72-hour clock started).",
+            )
+            return redirect(reverse("wagtailsnippets_clients_deposit:list"))
+
+        return render(request, self.template_name, {
+            "form": form,
+            "page_title": "Send Deposit Email",
+        })
+
+
+send_deposit_email_view = require_admin_access(SendDepositEmailView.as_view())
 
 
 # ──────────────────────────────────────────────────────────

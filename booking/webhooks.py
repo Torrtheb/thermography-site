@@ -1107,6 +1107,83 @@ def _extract_cal_url_from_payload(payload):
     return ""
 
 
+def _coerce_phone_value(value):
+    """Normalise a single Cal.com field value into a phone string.
+
+    Cal.com booking-question responses come in several shapes depending on
+    how the question is configured:
+      - a bare string: "+1 250 555 1234"
+      - a dict with a "value": {"value": "+1...", "label": "Phone"}
+      - a location option: {"optionValue": "+1...", "value": "phone"}
+    Returns the extracted string (stripped) or "".
+    """
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for key in ("value", "optionValue", "phone", "phoneNumber"):
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+    return ""
+
+
+def _looks_like_phone(text):
+    """True if the string has enough digits to plausibly be a phone number.
+
+    Guards against mistaking a location type ("phone") or other non-numeric
+    response for an actual phone number.
+    """
+    return sum(ch.isdigit() for ch in text) >= 7
+
+
+def _extract_attendee_phone(payload, attendee=None):
+    """Best-effort extraction of the client's phone number from a Cal.com
+    webhook payload.
+
+    Phone numbers can arrive in several places depending on how the booking
+    question is set up in Cal.com, so we check the common shapes in order and
+    return the first value that looks like a real phone number:
+      1. attendee.phoneNumber
+      2. payload.responses[...] — any booking-question key containing "phone"
+      3. the "Attendee Phone Number" location option
+      4. payload.smsReminderNumber
+
+    Returns a cleaned phone string (max 30 chars, to fit Client.phone) or "".
+    This is purely additive — if nothing is found we return "" and callers
+    leave the existing phone untouched.
+    """
+    raw_candidates = []
+
+    # 1. Attendee object
+    if attendee is None:
+        attendees = payload.get("attendees") or []
+        attendee = attendees[0] if attendees else {}
+    if isinstance(attendee, dict):
+        raw_candidates.append(attendee.get("phoneNumber"))
+
+    # 2. Booking-question responses
+    responses = payload.get("responses") or {}
+    if isinstance(responses, dict):
+        for key, val in responses.items():
+            if "phone" in str(key).lower():
+                raw_candidates.append(val)
+
+        # 3. "Attendee Phone Number" location option
+        location = responses.get("location")
+        if isinstance(location, dict) and "phone" in str(location.get("value", "")).lower():
+            raw_candidates.append(location.get("optionValue"))
+
+    # 4. SMS reminder number (set when the client opts into SMS reminders)
+    raw_candidates.append(payload.get("smsReminderNumber"))
+
+    for raw in raw_candidates:
+        phone = _coerce_phone_value(raw)
+        if phone and _looks_like_phone(phone):
+            return phone[:30]
+
+    return ""
+
+
 def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     """Auto-create a Client (or find existing) and Deposit in 'awaiting_review' status.
 
@@ -1140,6 +1217,7 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
     attendee = attendees[0]
     client_email = attendee.get("email", "").strip()
     client_name = attendee.get("name", "").strip()
+    client_phone = _extract_attendee_phone(payload, attendee)
 
     if client_name == _PLACEHOLDER_ATTENDEE_NAME:
         logger.info("Skipping webhook for placeholder booking (attendee name match)")
@@ -1200,6 +1278,8 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
 
     if client is None:
         create_kwargs = {"name": client_name, "email": client_email}
+        if client_phone:
+            create_kwargs["phone"] = client_phone
         if appointment_date:
             create_kwargs["last_appointment_date"] = appointment_date
         if inferred_location:
@@ -1214,6 +1294,11 @@ def _handle_booking_created(payload, trigger_event="BOOKING_CREATED"):
         if client_name and client_name != client.name:
             client.name = client_name
             update_fields.append("name")
+        # Only fill the phone when Cal.com actually sent one, and only when it
+        # differs — never overwrite an existing number with a blank value.
+        if client_phone and client_phone != client.phone:
+            client.phone = client_phone
+            update_fields.append("phone")
         if appointment_date:
             client.last_appointment_date = appointment_date
             update_fields.append("last_appointment_date")

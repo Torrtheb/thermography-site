@@ -95,6 +95,36 @@ class Location(ClusterableModel):
         help_text="Google Maps embed URL (optional). Use the 'Embed a map' URL from Google Maps.",
     )
 
+    # ── How clients book at this location ──────────────────
+    BOOKING_ONLINE = "online"
+    BOOKING_CALL = "call"
+    BOOKING_TYPE_CHOICES = [
+        (BOOKING_ONLINE, "Online — Cal.com calendar (choose a service, then pick a time)"),
+        (BOOKING_CALL, "Call to book — client phones the clinic to schedule"),
+    ]
+
+    booking_type = models.CharField(
+        max_length=10,
+        choices=BOOKING_TYPE_CHOICES,
+        default=BOOKING_ONLINE,
+        help_text="How clients book at this location. 'Online' uses the per-service "
+                  "Cal.com calendars below. 'Call to book' shows a phone number instead "
+                  "and skips the online calendar (no Cal.com links needed).",
+    )
+
+    booking_phone = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Phone number clients call to book. Required for 'Call to book' locations.",
+    )
+
+    booking_phone_note = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Optional note shown with the phone number, "
+                  "e.g. 'Call Monday–Friday, 9am – 4pm to schedule.'",
+    )
+
     featured_on_homepage = models.BooleanField(
         default=False,
         help_text="Show this location on the homepage (e.g., as an upcoming pop-up).",
@@ -127,13 +157,24 @@ class Location(ClusterableModel):
             ],
             heading="Location details",
         ),
+        MultiFieldPanel(
+            [
+                FieldPanel("booking_type"),
+                FieldPanel("booking_phone"),
+                FieldPanel("booking_phone_note"),
+            ],
+            heading="How clients book",
+            help_text="Choose 'Online' to use the per-service Cal.com calendars below, "
+                      "or 'Call to book' to show a phone number instead (no Cal.com links needed).",
+        ),
         InlinePanel(
             "service_links",
             label="Service → Cal.com links",
             help_text="Map each service to its Cal.com event-type URL for this location. "
                       "Create one Cal.com event type per service per location, each assigned "
                       "to this location's Cal.com Schedule. Example: "
-                      "'Full Body Scan — Victoria' → https://cal.com/you/full-body-victoria",
+                      "'Full Body Scan — Victoria' → https://cal.com/you/full-body-victoria. "
+                      "Leave empty for 'Call to book' locations.",
         ),
         MultiFieldPanel(
             [
@@ -163,6 +204,20 @@ class Location(ClusterableModel):
         elif self.schedule_text:
             label += f" ({self.schedule_text})"
         return label
+
+    @property
+    def is_call_to_book(self):
+        """True when clients book this location by phone instead of online."""
+        return self.booking_type == self.BOOKING_CALL
+
+    def clean(self):
+        super().clean()
+        from django.core.exceptions import ValidationError
+
+        if self.booking_type == self.BOOKING_CALL and not self.booking_phone.strip():
+            raise ValidationError(
+                {"booking_phone": "A phone number is required for 'Call to book' locations."}
+            )
 
     @property
     def date_label(self):
@@ -548,6 +603,9 @@ class BookingPage(Page):
                 "starts_on": loc.starts_on.isoformat() if loc.starts_on else "",
                 "display_until": loc.display_until.isoformat() if loc.display_until else "",
                 "is_permanent": loc.is_permanent,
+                "booking_type": loc.booking_type,
+                "booking_phone": loc.booking_phone,
+                "booking_phone_note": loc.booking_phone_note,
             }
         context["location_service_map"] = location_service_map
 

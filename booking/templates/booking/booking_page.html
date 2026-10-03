@@ -89,10 +89,16 @@
                     {{ location.address }}
                 </p>
 
-                {# Service count #}
+                {# Service count / booking method #}
+                {% if location.is_call_to_book %}
+                <p class="text-gray-400 text-xs">
+                    📞 Call to book
+                </p>
+                {% else %}
                 <p class="text-gray-400 text-xs">
                     {{ location.service_count }} service{{ location.service_count|pluralize }} available
                 </p>
+                {% endif %}
 
                 {# Selected indicator (hidden by default) #}
                 <div class="location-selected-badge hidden mt-4 pt-3 border-t border-brand-200">
@@ -122,6 +128,27 @@
             <div id="location-map-container" class="hidden rounded-lg overflow-hidden">
                 <iframe id="location-map-iframe" width="100%" height="250" frameborder="0" loading="lazy"
                         title="Map showing clinic location" style="border:0;" allowfullscreen="" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    </div>
+
+    {# --- Call to Book (shown for call-to-book locations, replaces steps 2 & 3) --- #}
+    <div id="call-to-book" class="hidden mt-8">
+        <div class="bg-brand-50 border border-brand-200 rounded-xl p-10 text-center max-w-lg mx-auto" data-aos="fade-up">
+            <svg class="w-14 h-14 text-brand-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+            </svg>
+            <p class="text-gray-700 text-lg mb-2">
+                To book at <strong id="call-location-name" class="text-brand-700"></strong>, please call:
+            </p>
+            <a id="call-phone-link" href="#"
+               class="inline-block text-3xl font-bold text-brand-700 hover:text-brand-800 transition my-3"></a>
+            <p id="call-phone-note" class="hidden text-sm text-gray-500 mt-2"></p>
+            <div class="mt-6">
+                <button type="button" class="js-change-location text-brand-600 hover:text-brand-700 text-sm font-medium transition underline">
+                    {{ page.change_location_text }}
+                </button>
             </div>
         </div>
     </div>
@@ -397,6 +424,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const locMapIframe     = document.getElementById('location-map-iframe');
     const serviceContainer = document.getElementById('service-cards-container');
     const noServicesFallback = document.getElementById('no-services-fallback');
+    const callToBook       = document.getElementById('call-to-book');
+    const callLocName      = document.getElementById('call-location-name');
+    const callPhoneLink    = document.getElementById('call-phone-link');
+    const callPhoneNote    = document.getElementById('call-phone-note');
     const step2LocName     = document.getElementById('step2-location-name');
     const summaryLocation  = document.getElementById('summary-location');
     const summaryService   = document.getElementById('summary-service');
@@ -445,6 +476,36 @@ document.addEventListener('DOMContentLoaded', function () {
             locMapContainer.classList.add('hidden');
         }
         locationDetails.classList.remove('hidden');
+
+        // ── Call-to-book locations: show phone CTA, skip service/calendar steps ──
+        if (locData.booking_type === 'call') {
+            stepService.classList.add('hidden');
+            stepCalendar.classList.add('hidden');
+
+            const phone = (locData.booking_phone || '').trim();
+            callLocName.textContent = selectedLocationName;
+            callPhoneLink.textContent = phone;
+            // Strip anything that isn't a digit or leading + for the tel: link
+            const telDigits = phone.replace(/[^\d+]/g, '');
+            callPhoneLink.href = telDigits ? ('tel:' + telDigits) : '#';
+
+            if (locData.booking_phone_note) {
+                callPhoneNote.textContent = locData.booking_phone_note;
+                callPhoneNote.classList.remove('hidden');
+            } else {
+                callPhoneNote.classList.add('hidden');
+            }
+
+            callToBook.classList.remove('hidden');
+            locationDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            const url = new URL(window.location);
+            url.searchParams.set('location', locationId);
+            url.searchParams.delete('service');
+            window.history.replaceState({}, '', url);
+            return;
+        }
+        callToBook.classList.add('hidden');
 
         // Build service cards
         const services = locData.services || {};
@@ -671,6 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
         stepService.classList.add('hidden');
         stepCalendar.classList.add('hidden');
         locationDetails.classList.add('hidden');
+        if (callToBook) callToBook.classList.add('hidden');
         selectedLocationId = null;
         pendingCalSlug = null;
 

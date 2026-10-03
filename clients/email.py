@@ -303,6 +303,8 @@ def send_deposit_request(client, amount, appointment_date="", service_name=""):
         template = (
             "Hi {client_name},\n\n"
             "A ${amount} non-refundable deposit is required to confirm your booking{appointment_line}.\n\n"
+            "To secure your appointment, your deposit must be received within 72 hours of booking. "
+            "If it is not received within 72 hours, your booking will be automatically cancelled.\n\n"
             "Best regards,\nYour Thermography Team"
         )
 
@@ -392,7 +394,7 @@ def send_deposit_expiry_warning(client, amount, appointment_date="", service_nam
             "Hi {client_name},\n\n"
             "This is a friendly reminder that the ${amount} booking deposit for your "
             "thermography appointment{appointment_line}{service_line} has not yet been received.\n\n"
-            "If we do not receive the deposit within the next 24 hours, the appointment "
+            "If we do not receive the deposit within approximately 24 hours, the appointment "
             "will be automatically cancelled.\n\n"
             "If you've already sent payment, please disregard this message — it may take "
             "a moment for us to process it.\n\n"
@@ -480,6 +482,7 @@ def send_owner_new_booking_notice(client, deposit):
 
     client_name = client.name or "Unknown"
     client_email_addr = client.email or "no email"
+    client_phone = client.phone or "no phone"
     date_str = deposit.appointment_date.strftime("%B %d, %Y") if deposit.appointment_date else "no date set"
     service = deposit.service_name or "Unknown service"
 
@@ -489,6 +492,7 @@ def send_owner_new_booking_notice(client, deposit):
         f"automatically emailed to the client:\n\n"
         f"  Client:  {client_name}\n"
         f"  Email:   {client_email_addr}\n"
+        f"  Phone:   {client_phone}\n"
         f"  Service: {service}\n"
         f"  Date:    {date_str}\n"
         f"  Amount:  ${deposit.amount}\n\n"

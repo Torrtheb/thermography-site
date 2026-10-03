@@ -1,0 +1,51 @@
+{% extends "wagtailadmin/generic/base.html" %}
+{% load wagtailadmin_tags i18n %}
+
+{% block titletag %}{{ page_title }}{% endblock %}
+
+{% block header %}
+    {% include "wagtailadmin/shared/header.html" with title=page_title icon="mail" %}
+{% endblock %}
+
+{% block main_content %}
+<form method="post" style="max-width: 640px;">
+    {% csrf_token %}
+
+    <p class="help" style="margin-bottom: 1.5rem;">
+        Use this for manual bookings — e.g. a client who booked by phone at the
+        call-to-book clinic, or a client who lost their deposit email. This
+        creates a new <strong>pending</strong> deposit and emails the request
+        to the client. The standard 72-hour deposit clock starts now.
+    </p>
+
+    {% for field in form %}
+    <div style="margin-bottom: 1.5rem;">
+        <label for="{{ field.id_for_label }}" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+            {{ field.label }}{% if field.field.required %} *{% endif %}
+        </label>
+        {% if field.errors %}<div class="help-critical" style="margin-bottom: 0.5rem;">{{ field.errors }}</div>{% endif %}
+        {{ field }}
+        {% if field.help_text %}<p class="help" style="margin-top: 0.5rem;">{{ field.help_text }}</p>{% endif %}
+    </div>
+    {% endfor %}
+
+    <footer style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit" class="button action-save button--icon">
+            {% icon name="mail" %}
+            Send Deposit Email
+        </button>
+        <a href="{% url 'wagtailsnippets_clients_deposit:list' %}" class="button button-secondary">Cancel</a>
+    </footer>
+</form>
+
+<style>
+    #id_client, #id_amount, #id_appointment_date, #id_service_name {
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+</style>
+{% endblock %}
