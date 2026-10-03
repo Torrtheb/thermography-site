@@ -41,8 +41,9 @@ _BLOCKED_PATTERNS = (
     r"(?:^|/)(?:phpmyadmin|phpunit|pma|adminer|dbadmin|mysqladmin|"
     r"cgi-bin|vendor|solr|actuator|telescope|owa|autodiscover|"
     r"boaform|hudson|jenkins|_ignition|eval-stdin)(?:$|/|\.)",
-    # Backup / dump files occasionally probed.
-    r"\.(?:sql|bak|old|swp|tar\.gz|zip)(?:$|[/?])",
+    # NOTE: deliberately NOT blocking archive/backup extensions (.zip, .sql,
+    # .bak, …) because Wagtail serves legitimate uploaded documents at
+    # /documents/<id>/<filename> and those could use such extensions.
 )
 
 _BLOCKED_RE = re.compile("|".join(_BLOCKED_PATTERNS), re.IGNORECASE)

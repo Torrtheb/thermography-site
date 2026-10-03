@@ -862,7 +862,6 @@ class BlockScannersMiddlewareTests(SimpleTestCase):
             "/phpmyadmin/index.php",
             "/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php",
             "/adminer.php",
-            "/backup.sql",
             "/cgi-bin/test.cgi",
             "/index.asp",
         ]
@@ -891,6 +890,9 @@ class BlockScannersMiddlewareTests(SimpleTestCase):
             "/static/css/tailwind.css",
             "/admin/snippets/clients/client/",
             "/newsletter/subscribe/",
+            "/documents/12/breast-health-guide.zip",  # legit Wagtail document
+            "/api/webhooks/calcom/",
+            "/django-admin/",
             "/about-thermography.html",  # harmless old-URL probe, let Wagtail 404 it
         ]
         for path in allowed:
