@@ -100,6 +100,18 @@
                 </p>
                 {% endif %}
 
+                {% if location.booking_website_url %}
+                <a href="{{ location.booking_website_url }}" target="_blank" rel="noopener noreferrer"
+                   onclick="event.stopPropagation();"
+                   class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 text-xs font-medium underline mt-2">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    Visit clinic website
+                </a>
+                {% endif %}
+
                 {# Selected indicator (hidden by default) #}
                 <div class="location-selected-badge hidden mt-4 pt-3 border-t border-brand-200">
                     <span class="inline-flex items-center gap-1 text-brand-700 text-sm font-semibold">

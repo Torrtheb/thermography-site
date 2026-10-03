@@ -77,6 +77,16 @@
                         {% if loc.date_label %}
                         <p class="text-sm text-brand-600 font-medium mt-1">{{ loc.date_label }}</p>
                         {% endif %}
+                        {% if loc.booking_website_url %}
+                        <a href="{{ loc.booking_website_url }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-medium underline mt-1">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                      d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                            Visit clinic website
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -221,6 +231,16 @@
 
                     {% if location.date_label %}
                     <p class="text-sm text-brand-600 font-medium">{{ location.date_label }}</p>
+                    {% endif %}
+                    {% if location.booking_website_url %}
+                    <a href="{{ location.booking_website_url }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-medium underline mt-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                        </svg>
+                        Visit clinic website
+                    </a>
                     {% endif %}
                 </div>
 
