@@ -16,7 +16,7 @@ from wagtail import hooks
 from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
 from wagtail.admin.ui.components import Component
 from wagtail.snippets.models import register_snippet
-from wagtail.snippets.views.snippets import SnippetViewSet
+from wagtail.snippets.views.snippets import IndexView, SnippetViewSet
 
 from .models import Client, Deposit
 from .views import (
@@ -39,8 +39,40 @@ from .views import (
 # Snippet viewset — Client list in the admin
 # ──────────────────────────────────────────────────────────
 
+class ClientIndexView(IndexView):
+    """Clients admin list with search across the ENCRYPTED PII fields.
+
+    Client name/email/phone are Fernet-encrypted at rest, so the database and
+    Wagtail's search backend only ever see ciphertext — a normal search returns
+    nothing. We disable the search backend and filter in Python after
+    decryption instead (mirroring the "Send Email" page's client search).
+    """
+
+    # Force the search box to render and skip the Wagtail search backend.
+    is_searchable = True
+    search_backend_name = None
+
+    def search_queryset(self, queryset):
+        if not self.is_searching:
+            return queryset
+        q = (self.search_query or "").strip().lower()
+        if not q:
+            return queryset
+        matching = [
+            obj.pk
+            for obj in queryset
+            if q in (obj.name or "").lower()
+            or q in (obj.email or "").lower()
+            or q in (obj.phone or "").lower()
+            or q in (obj.clinic_location or "").lower()
+            or q in (obj.previous_visit_reason or "").lower()
+        ]
+        return queryset.filter(pk__in=matching)
+
+
 class ClientViewSet(SnippetViewSet):
     model = Client
+    index_view_class = ClientIndexView
     icon = "user"
     menu_label = "Clients"
     menu_name = "clients"
@@ -55,7 +87,9 @@ class ClientViewSet(SnippetViewSet):
         "previous_visit_reason",
         "last_appointment_date",
     ]
-    search_fields = ["clinic_location"]
+    # Searched in Python (see ClientIndexView) because these fields are encrypted.
+    search_fields = ["name", "email", "phone", "clinic_location"]
+    search_backend_name = None
     ordering = ["-created_at"]
 
 

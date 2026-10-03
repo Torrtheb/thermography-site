@@ -117,3 +117,54 @@ class SendDepositEmailViewTests(TestCase):
         self.client.logout()
         resp = self.client.get(self.url)
         self.assertIn(resp.status_code, (302, 403))
+
+
+class ClientAdminSearchTests(TestCase):
+    """The Clients admin list must search the encrypted name/email/phone fields."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(
+            username="owner2", email="owner2@example.com", password="pw12345!",
+        )
+        self.client.force_login(self.admin)
+        self.url = reverse("wagtailsnippets_clients_client:list")
+
+    def test_search_by_name(self):
+        Client.objects.create(name="Alice Wonderland", email="alice@example.com")
+        Client.objects.create(name="Bob Builder", email="bob@example.com")
+
+        resp = self.client.get(self.url, {"q": "wonder"})
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn("Alice Wonderland", content)
+        self.assertNotIn("Bob Builder", content)
+
+    def test_search_by_phone(self):
+        Client.objects.create(name="Carl Jones", email="carl@example.com", phone="250-555-9999")
+        Client.objects.create(name="Dana Smith", email="dana@example.com", phone="604-555-0000")
+
+        resp = self.client.get(self.url, {"q": "9999"})
+        content = resp.content.decode()
+        self.assertIn("Carl Jones", content)
+        self.assertNotIn("Dana Smith", content)
+
+    def test_search_by_email(self):
+        Client.objects.create(name="Eve Adams", email="unique-eve@example.com")
+        Client.objects.create(name="Frank Ocean", email="frank@example.com")
+
+        resp = self.client.get(self.url, {"q": "unique-eve"})
+        content = resp.content.decode()
+        self.assertIn("Eve Adams", content)
+        self.assertNotIn("Frank Ocean", content)
+
+    def test_empty_query_lists_all(self):
+        Client.objects.create(name="Grace Hopper", email="grace@example.com")
+        Client.objects.create(name="Henry Ford", email="henry@example.com")
+
+        resp = self.client.get(self.url)
+        content = resp.content.decode()
+        self.assertIn("Grace Hopper", content)
+        self.assertIn("Henry Ford", content)
